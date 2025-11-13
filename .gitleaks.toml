@@ -1,0 +1,17 @@
+# Gitleaks configuration file
+# Documentation: https://github.com/gitleaks/gitleaks
+
+title = "Gitleaks Configuration"
+
+[extend]
+# useDefault will extend the base configuration with the default gitleaks config:
+# https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+useDefault = true
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''\.pre-commit-config\.yaml$''',
+    '''\.gitleaks\.toml$''',
+    '''\.secrets\.baseline$''', # used for detect-secrets
+]

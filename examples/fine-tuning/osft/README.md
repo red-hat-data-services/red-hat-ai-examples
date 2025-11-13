@@ -11,6 +11,7 @@ Fine-tuning language models is hard—you need good data, lots of resources, and
 The OSFT algorithm implements Orthogonal Subspace Fine-Tuning based on Nayak et al. (2025), arXiv:2504.07097. This algorithm allows for continual training of pre-trained or instruction-tuned models without the need of a supplementary dataset to maintain the distribution of the original model/dataset that was trained.
 
 **Key Benefits:**
+
 - Enables continual learning without catastrophic forgetting
 - No need for supplementary datasets to maintain original model distribution
 - Significantly reduces data requirements for customizing instruction-tuned models
@@ -30,6 +31,7 @@ Your training data should be a **JSON Lines (.jsonl)** file containing messages 
 ```
 
 #### Message Structure
+
 - **`role`**: One of `"system"`, `"user"`, `"assistant"`, or `"pretraining"`
 - **`content`**: The text content of the message
 - **`reasoning_content`** (optional): Additional reasoning traces
@@ -39,11 +41,13 @@ Your training data should be a **JSON Lines (.jsonl)** file containing messages 
 Control training behavior during data processing:
 
 **Standard instruction tuning (default):**
+
 ```python
 osft(..., unmask_messages=False)  # Only assistant responses used for loss
 ```
 
 **Pretraining mode:**
+
 ```python
 osft(..., unmask_messages=True)   # All content except system messages used for loss
 ```
@@ -58,13 +62,15 @@ If you have pre-processed data with `input_ids` and `labels` fields:
 ```
 
 Use with:
+
 ```python
 osft(..., use_processed_dataset=True)
 ```
+
 ## General requirements to run the example notebook
 
-* An OpenShift cluster with OpenShift AI (RHOAI) installed:
-  * The `dashboard`, `trainingoperator` and `workbenches` components enabled
+- An OpenShift cluster with OpenShift AI (RHOAI) installed:
+  - The `dashboard`, `trainingoperator` and `workbenches` components enabled
 
 ## Hardware requirements to run the example notebook
 
@@ -75,6 +81,7 @@ osft(..., use_processed_dataset=True)
 | Training Pods | 2 nodes × 2 GPUs | 2 | 4 | NVIDIA L40/L40S or equivalent | 4 cores/pod | 32Gi/pod | Required |
 
 > [!NOTE]
+>
 > - This example was tested on 2 nodes x 2 GPUs provided by L40S however, it will work on smaller/larger configurations.
 > - Flash Attention is required for efficient training.
 > - CPU and Memory requirements scale with batch size and model size. Above suit the example as it is.
@@ -88,6 +95,7 @@ osft(..., use_processed_dataset=True)
 | Minimal CUDA Python 3.12 (Example Default) | NVIDIA GPU evaluation (Example Default) | 1× GPU | 2 cores | 8Gi | Recommended for faster testing |
 
 > [!NOTE]
+>
 > - Workbench GPU is optional but recommended for faster model evaluation
 > - Evaluation was performed on L40S GPU however, it will work on smaller/larger configurations.
 > - Workbench resources and accelerator are configurable in `Create Workbench` view on RHOAI Platform
@@ -104,34 +112,35 @@ osft(..., use_processed_dataset=True)
 
 ### Setup Workbench
 
-* Access the OpenShift AI dashboard, for example from the top navigation bar menu:
+- Access the OpenShift AI dashboard, for example from the top navigation bar menu:
 ![](./docs/01.png)
-* Log in, then go to _Data Science Projects_ and create a project:
+- Log in, then go to _Data Science Projects_ and create a project:
 ![](./docs/02.png)
-* Once the project is created, click on _Create a workbench_:
+- Once the project is created, click on _Create a workbench_:
 ![](./docs/03.png)
-* Then create a workbench with the following settings:
-    * Select the `Jupyter | Minimal | CPU | Python 3.12` notebook image if you want to run CPU based evaluation, `Jupyter | Minimal | CUDA | Python 3.12` for NVIDIA GPUs evaluation and `Medium` container size:
+- Then create a workbench with the following settings:
+  - Select the `Jupyter | Minimal | CPU | Python 3.12` notebook image if you want to run CPU based evaluation, `Jupyter | Minimal | CUDA | Python 3.12` for NVIDIA GPUs evaluation and `Medium` container size:
     ![](./docs/04a.png)
-    * Add an accelerator if you plan on evaluating your model on GPUs (faster):
+  - Add an accelerator if you plan on evaluating your model on GPUs (faster):
     ![](./docs/04b.png)
-        > [!NOTE]
-        > Adding an accelerator is only needed to test the fine-tuned model from within the workbench so you can spare an accelerator if needed.
-    * Create a storage that'll be shared between the workbench and the training pods.
+    > [!NOTE]
+    > Adding an accelerator is only needed to test the fine-tuned model from within the workbench so you can spare an accelerator if needed.
+  - Create a storage that'll be shared between the workbench and the training pods.
     Make sure it uses a storage class with RWX capability and set it to 15GiB in size:
         ![](./docs/04c.png)
-        > [!NOTE]
-        > You can attach an existing shared storage if you already have one instead.
-    * Review the storage configuration and click "Create workbench":
+    > [!NOTE]
+    > You can attach an existing shared storage if you already have one instead.
+  - Review the storage configuration and click "Create workbench":
     ![](./docs/04d.png)
-* From "Workbenches" page, click on _Open_ when the workbench you've just created becomes ready:
+- From "Workbenches" page, click on _Open_ when the workbench you've just created becomes ready:
 ![](./docs/05.png)
-* From the workbench, clone this repository, i.e., `https://red-hat-data-services/red-hat-ai-examples.git`
+- From the workbench, clone this repository, i.e., `https://red-hat-data-services/red-hat-ai-examples.git`
 ![](./docs/06.png)
-* Navigate to the `examples/fine-tuning/osft` directory and open the `osft-example.ipynb` notebook
-* The remaining part of this example is within the notebook itself
+- Navigate to the `examples/fine-tuning/osft` directory and open the `osft-example.ipynb` notebook
+- The remaining part of this example is within the notebook itself
 
 > [!IMPORTANT]
-> * By default, the notebook requires 2xL40/L40S (2x48GB) but:
->   * The example goes through distributed training on two nodes with two GPUs but it can be changed
->   * If you want to do model evaluation part of the example, ideally an accelerator is attached to the workbench
+>
+> - By default, the notebook requires 2xL40/L40S (2x48GB) but:
+>   - The example goes through distributed training on two nodes with two GPUs but it can be changed
+>   - If you want to do model evaluation part of the example, ideally an accelerator is attached to the workbench

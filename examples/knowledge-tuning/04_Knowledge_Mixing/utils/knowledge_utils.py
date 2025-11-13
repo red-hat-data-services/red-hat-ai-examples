@@ -1,5 +1,6 @@
 import json
-from typing import List, Optional, Any
+from typing import Any, List, Optional
+
 import polars as pl
 
 
@@ -69,9 +70,9 @@ def sample_doc_qa(
     ]
 
     if "parse_response_dict_reasoning_content" in df.columns:
-        df = df.with_columns(
-            [pl.col("parse_response_dict_reasoning_content").alias("reasoning")]
-        )
+        df = df.with_columns([
+            pl.col("parse_response_dict_reasoning_content").alias("reasoning")
+        ])
         agg_cols.append(pl.col("reasoning").first())
 
     # Group by document (summaries) and aggregate Q&A pairs
@@ -88,12 +89,10 @@ def sample_doc_qa(
     ).explode(pl.col("qa_pair"))
 
     # Extract question and response from struct
-    sampled_docs = sampled_docs.with_columns(
-        [
-            pl.col("qa_pair").struct.field("question").alias("question"),
-            pl.col("qa_pair").struct.field("response").alias("response"),
-        ]
-    ).drop("qa_pair")
+    sampled_docs = sampled_docs.with_columns([
+        pl.col("qa_pair").struct.field("question").alias("question"),
+        pl.col("qa_pair").struct.field("response").alias("response"),
+    ]).drop("qa_pair")
 
     return sampled_docs
 
@@ -112,13 +111,11 @@ def _clean_response_text(df: pl.DataFrame) -> pl.DataFrame:
 def _create_metadata(df: pl.DataFrame) -> pl.Expr:
     """Create metadata JSON structure."""
     return (
-        pl.struct(
-            [
-                pl.col("document").alias("sdg_document"),
-                pl.lit("document_knowledge_qa").alias("dataset"),
-                pl.col("raw_document"),
-            ]
-        )
+        pl.struct([
+            pl.col("document").alias("sdg_document"),
+            pl.lit("document_knowledge_qa").alias("dataset"),
+            pl.col("raw_document"),
+        ])
         .map_elements(json.dumps)
         .alias("metadata")
     )

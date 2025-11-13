@@ -78,11 +78,11 @@ a workbench image that has the tools and libraries that you need for developing 
 
 5. Select the latest version: **2025.2**.
 
-6. For **Deployment size**, 
+6. For **Deployment size**, select the appropriate size for your workload.
 
-<!-- need to complete these steps for storage and environmennt variables.
-It looks like - for environment variables - they need to set these at the notebook level rather than here in the workbench - TBD
--->
+   <!-- need to complete these steps for storage and environment variables.
+   It looks like - for environment variables - they need to set these at the notebook level rather than here in the workbench - TBD
+   -->
 
 7. Click **Create workbench**.
 

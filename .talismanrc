@@ -1,1 +1,7 @@
+# Talisman configuration file
+# Documentation: https://github.com/thoughtworks/talisman
+version: "1.0"
 threshold: medium
+fileignoreconfig:
+- filename: .secrets.baseline
+  checksum: 31b45438976dc1d82d5a091598e3f91d17fd9210e1733970ccc621c3d0cd9bb8

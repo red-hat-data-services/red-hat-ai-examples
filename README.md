@@ -14,11 +14,18 @@ This repository provides example notebooks and flows to help users get started w
 
 1. Clone this repository.
 2. Explore the `examples/` directory for examples for different usecase.
-4. Follow the instructions in each example's `README.md` for setup and execution.
+3. Follow the instructions in each example's `README.md` for setup and execution.
 
 ## Contributing
 
-Contributions are welcome! Please open issues or submit pull requests for improvements.
+Contributions are welcome! Please open issues or submit pull requests for improvements. To get started with development and understand code quality standards, please see [CONTRIBUTING.md](CONTRIBUTING.md) guide.
+
+The contributing guide includes:
+
+- Development environment setup
+- Required tools installation
+- Pre-commit hooks configuration
+- Code quality standards and manual checks
 
 ## License
 

@@ -1,10 +1,11 @@
-import torch
-import platform
-import sys
-import subprocess
 import json
+import platform
+import subprocess
+import sys
 import urllib.request
 from pathlib import Path
+
+import torch
 
 
 def get_latest(

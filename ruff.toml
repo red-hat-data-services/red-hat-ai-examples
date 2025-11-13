@@ -1,0 +1,61 @@
+# Ruff configuration file
+# Documentation: https://docs.astral.sh/ruff/
+
+# Exclude a variety of commonly ignored directories
+exclude = [
+    ".git",
+    ".git-rewrite",
+    ".ipynb_checkpoints",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".venv",
+    ".vscode",
+    "_build",
+    "build",
+    "site-packages",
+    "venv",
+]
+
+# Same as Black
+line-length = 88
+indent-width = 4
+
+target-version = "py311"
+
+# [lint]
+# E pycodestyle
+# F pyflakes
+# I import sorting (isort-compatible)
+# B flake8-bugbear (common bug patterns)
+# W warnings
+# UP pyupgrade (modernize syntax)
+lint.select = ["E","F","I","B","W","UP"]
+
+# Rules to ignore:
+# E203  whitespace before ':' (Black-compatible)
+# E501  line length (Black handles line wrapping)
+# UP006  keep typing.List instead of converting to list (PEP 585)
+# UP007  keep typing.Dict instead of converting to dict (PEP 585)
+# UP035  keep typing.Optional instead of converting to | None (PEP 604)
+# UP045  keep Optional[X] instead of converting to X | None
+lint.ignore = ["E203","E501","UP006","UP007","UP035","UP045", "B006"]
+
+# Prevent autofix from applying these rules even when using --fix
+lint.unfixable = ["UP006", "UP007", "UP035", "UP045"]
+
+[format]
+# Like Black, use double quotes for strings
+quote-style = "double"
+
+# Like Black, respect magic trailing commas
+# When false, trailing commas force multi-line formatting
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending
+line-ending = "auto"
+
+# Prefer multi-line formatting for collections
+# This prevents collapsing dictionaries/lists that fit on one line
+preview = true

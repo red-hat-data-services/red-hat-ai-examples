@@ -1,38 +1,60 @@
+# Pre-commit hooks for code quality, security, and secret scanning
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
 repos:
+  # Python linting and formatting with Ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.4
+    hooks:
+      # Run the linter
+      - id: ruff
+        types_or: [python, pyi, jupyter]
+        args: [ --fix ]
+      # Run the formatter
+      - id: ruff-format
+        types_or: [python, pyi, jupyter]
 
-# RUFF - Formatting and linting for the repository.
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  # Ruff version.
-  rev: v0.14.0
-  hooks:
-    # Run the linter.
-    - id: ruff-check
-      types_or: [ python, pyi ]
-      args: [ --fix ]
-    # Run the formatter.
-    - id: ruff-format
-      types_or: [ python, pyi ]
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
 
-# Gitleaks - Scan for secrets in the repository.
--   repo: https://github.com/gitleaks/gitleaks
-    rev: v8.24.2
+  # Secret scanning with Gitleaks
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.29.0
     hooks:
       - id: gitleaks
 
-# Talisman - Scan for secrets and sensitive information in the repository.
--   repo: https://github.com/thoughtworks/talisman
-    rev: 'v1.32.2'  # Update me!
+  # Secret scanning with Talisman
+  - repo: https://github.com/thoughtworks/talisman
+    rev: v1.37.0
     hooks:
-      # both pre-commit and pre-push supported
-      # -   id: talisman-push
       - id: talisman-commit
-        name: talisman secret scan
+        entry: cmd --githook pre-commit
 
-# Detect Secrets - Scan for secrets in the repository.
--   repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0  # check for latest version
+  # Secret scanning with detect-secrets
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
     hooks:
       - id: detect-secrets
-        name: detectsecrets scan
-        language: python
-        args: ['--exclude-lines', 'HF_TOKEN|hf-hub-secret']
+        args: ['--baseline', '.secrets.baseline', '--exclude-lines', 'HF_TOKEN|hf-hub-secret']
+        exclude: package.lock.json
+        verbose: true
+        # If this fails, see CONTRIBUTING.md for instructions on updating the baseline
+
+  # General code quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+      - id: detect-private-key
