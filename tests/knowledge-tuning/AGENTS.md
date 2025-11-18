@@ -156,7 +156,7 @@ Tests validate that:
 
 ### Files You Can Modify
 
-- **Only files inside `examples/knowledge-tuning/`** can be modified
+- **Only files inside `examples/knowledge-tuning/tests`** can be modified
 - Test files in `tests/knowledge-tuning/` can be modified for test improvements
 - The model must not modify files outside these directories
 
