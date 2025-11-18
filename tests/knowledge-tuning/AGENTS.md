@@ -185,6 +185,8 @@ Do not modify or create files in:
 - Never alter repo-wide configuration or scaffolding
 - Never touch workflow files, packaging files, or infra definitions
 - If changes are needed outside the allowed folder, ask for explicit confirmation
+- Do not turn failing tests into stubs to make them pass
+- Simplifying, renaming, moving or removing existing tests requires explicit user consent
 
 ## CI/CD Integration
 
@@ -209,6 +211,10 @@ Do not modify or create files in:
 - All PR validations must be deterministic, reproducible, and fast
 
 ## Working Guidelines
+
+## Test Creation
+- The test name must match the implementation. If there is a mismatch inform the user
+- The test must be high quality and meaningful. Do not add junk tests.
 
 ### Focus
 
