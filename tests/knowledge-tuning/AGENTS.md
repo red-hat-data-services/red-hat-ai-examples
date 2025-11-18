@@ -7,22 +7,26 @@ This file contains the authoritative requirements, guidelines, and instructions 
 ## Setup Commands
 
 - Install test dependencies:
+
   ```bash
   cd tests/knowledge-tuning
   pip install -e .
   ```
 
 - Run all tests:
+
   ```bash
   python tests/knowledge-tuning/run_push_tests.py
   ```
 
 - Run tests with pytest directly:
+
   ```bash
   pytest tests/knowledge-tuning/ -v
   ```
 
 - Run specific test files:
+
   ```bash
   pytest tests/knowledge-tuning/test_notebook_structure.py
   pytest tests/knowledge-tuning/test_notebook_imports.py
@@ -56,11 +60,13 @@ The test suite validates the following for `examples/knowledge-tuning/`:
 ### Running Tests Locally
 
 Before committing, always run:
+
 ```bash
 python tests/knowledge-tuning/run_push_tests.py
 ```
 
 This will:
+
 - Run all tests in parallel (using pytest-xdist)
 - Generate JUnit XML report: `tests/knowledge-tuning/test-results/junit.xml`
 - Generate HTML report: `tests/knowledge-tuning/test-results/report.html`
@@ -84,6 +90,7 @@ When working with notebooks in `examples/knowledge-tuning/`, ensure:
 ### Structure Checks
 
 Notebooks should have:
+
 - Required sections: imports, data prep, model setup, training, inference
 - Logical ordering of Markdown and code cells
 - No missing, empty, or duplicated sections
@@ -131,6 +138,7 @@ When validating imports in notebooks:
 ### Virtual Environment Build Validation
 
 Tests validate that:
+
 - Each step's `pyproject.toml` can be used to build a clean virtual environment
 - Dependencies resolve without conflicts (using `pip install --dry-run`)
 - GPU-specific dependencies are gracefully skipped on non-GPU systems
@@ -155,6 +163,7 @@ Tests validate that:
 ### Protected Paths (Do Not Modify)
 
 Do not modify or create files in:
+
 - `.github/` (unless explicitly approved)
 - `.gitlab/`
 - `.vscode/`
@@ -231,4 +240,3 @@ Do not modify or create files in:
 - Validate correctness before returning results
 - No partial solutions—deliver complete, professional outputs
 - Review the original plan after completion; if the implementation diverges from the plan, notify the user instead of rewriting the plan
-

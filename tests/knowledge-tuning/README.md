@@ -42,6 +42,7 @@ python tests/knowledge-tuning/run_push_tests.py
 ```
 
 The runner script automatically:
+
 - Runs tests in parallel using pytest-xdist (faster execution, ~18 seconds)
 - Generates test result files in `test-results/` directory
 - Creates JUnit XML report for CI integration
@@ -95,4 +96,3 @@ These files are automatically ignored by git (see `.gitignore`).
 ## CI/CD Integration
 
 These tests run automatically on push to the main branch via GitHub Actions workflow (`.github/workflows/knowledge-tuning-push-tests.yml`).
-
