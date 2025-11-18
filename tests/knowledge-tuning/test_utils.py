@@ -12,7 +12,7 @@ repo_root = Path(__file__).parent.parent.parent
 utils_path = repo_root / "examples" / "knowledge-tuning" / "04_Knowledge_Mixing" / "utils"
 sys.path.insert(0, str(utils_path))
 
-from knowledge_utils import (
+from knowledge_utils import (  # noqa: E402
     count_len_in_tokens,
     generate_knowledge_qa_dataset,
     get_avg_summaries_per_raw_doc,
