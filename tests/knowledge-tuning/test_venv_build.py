@@ -1,4 +1,5 @@
 """Tests for virtual environment build validation."""
+
 import subprocess
 import sys
 
@@ -72,7 +73,9 @@ class TestVenvBuild:
                 # We're looking for obvious cases like "torch[cuda]" or explicit GPU packages
                 if any(keyword in dep_lower for keyword in gpu_specific_keywords):
                     # Allow torch but flag explicit GPU extras
-                    if "torch" in dep_lower and ("cuda" in dep_lower or "gpu" in dep_lower):
+                    if "torch" in dep_lower and (
+                        "cuda" in dep_lower or "gpu" in dep_lower
+                    ):
                         # This is acceptable - torch with cuda extras is common
                         pass
                     elif any(
@@ -122,9 +125,9 @@ class TestVenvBuild:
                 # Should contain version specifiers
                 assert len(requires_python) > 0
                 # Should start with comparison operator or version number
-                assert requires_python[0] in ">=<~!0123456789" or requires_python.startswith(
-                    "python"
-                )
+                assert requires_python[
+                    0
+                ] in ">=<~!0123456789" or requires_python.startswith("python")
 
     def test_venv_builds_cleanly(self, pyproject_files, repo_root):
         """Test that virtual environment builds cleanly for each pyproject.toml."""
@@ -173,9 +176,7 @@ class TestVenvBuild:
                     f"Timeout resolving dependencies for {pyproject_path} (exceeded 1 minute)"
                 )
             except Exception as e:
-                pytest.fail(
-                    f"Error resolving dependencies for {pyproject_path}: {e}"
-                )
+                pytest.fail(f"Error resolving dependencies for {pyproject_path}: {e}")
 
     def test_dependencies_resolve_without_conflicts(self, pyproject_files, repo_root):
         """Test that dependencies resolve without conflicts."""
@@ -215,13 +216,9 @@ class TestVenvBuild:
                     # Other errors are handled by test_venv_builds_cleanly
 
             except subprocess.TimeoutExpired:
-                pytest.fail(
-                    f"Timeout resolving dependencies for {pyproject_path}"
-                )
+                pytest.fail(f"Timeout resolving dependencies for {pyproject_path}")
             except Exception as e:
-                pytest.fail(
-                    f"Error checking dependencies for {pyproject_path}: {e}"
-                )
+                pytest.fail(f"Error checking dependencies for {pyproject_path}: {e}")
 
     def test_modules_can_be_imported(self, pyproject_files, notebook_files, repo_root):
         """Test that modules referenced by notebooks can be imported (syntax validation only)."""
@@ -270,12 +267,15 @@ class TestVenvBuild:
         for pyproject_path in pyproject_files:
             # Just verify the pyproject.toml exists and is valid
             # The actual import validation is done in test_notebook_imports
-            assert pyproject_path.exists(), f"pyproject.toml not found: {pyproject_path}"
+            assert pyproject_path.exists(), (
+                f"pyproject.toml not found: {pyproject_path}"
+            )
 
             # Verify dependencies are listed (basic check)
             with open(pyproject_path, "rb") as f:
                 data = tomllib.load(f)
             project = data.get("project", {})
             dependencies = project.get("dependencies", [])
-            assert isinstance(dependencies, list), f"Invalid dependencies in {pyproject_path}"
-
+            assert isinstance(dependencies, list), (
+                f"Invalid dependencies in {pyproject_path}"
+            )

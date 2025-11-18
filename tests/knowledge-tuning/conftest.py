@@ -1,4 +1,5 @@
 """Pytest configuration and fixtures for knowledge-tuning tests."""
+
 import json
 from pathlib import Path
 
@@ -54,4 +55,3 @@ def load_notebook(path: Path) -> dict:
 def notebook_loader():
     """Return a function to load notebook files."""
     return load_notebook
-

@@ -1,4 +1,5 @@
 """Mock classes for HuggingFace transformers."""
+
 from unittest.mock import MagicMock
 
 
@@ -69,4 +70,3 @@ def create_mock_torch():
     mock_torch.cuda.is_available = MagicMock(return_value=False)
     mock_torch.no_grad = MagicMock()
     return mock_torch
-

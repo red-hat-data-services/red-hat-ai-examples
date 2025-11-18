@@ -1,4 +1,5 @@
 """Tests for utility functions in knowledge-tuning."""
+
 import json
 import sys
 from pathlib import Path
@@ -9,7 +10,9 @@ import pytest
 
 # Add the knowledge-tuning utils to path
 repo_root = Path(__file__).parent.parent.parent
-utils_path = repo_root / "examples" / "knowledge-tuning" / "04_Knowledge_Mixing" / "utils"
+utils_path = (
+    repo_root / "examples" / "knowledge-tuning" / "04_Knowledge_Mixing" / "utils"
+)
 sys.path.insert(0, str(utils_path))
 
 from knowledge_utils import (  # noqa: E402
@@ -142,7 +145,11 @@ class TestGenerateKnowledgeQaDataset:
         # Check messages structure - extract from Polars Series
         messages_series = result["messages"]
         # Convert to list and get first item
-        messages_list = messages_series.to_list() if isinstance(messages_series, pl.Series) else list(messages_series)
+        messages_list = (
+            messages_series.to_list()
+            if isinstance(messages_series, pl.Series)
+            else list(messages_series)
+        )
         messages = messages_list[0]
         assert isinstance(messages, list)
         assert len(messages) >= 1
@@ -151,7 +158,11 @@ class TestGenerateKnowledgeQaDataset:
 
         # Check metadata structure - extract from Polars Series
         metadata_series = result["metadata"]
-        metadata_list = metadata_series.to_list() if isinstance(metadata_series, pl.Series) else list(metadata_series)
+        metadata_list = (
+            metadata_series.to_list()
+            if isinstance(metadata_series, pl.Series)
+            else list(metadata_series)
+        )
         metadata = metadata_list[0]
         # Metadata should be a JSON string
         assert isinstance(metadata, str)
@@ -252,4 +263,3 @@ class TestCountLenInTokens:
         messages = [{"role": "user", "content": "test"}]
         template = tokenizer.apply_chat_template(messages, tokenize=False)
         assert isinstance(template, str)
-

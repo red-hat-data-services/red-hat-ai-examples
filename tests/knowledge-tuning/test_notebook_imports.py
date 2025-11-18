@@ -1,4 +1,5 @@
 """Tests for notebook import validation."""
+
 import ast
 import json
 import tokenize
@@ -112,9 +113,10 @@ class TestNotebookImports:
                 for _line_num, line in enumerate(lines, 1):
                     stripped = line.strip()
                     # Check for incomplete imports
-                    if stripped.startswith("import ") and not stripped.endswith(
-                        (";", "\\")
-                    ):
+                    if stripped.startswith("import ") and not stripped.endswith((
+                        ";",
+                        "\\",
+                    )):
                         # Check if it's actually complete by trying to parse
                         try:
                             ast.parse(stripped)
@@ -169,7 +171,9 @@ class TestNotebookImports:
 
                 # Skip shell commands and magic commands
                 lines = source_str.split("\n")
-                if lines and (lines[0].strip().startswith("!") or lines[0].strip().startswith("%")):
+                if lines and (
+                    lines[0].strip().startswith("!") or lines[0].strip().startswith("%")
+                ):
                     continue
 
                 try:
@@ -179,4 +183,3 @@ class TestNotebookImports:
                     pytest.fail(
                         f"Notebook {notebook_path} cell {i} has tokenization error: {e}"
                     )
-

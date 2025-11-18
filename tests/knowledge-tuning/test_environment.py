@@ -1,4 +1,5 @@
 """Tests for environment and dependency validation."""
+
 import pytest
 
 # Try to import tomllib (Python 3.11+) or fall back to tomli
@@ -89,7 +90,6 @@ class TestPyprojectToml:
             requires_python = project.get("requires-python", "")
 
             for pattern in deprecated_patterns:
-                assert (
-                    pattern.lower() not in requires_python.lower()
-                ), f"pyproject.toml {pyproject_path} contains deprecated pattern: {pattern}"
-
+                assert pattern.lower() not in requires_python.lower(), (
+                    f"pyproject.toml {pyproject_path} contains deprecated pattern: {pattern}"
+                )

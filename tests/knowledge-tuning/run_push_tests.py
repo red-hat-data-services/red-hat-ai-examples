@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Runner script for push tests targeting knowledge-tuning directory."""
+
 import sys
 from pathlib import Path
 
@@ -24,9 +25,12 @@ if __name__ == "__main__":
         str(test_path),
         "-v",
         "--tb=short",
-        "-n", "auto",  # Use pytest-xdist for parallel execution (auto-detect workers)
-        "--junit-xml", str(results_dir / "junit.xml"),  # JUnit XML for CI integration
-        "--html", str(results_dir / "report.html"),  # HTML report
+        "-n",
+        "auto",  # Use pytest-xdist for parallel execution (auto-detect workers)
+        "--junit-xml",
+        str(results_dir / "junit.xml"),  # JUnit XML for CI integration
+        "--html",
+        str(results_dir / "report.html"),  # HTML report
         "--self-contained-html",  # Include CSS/JS in HTML file
         # Ensure tests run quickly - timeout handled by GitHub Actions workflow
     ])
@@ -36,4 +40,3 @@ if __name__ == "__main__":
     print(f"   - HTML Report: {results_dir / 'report.html'}")
 
     sys.exit(exit_code)
-

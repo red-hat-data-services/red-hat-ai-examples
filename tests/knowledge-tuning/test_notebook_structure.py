@@ -1,4 +1,5 @@
 """Tests for notebook structure validation."""
+
 import json
 
 import nbformat
@@ -16,9 +17,9 @@ class TestNotebookStructure:
 
             for cell in nb.get("cells", []):
                 execution_count = cell.get("execution_count")
-                assert (
-                    execution_count is None
-                ), f"Notebook {notebook_path} has execution_count {execution_count} in cell"
+                assert execution_count is None, (
+                    f"Notebook {notebook_path} has execution_count {execution_count} in cell"
+                )
 
     def test_no_stored_outputs(self, notebook_files):
         """Test that notebooks have no stored outputs."""
@@ -28,9 +29,9 @@ class TestNotebookStructure:
 
             for i, cell in enumerate(nb.get("cells", [])):
                 outputs = cell.get("outputs", [])
-                assert (
-                    len(outputs) == 0
-                ), f"Notebook {notebook_path} has {len(outputs)} outputs in cell {i}"
+                assert len(outputs) == 0, (
+                    f"Notebook {notebook_path} has {len(outputs)} outputs in cell {i}"
+                )
 
     def test_kernelspec_consistency(self, notebook_files):
         """Test that all notebooks have consistent kernelspec.name."""
@@ -51,9 +52,9 @@ class TestNotebookStructure:
             # Get the first kernelspec name as the reference
             first_name = kernelspecs[0][1]
             for notebook_path, name in kernelspecs:
-                assert (
-                    name == first_name
-                ), f"Notebook {notebook_path} has kernelspec.name '{name}', expected '{first_name}'"
+                assert name == first_name, (
+                    f"Notebook {notebook_path} has kernelspec.name '{name}', expected '{first_name}'"
+                )
 
     def test_language_info_version_consistency(self, notebook_files):
         """Test that all notebooks have consistent language_info.version."""
@@ -74,9 +75,9 @@ class TestNotebookStructure:
             # Get the first version as the reference
             first_version = versions[0][1]
             for notebook_path, version in versions:
-                assert (
-                    version == first_version
-                ), f"Notebook {notebook_path} has language_info.version '{version}', expected '{first_version}'"
+                assert version == first_version, (
+                    f"Notebook {notebook_path} has language_info.version '{version}', expected '{first_version}'"
+                )
 
     def test_no_environment_specific_metadata(self, notebook_files):
         """Test that notebooks don't contain environment-specific metadata."""
@@ -130,9 +131,9 @@ class TestNotebookStructure:
             first_core = first_metadata_keys & core_keys
             current_core = metadata_keys & core_keys
 
-            assert (
-                first_core == current_core
-            ), f"Notebook {notebook_path} has different core metadata keys. Expected {first_core}, got {current_core}"
+            assert first_core == current_core, (
+                f"Notebook {notebook_path} has different core metadata keys. Expected {first_core}, got {current_core}"
+            )
 
     def test_required_sections_exist(self, notebook_files):
         """Test that notebooks contain required sections."""
@@ -163,9 +164,9 @@ class TestNotebookStructure:
                 keyword for keyword in required_keywords if keyword in content_lower
             ]
             # At minimum, should have import or install/setup
-            assert (
-                len(found_keywords) > 0
-            ), f"Notebook {notebook_path} missing required sections (imports, setup, or install)"
+            assert len(found_keywords) > 0, (
+                f"Notebook {notebook_path} missing required sections (imports, setup, or install)"
+            )
 
     def test_cell_type_ordering(self, notebook_files):
         """Test that notebooks have logical ordering of markdown and code cells."""
@@ -182,7 +183,9 @@ class TestNotebookStructure:
             assert first_cell_type in [
                 "markdown",
                 "code",
-            ], f"Notebook {notebook_path} first cell has unexpected type: {first_cell_type}"
+            ], (
+                f"Notebook {notebook_path} first cell has unexpected type: {first_cell_type}"
+            )
 
     def test_no_empty_cells(self, notebook_files):
         """Test that notebooks have no empty cells."""
@@ -210,9 +213,7 @@ class TestNotebookStructure:
                 with open(notebook_path, encoding="utf-8") as f:
                     json.load(f)
             except json.JSONDecodeError as e:
-                pytest.fail(
-                    f"Notebook {notebook_path} is not valid JSON: {e}"
-                )
+                pytest.fail(f"Notebook {notebook_path} is not valid JSON: {e}")
 
     def test_notebooks_are_valid_nbformat(self, notebook_files):
         """Test that all notebook files are valid nbformat."""
@@ -220,7 +221,4 @@ class TestNotebookStructure:
             try:
                 nbformat.read(str(notebook_path), as_version=4)
             except Exception as e:
-                pytest.fail(
-                    f"Notebook {notebook_path} is not valid nbformat: {e}"
-                )
-
+                pytest.fail(f"Notebook {notebook_path} is not valid nbformat: {e}")
