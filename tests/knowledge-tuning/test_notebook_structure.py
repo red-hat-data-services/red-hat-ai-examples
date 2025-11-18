@@ -1,6 +1,5 @@
 """Tests for notebook structure validation."""
 import json
-from pathlib import Path
 
 import nbformat
 import pytest
@@ -12,7 +11,7 @@ class TestNotebookStructure:
     def test_no_execution_counts(self, notebook_files):
         """Test that notebooks have no execution counts."""
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             for cell in nb.get("cells", []):
@@ -24,7 +23,7 @@ class TestNotebookStructure:
     def test_no_stored_outputs(self, notebook_files):
         """Test that notebooks have no stored outputs."""
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             for i, cell in enumerate(nb.get("cells", [])):
@@ -40,7 +39,7 @@ class TestNotebookStructure:
 
         kernelspecs = []
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             kernelspec = nb.get("metadata", {}).get("kernelspec", {})
@@ -63,7 +62,7 @@ class TestNotebookStructure:
 
         versions = []
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             language_info = nb.get("metadata", {}).get("language_info", {})
@@ -92,7 +91,7 @@ class TestNotebookStructure:
         ]
 
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             metadata = nb.get("metadata", {})
@@ -111,13 +110,13 @@ class TestNotebookStructure:
             pytest.skip("No notebooks found")
 
         # Load first notebook to establish schema
-        with open(notebook_files[0], "r", encoding="utf-8") as f:
+        with open(notebook_files[0], encoding="utf-8") as f:
             first_nb = json.load(f)
         first_metadata_keys = set(first_nb.get("metadata", {}).keys())
 
         # Compare all other notebooks
         for notebook_path in notebook_files[1:]:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             metadata_keys = set(nb.get("metadata", {}).keys())
@@ -144,7 +143,7 @@ class TestNotebookStructure:
         ]
 
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             # Collect all markdown cell content
@@ -171,7 +170,7 @@ class TestNotebookStructure:
     def test_cell_type_ordering(self, notebook_files):
         """Test that notebooks have logical ordering of markdown and code cells."""
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             cells = nb.get("cells", [])
@@ -188,7 +187,7 @@ class TestNotebookStructure:
     def test_no_empty_cells(self, notebook_files):
         """Test that notebooks have no empty cells."""
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             for i, cell in enumerate(nb.get("cells", [])):
@@ -208,7 +207,7 @@ class TestNotebookStructure:
         """Test that all notebook files are valid JSON."""
         for notebook_path in notebook_files:
             try:
-                with open(notebook_path, "r", encoding="utf-8") as f:
+                with open(notebook_path, encoding="utf-8") as f:
                     json.load(f)
             except json.JSONDecodeError as e:
                 pytest.fail(

@@ -2,7 +2,6 @@
 import json
 from pathlib import Path
 
-import nbformat
 import pytest
 
 
@@ -47,7 +46,7 @@ def pyproject_files(knowledge_tuning_dir: Path) -> list[Path]:
 
 def load_notebook(path: Path) -> dict:
     """Load a notebook file and return its content as dict."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 

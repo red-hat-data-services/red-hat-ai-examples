@@ -13,7 +13,7 @@ class TestNotebookImports:
     def test_imports_are_parseable(self, notebook_files):
         """Test that all import statements in notebooks are parseable."""
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             for i, cell in enumerate(nb.get("cells", [])):
@@ -50,7 +50,7 @@ class TestNotebookImports:
     def test_import_statements_are_well_formed(self, notebook_files):
         """Test that import statements are well-formed."""
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             for i, cell in enumerate(nb.get("cells", [])):
@@ -91,10 +91,10 @@ class TestNotebookImports:
     def test_no_obvious_import_errors(self, notebook_files):
         """Test that there are no obvious import errors in syntax."""
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
-            for i, cell in enumerate(nb.get("cells", [])):
+            for _i, cell in enumerate(nb.get("cells", [])):
                 if cell.get("cell_type") != "code":
                     continue
 
@@ -109,7 +109,7 @@ class TestNotebookImports:
 
                 # Check for common import errors
                 lines = source_str.split("\n")
-                for line_num, line in enumerate(lines, 1):
+                for _line_num, line in enumerate(lines, 1):
                     stripped = line.strip()
                     # Check for incomplete imports
                     if stripped.startswith("import ") and not stripped.endswith(
@@ -127,10 +127,9 @@ class TestNotebookImports:
         # This is a lightweight check - we just verify imports exist
         # Full grouping validation would be more complex
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
-            has_imports = False
             for cell in nb.get("cells", []):
                 if cell.get("cell_type") != "code":
                     continue
@@ -142,7 +141,7 @@ class TestNotebookImports:
                     source_str = source or ""
 
                 if "import " in source_str or "from " in source_str:
-                    has_imports = True
+                    # Found imports, which is expected
                     break
 
             # Most notebooks should have imports, but not all
@@ -152,7 +151,7 @@ class TestNotebookImports:
     def test_code_cells_are_tokenizable(self, notebook_files):
         """Test that code cells can be tokenized (basic syntax check)."""
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             for i, cell in enumerate(nb.get("cells", [])):

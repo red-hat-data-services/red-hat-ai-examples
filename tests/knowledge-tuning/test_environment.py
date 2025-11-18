@@ -1,7 +1,4 @@
 """Tests for environment and dependency validation."""
-import sys
-from pathlib import Path
-
 import pytest
 
 # Try to import tomllib (Python 3.11+) or fall back to tomli
@@ -55,7 +52,7 @@ class TestPyprojectToml:
         if versions:
             # Check that all versions are compatible (basic check)
             # All should specify >=3.12 or similar
-            for pyproject_path, version in versions:
+            for _pyproject_path, version in versions:
                 # Basic validation that it's a valid version spec
                 assert isinstance(version, str)
                 assert len(version) > 0

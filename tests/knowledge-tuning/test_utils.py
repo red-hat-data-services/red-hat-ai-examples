@@ -1,13 +1,11 @@
 """Tests for utility functions in knowledge-tuning."""
 import json
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import polars as pl
 import pytest
-
-# Import the actual utility functions
-import sys
-from pathlib import Path
 
 # Add the knowledge-tuning utils to path
 repo_root = Path(__file__).parent.parent.parent

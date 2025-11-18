@@ -1,8 +1,6 @@
 """Tests for virtual environment build validation."""
 import subprocess
 import sys
-import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -163,7 +161,7 @@ class TestVenvBuild:
                             f"Skipping {pyproject_path.name}: GPU-specific dependency not available "
                             f"(expected on non-GPU systems): {result.stderr.split(chr(10))[-2] if result.stderr else 'GPU dependency required'}"
                         )
-                    
+
                     pytest.fail(
                         f"Failed to resolve dependencies for {pyproject_path}:\n"
                         f"stdout: {result.stdout}\n"
@@ -229,14 +227,14 @@ class TestVenvBuild:
         """Test that modules referenced by notebooks can be imported (syntax validation only)."""
         # This is a lightweight check - we validate import syntax without building venvs
         # We don't execute notebook cells, just check that imports are parseable
-        
+
         # Collect all imports from notebooks
         import ast
         import json
 
         all_imports = set()
         for notebook_path in notebook_files:
-            with open(notebook_path, "r", encoding="utf-8") as f:
+            with open(notebook_path, encoding="utf-8") as f:
                 nb = json.load(f)
 
             for cell in nb.get("cells", []):
@@ -273,7 +271,7 @@ class TestVenvBuild:
             # Just verify the pyproject.toml exists and is valid
             # The actual import validation is done in test_notebook_imports
             assert pyproject_path.exists(), f"pyproject.toml not found: {pyproject_path}"
-            
+
             # Verify dependencies are listed (basic check)
             with open(pyproject_path, "rb") as f:
                 data = tomllib.load(f)
