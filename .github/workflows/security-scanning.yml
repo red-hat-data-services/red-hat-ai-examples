@@ -1,0 +1,39 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write  # Needed to comment on PRs if issues found
+
+jobs:
+  secret-scanning:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          fetch-depth: 0  # Full history needed for accurate scanning
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Run Talisman
+        uses: carhartl/talisman-secrets-scan-action@v1.3.0
+        if: github.event_name == 'pull_request_target'
+        with:
+          local-ref: ${{ github.event.pull_request.head.sha }}
+          remote-ref: origin/${{ github.event.pull_request.base.ref }}
