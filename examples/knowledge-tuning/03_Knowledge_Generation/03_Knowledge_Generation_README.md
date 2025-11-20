@@ -43,10 +43,10 @@ The notebook generates the following artifact:
   - Key facts Q&A
   - Document based Q&A
 
-## Debug & tips
+### Debug & tips
 
 - If generation fails, check that the values for the API key, endpoint URL, and request rate limits environment variables are correct.
 
-## Next step
+### Next step
 
 Proceed to [Module 4: Knowledge Mixing](../04_Knowledge_Mixing/04_Knowledge_Mixing_README.md).

@@ -14,7 +14,7 @@
 
 ## Data processing and seed dataset generation
 
-In this module, you convert a data source (an example URL) into a small, curated seed dataset that is suitable for Synthetic Data Generation (SDG). The Jupyter notebook for this module uses [docling](https://www.docling.ai/) to convert the URL content to JSON format, chunk the converted data, select representative chunks, and generate initial question and answer (Q&A) pairs.
+In this module, you convert a data source (an example URL) into a small, curated seed dataset that is suitable for Synthetic Data Generation (SDG). The Jupyter notebook for this module uses [docling](https://www.docling.ai/) to convert the URL content to Markdown format, chunk the converted data, select representative chunks, and generate initial question and answer (Q&A) pairs.
 
 ![Data Preprocessing Flow Diagram](../../../assets/usecase/knowledge-tuning/Data%20Preprocessing.png)
 
