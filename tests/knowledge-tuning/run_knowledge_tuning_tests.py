@@ -1,22 +1,30 @@
 #!/usr/bin/env python3
-"""Runner script for push tests targeting knowledge-tuning directory."""
+"""Runner script for knowledge-tuning specific tests."""
 
 import sys
 from pathlib import Path
 
 import pytest
 
+SUITE_NAME = "knowledge-tuning"
+
+
+def _results_dir() -> Path:
+    """Return the shared test-results directory for this suite."""
+    tests_root = Path(__file__).resolve().parents[1]
+    results_dir = tests_root / "test-results" / SUITE_NAME
+    results_dir.mkdir(parents=True, exist_ok=True)
+    return results_dir
+
+
 if __name__ == "__main__":
     # Get the directory containing this script
     test_dir = Path(__file__).parent
-    repo_root = test_dir.parent.parent
 
     # Target the knowledge-tuning test directory
     test_path = test_dir
 
-    # Create results directory
-    results_dir = test_dir / "test-results"
-    results_dir.mkdir(exist_ok=True)
+    results_dir = _results_dir()
 
     # Run pytest with the test directory
     # Use parallel workers for faster execution (auto-detect CPU count)
@@ -35,7 +43,7 @@ if __name__ == "__main__":
         # Ensure tests run quickly - timeout handled by GitHub Actions workflow
     ])
 
-    print(f"\n📊 Test results saved to: {results_dir}")
+    print(f"\n📊 Knowledge-tuning test results saved to: {results_dir}")
     print(f"   - JUnit XML: {results_dir / 'junit.xml'}")
     print(f"   - HTML Report: {results_dir / 'report.html'}")
 

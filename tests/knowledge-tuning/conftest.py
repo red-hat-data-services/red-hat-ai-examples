@@ -7,13 +7,6 @@ import pytest
 
 
 @pytest.fixture
-def repo_root() -> Path:
-    """Return the repository root directory."""
-    # This file is in tests/knowledge-tuning/, so go up 2 levels
-    return Path(__file__).parent.parent.parent
-
-
-@pytest.fixture
 def knowledge_tuning_dir(repo_root: Path) -> Path:
     """Return the examples/knowledge-tuning directory."""
     return repo_root / "examples" / "knowledge-tuning"

@@ -1,1 +1,1 @@
-"""Push tests for knowledge-tuning directory."""
+"""Knowledge-tuning specific tests (utilities + mocks)."""

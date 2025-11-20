@@ -1,98 +1,40 @@
-# Knowledge Tuning Push Tests
+# Knowledge-Tuning Tests
 
-This directory contains push tests for the `examples/knowledge-tuning/` directory. These tests validate notebook structure, imports, utility functions, and environment configuration.
+This directory houses the knowledge-tuning specific tests that exercise the mocked utility functions and supporting infrastructure under `examples/knowledge-tuning/`. Repo-wide notebook and configuration checks now live in `tests/format_checks/`.
 
-> **Source of Truth**: `AGENTS.md` in this directory is the authoritative source for all test requirements, guidelines, and agent instructions. See `AGENTS.md` for complete details.
+> **Source of Truth:** Follow `tests/AGENTS.md` for the complete requirements, mocking standards, and CI expectations.
 
-## Overview
+## Setup
 
-The tests are designed to run quickly without executing notebook cells, GPU operations, or external API calls. They validate:
-
-- Notebook structure and metadata (no execution counts, no outputs, consistent kernelspec/language_info)
-- Import statement validity (syntax checking without execution)
-- Utility function correctness (with mocked dependencies)
-- Environment and dependency configuration (pyproject.toml validation)
-- Virtual environment build validation
-
-## Running Tests Locally
-
-### Prerequisites
-
-Install test dependencies:
+Install the shared dependencies once:
 
 ```bash
-cd tests/knowledge-tuning
+cd tests
 pip install -e .
 ```
 
-Or install directly:
+## Running the Knowledge-Tuning Suite
 
 ```bash
-pip install pytest pytest-mock pytest-xdist pytest-html nbformat polars jsonschema
-```
+# Recommended runner (parallel execution + reports)
+python tests/knowledge-tuning/run_knowledge_tuning_tests.py
 
-### Run All Tests
-
-```bash
-# From repository root
-pytest tests/knowledge-tuning/
-
-# Or use the runner script (recommended - includes parallel execution and test reports)
-python tests/knowledge-tuning/run_push_tests.py
-```
-
-The runner script automatically:
-
-- Runs tests in parallel using pytest-xdist (faster execution, ~18 seconds)
-- Generates test result files in `test-results/` directory
-- Creates JUnit XML report for CI integration
-- Creates HTML report for human review
-
-### Run Specific Test Files
-
-```bash
-# Test notebook structure
-pytest tests/knowledge-tuning/test_notebook_structure.py
-
-# Test imports
-pytest tests/knowledge-tuning/test_notebook_imports.py
-
-# Test utilities
-pytest tests/knowledge-tuning/test_utils.py
-
-# Test environment
-pytest tests/knowledge-tuning/test_environment.py
-
-# Test venv build
-pytest tests/knowledge-tuning/test_venv_build.py
+# Direct pytest invocation
+pytest tests/knowledge-tuning/ -v
 ```
 
 ## Test Structure
 
-- `test_notebook_structure.py` - Validates notebook metadata, structure, and compliance
-- `test_notebook_imports.py` - Validates import statements are parseable and well-formed
-- `test_utils.py` - Tests utility functions with mocked dependencies
-- `test_environment.py` - Validates pyproject.toml files
-- `test_venv_build.py` - Validates virtual environment build configuration
-- `mocks/` - Mock utilities for transformers, GPU operations, etc.
+- `test_utils.py` – Mock-driven coverage of `knowledge_utils.py`
+- `conftest.py` – Fixtures that resolve `examples/knowledge-tuning/` assets
+- `mocks/` – Deterministic mocks for transformers/tokenizers/GPU calls
+- `run_knowledge_tuning_tests.py` – Runner that produces HTML + JUnit reports
 
-## Key Requirements
+## Reports
 
-- Tests must run in seconds (fast execution policy - target: ~18 seconds with parallel workers)
-- No notebook cell execution during push checks
-- All external services, GPU calls, ML training, and LLM APIs must be mocked
-- Tests must behave identically in local development and CI
-- No CI-specific conditionals, flags, or behavior branches
+Runner output is written to `tests/test-results/knowledge-tuning/`:
 
-## Test Results
+- `junit.xml` – CI-friendly report
+- `report.html` – Human-readable summary
 
-When running tests via the runner script (`run_push_tests.py`), test results are automatically generated in the `test-results/` directory:
-
-- **JUnit XML**: `test-results/junit.xml` - Standard format for CI/CD integration
-- **HTML Report**: `test-results/report.html` - Human-readable visual report with test details
-
-These files are automatically ignored by git (see `.gitignore`).
-
-## CI/CD Integration
-
-These tests run automatically on push to the main branch via GitHub Actions workflow (`.github/workflows/knowledge-tuning-push-tests.yml`).
+These files are ignored by git automatically.
