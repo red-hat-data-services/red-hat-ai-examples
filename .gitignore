@@ -20,6 +20,12 @@ __pycache__/
 # VS Code
 .vscode
 
+# Cursor
+.cursorrules
+
+# Plan files
+PLAN.md
+
 # YAML generated from running kfp.compile scripts in examples/
 examples/llmcompressor/*.yaml
 
@@ -179,3 +185,17 @@ cython_debug/
 # Code quality and security tools
 .ruff_cache/
 .talisman_reports/
+
+# Test results and outputs
+tests/**/test-results/
+tests/**/.pytest_cache/
+tests/**/__pycache__/
+# Pytest cache (already covered by .pytest_cache/ above, but being explicit)
+*.pytest_cache
+.pytest_cache
+# Coverage reports in tests directory
+tests/**/.coverage
+tests/**/.coverage.*
+tests/**/htmlcov/
+tests/**/coverage.xml
+tests/**/*.cover
