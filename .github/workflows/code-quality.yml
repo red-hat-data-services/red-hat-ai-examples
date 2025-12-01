@@ -45,11 +45,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Gitleaks
+        run: |
+          GITLEAKS_VERSION=8.29.0
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz \
+            | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        run: gitleaks detect --source . --config .gitleaks.toml --no-banner
 
       - name: Set up Python
         uses: actions/setup-python@v5

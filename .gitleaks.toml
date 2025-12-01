@@ -15,3 +15,7 @@ paths = [
     '''\.gitleaks\.toml$''',
     '''\.secrets\.baseline$''', # used for detect-secrets
 ]
+regexes = [
+    '''"image/png": ".*"''', # Ignores base64 image strings in JSON
+    '''"hash": ".*"''',      # Ignores hashes in metadata
+]

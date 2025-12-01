@@ -1,0 +1,48 @@
+pull_request_rules:
+  - name: auto-merge
+    description: >
+      Automatic merge of PRs to main on approval with passing checks
+    conditions:
+      - "#approved-reviews-by>=1"
+      - check-success=Linting and Formatting
+      - check-success=Secret Scanning
+      - "#changes-requested-reviews-by=0"
+      - -draft
+      - -conflict
+      - label!=do-not-merge
+      - label!=needs-rebase
+
+    actions:
+      merge:
+        method: squash
+        commit_message_template: |
+          {{ title }} (#{{ number }})
+
+          {{ body }}
+
+          {% for user in approved_reviews_by %}
+          Approved-by: {{ user }}
+          {% endfor %}
+
+  - name: ping author on conflicts and add 'needs-rebase' label
+    conditions:
+      - conflict
+      - -closed
+    actions:
+      label:
+        add:
+          - needs-rebase
+      comment:
+        message: >
+          This pull request has merge conflicts that must be resolved before it
+          can be merged. @{{author}} please rebase it.
+          https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork
+
+  - name: remove 'needs-rebase' label when conflict is resolved
+    conditions:
+      - -conflict
+      - -closed
+    actions:
+      label:
+        remove:
+          - needs-rebase

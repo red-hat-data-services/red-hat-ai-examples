@@ -95,6 +95,30 @@ markdownlint --fix .
 pre-commit run --all-files
 ```
 
+## Working with Jupyter Notebooks
+
+This repository uses `nbstripout` (via pre-commit) to automatically strip outputs and some metadata from Jupyter notebooks before they are committed. This keeps diffs small and avoids committing large or transient outputs.
+
+### Preserving Specific Cell Outputs
+
+In some cases, you may need to keep the output of a particular cell (for example, a reference plot or a summary table that is important for readers). To **exclude a cell's output from being stripped by `nbstripout`**, mark the cell with special metadata:
+
+- **Using a cell tag (recommended)**
+  - Select the cell
+  - In the right sidebar, open the **Tags** panel
+  - Add the tag `keep_output`
+
+- **Using cell metadata directly**
+  - Open the cell metadata editor and add:
+
+    ```json
+    {
+      "keep_output": true
+    }
+    ```
+
+Cells tagged with `keep_output` (or with metadata `"keep_output": true`) will keep their outputs even when the `nbstripout` pre-commit hook runs. All other cells will have their outputs stripped as usual.
+
 ## Code Quality Standards
 
 All contributions must pass the automated code quality checks before being merged. This includes:

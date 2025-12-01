@@ -3,6 +3,21 @@
 # Run manually: pre-commit run --all-files
 
 repos:
+  # Strip outputs from Jupyter notebooks
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.2
+    hooks:
+      - id: nbstripout
+        args:
+          - --keep-id
+          - --drop-empty-cells
+          - --extra-keys
+          - >-
+            metadata.widgets
+            cell.metadata.execution
+            cell.metadata.scrolled
+            cell.metadata.collapsed
+
   # Python linting and formatting with Ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.4
