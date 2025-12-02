@@ -14,7 +14,7 @@
 
 ## Knowledge generation and expanding seed dataset into Q&A
 
-In this module, you expand the curated seed examples into a larger set of Q&A pairs by using a teacher model and local utilities. 
+In this module, you expand the curated seed examples into a larger set of Q&A pairs by using a teacher model and local utilities.
 
 ![Knowledge Generation Flow Diagram](../../../assets/usecase/knowledge-tuning/Knowledge%20Generation.png)
 
