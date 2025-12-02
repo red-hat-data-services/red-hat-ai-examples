@@ -119,6 +119,29 @@ In some cases, you may need to keep the output of a particular cell (for example
 
 Cells tagged with `keep_output` (or with metadata `"keep_output": true`) will keep their outputs even when the `nbstripout` pre-commit hook runs. All other cells will have their outputs stripped as usual.
 
+## Notebook & Knowledge-Tuning Tests
+
+In addition to lint/format checks, every PR must pass the automated notebook suites:
+
+1. **Install shared dependencies** (one time):
+
+   ```bash
+   cd tests
+   pip install -e .
+   ```
+
+2. **Run both suites before pushing**:
+
+   ```bash
+   python tests/format_checks/format_checks.py
+   python tests/knowledge-tuning/run_knowledge_tuning_tests.py
+   ```
+
+The format checks validate *all notebooks and `pyproject.toml` files in the repository* (metadata cleanliness, import syntax, dependency declarations).
+The knowledge-tuning suite validates the mocked utility functions that power `examples/knowledge-tuning/`.
+
+Each runner emits JUnit + HTML reports under `tests/test-results/<suite>/`. Fix all failures locally before opening a pull request.
+
 ## Code Quality Standards
 
 All contributions must pass the automated code quality checks before being merged. This includes:
