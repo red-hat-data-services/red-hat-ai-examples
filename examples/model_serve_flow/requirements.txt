@@ -1,0 +1,8 @@
+torch==2.9.0
+transformers
+llmcompressor
+protobuf
+sentencepiece
+vllm>=0.11.0
+git+https://github.com/EleutherAI/lm-evaluation-harness.git@main#egg=lm-eval[ifeval]
+
