@@ -5,3 +5,4 @@ protobuf
 sentencepiece
 vllm>=0.11.0
 lm-eval[ifeval]>=0.4.8
+openai==2.8.1
