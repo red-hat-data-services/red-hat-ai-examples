@@ -1,6 +1,6 @@
 import os, pickle
 from typing import Union
-from openai import OpenAI
+# from openai import OpenAI
 import torch
 from lm_eval.evaluator import simple_evaluate
 
