@@ -1,16 +1,21 @@
-## Goal: 
-This document will compare the system level performance of the compressed and base models. 
+## Goal
 
-## Hardware:
+This document will compare the system level performance of the compressed and base models.
+
+## Hardware
+
 Single L40S GPU, 46GB
 
-## Base Model:
+## Base Model
+
 LLama-3.1-8B-Instruct
 
-## Quantized Model:
+## Quantized Model
+
 LLama-3.1-8B-Instruct-int8-dynamic
 
 ## Quantization Scheme
+
 Int W8A8
 
 ## Performance Results for Base Model
@@ -40,9 +45,9 @@ This table focuses on how **long** requests take and the latency characteristics
 |=============|=========|========|=========|=========|======|======|=======|=======|
 ```
 
-2.  **Server Throughput Statistics**
+1. **Server Throughput Statistics**
 
-This table focuses on how many requests the base model server can handle per second. Throughput can be thought of as the **rate** (or time required) of processing. 
+This table focuses on how many requests the base model server can handle per second. Throughput can be thought of as the **rate** (or time required) of processing.
 
 ```text
 ℹ Server Throughput Statistics
@@ -64,12 +69,15 @@ This table focuses on how many requests the base model server can handle per sec
 |=============|=====|======|=======|=======|========|========|========|=======|=======|========|
 
 ```
+
 ## Performance results for compressed model
+
 1. **Request Latency Statistics (Completed Requests)**
 
 This table focuses on how **long** requests take and the latency characteristics of the server.
 
 ```text
+
 ℹ Request Latency Statistics (Completed Requests)
 |=============|=========|========|=========|=========|======|======|=======|=======|
 | Benchmark   | Request Latency || TTFT             || ITL        || TPOT         ||
@@ -90,10 +98,12 @@ This table focuses on how **long** requests take and the latency characteristics
 
 ```
 
-2.  **Server Throughput Statistics**
+1. **Server Throughput Statistics**
 
-This table focuses on how many requests a server can handle per second. Throughput can be thought of as the **rate** (or time required) of processing. 
+This table focuses on how many requests a server can handle per second. Throughput can be thought of as the **rate** (or time required) of processing.
+
 ```text
+
 Server Throughput Statistics
 |=============|=====|======|=======|=======|========|========|=======|========|=======|========|
 | Benchmark   | Requests                |||| Input Tokens   || Output Tokens || Total Tokens  ||
@@ -112,19 +122,25 @@ Server Throughput Statistics
 | constant    | 2.5 | 2.2  | 44.0  | 37.5  | 2733.0 | 2733.5 | 829.7 | 1123.5 | 831.5 | 3445.2 |
 |=============|=====|======|=======|=======|========|========|=======|========|=======|========|
 ```
+
 ### Concurrency Comparison
+
 The compressed model can handle more requests concurrently because compressing the model weights frees up GPU memory, allowing more space for the KV cache. If there is more memory available for storing KV cache, more and longer requests can be handled by the system.
-   - Max concurrent requests handled by the compressed model: 44.0
-   - Max concurrent requests handled by the base model: 34.0
+
+- Max concurrent requests handled by the compressed model: 44.0
+- Max concurrent requests handled by the base model: 34.0
 
 ### TTFT and ITL Comparison
+
 The compressed model exhibits lower TTFT and ITL than the base model, even while sustaining higher median concurrency:
 
-```
+```text
+
  Compressed model: median concurrency = 44.0, ITL = 34.5 ms
 
  Base model: median concurrency = 34.0, ITL = 39.6 ms
 ```
+
 This indicates that the compressed model maintains better latency characteristics under higher load.
 
 As the model is compressed, matrix multiplications are executed in lower precision as compared to higher precisions for the base model. This makes the computations faster. This benefit is most pronounced during the prefill phase, where the model processes the entire input prompt in parallel. As a result, the compressed model achieves a lower Time to First Token (TTFT).
@@ -139,7 +155,7 @@ The ITL degradation ratio (ITL at highest concurrency / ITL at lowest concurrenc
 
 As the concurrency increases, meaning more and more requests are processed simultaneously, the time required for the compressed model to produce the next token increases at a higher rate than the base model. The reason the W8A8 models (both INT8 and FP8) show a higher ITL degradation factor (2.34)  than the Base FP16/BF16 model (1.78) is the required **dynamic re-quantization** process that happens per layer, per token, per sequence.
 
-As we have performed **dynamic** quantization, while the weights are quantized beforehand (static), the activations for every layer of the model are quantized on the fly during inference (dynamic) when generating a token. This dynamic transformation adds an overhead. 
+As we have performed **dynamic** quantization, while the weights are quantized beforehand (static), the activations for every layer of the model are quantized on the fly during inference (dynamic) when generating a token. This dynamic transformation adds an overhead.
 
 Quantizing activations dynamically involves the following steps:
 
@@ -154,9 +170,10 @@ Quantizing activations dynamically involves the following steps:
 | Output Activation         | FP16 / BF16    | Cast output back to higher precision |
 
 ```
-These extra steps of first converting the activations to lower precision before performing MatMul, and then converting them back to higher precision for the next layer adds an overhead for the compressed model. This additional computation piles up when the number of requests to be handled in parallel is large - more requests, more overhead computation. 
 
-```
+These extra steps of first converting the activations to lower precision before performing MatMul, and then converting them back to higher precision for the next layer adds an overhead for the compressed model. This additional computation piles up when the number of requests to be handled in parallel is large - more requests, more overhead computation.
+
+```text
    ITL degradation ratio compressed model = 34.5/14.7 = 2.34
    ITL degradation ratio base model = 39.6/22.2 = 1.78
 ```

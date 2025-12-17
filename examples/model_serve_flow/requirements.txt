@@ -1,6 +1,6 @@
 torch
 transformers==4.55.2
-llmcompressor>=0.5.1 
+llmcompressor>=0.5.1
 protobuf
 sentencepiece
 vllm>=0.11.0

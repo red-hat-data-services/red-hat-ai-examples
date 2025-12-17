@@ -1,9 +1,10 @@
-import os, pickle
+import os
+import pickle
 from typing import Union
-from openai import OpenAI
+
 import torch
-import pandas as pd
 from lm_eval.evaluator import simple_evaluate
+from openai import OpenAI
 
 
 def model_size_gb(model):
@@ -17,7 +18,7 @@ def model_size_gb(model):
     total = 0
     for param in model.parameters():
         total += param.nelement() * param.element_size()
-    size_gb =  total / (1024 * 1024 * 1024)  # GB
+    size_gb = total / (1024 * 1024 * 1024)  # GB
     # try:
     #     dtype = next(model.parameters()).dtype
     # except StopIteration:
@@ -31,31 +32,31 @@ def tokenize_for_calibration(
     tokenizer,
     max_length,
     model_type="general",
-    custom_template=None  # dictionary with 'text' and 'mapping'
+    custom_template=None,  # dictionary with 'text' and 'mapping'
 ):
     """
     Tokenize dataset text examples for use in GPTQ / LM Compressor calibration.
-    
+
     This function prepares text inputs according to the expected prompting format
     of different model types (general, chat, instruction, code). Calibration text
     should resemble the inputs the model will see in real usage so that activation
     statistics are accurate for quantization.
-    
+
     Behavior:
     - If a custom template dictionary (`custom_template`) is provided, the template text
       is applied to each example using the specified placeholder.
     - If `custom_template` is not provided, a default template is selected based on
       `model_type` using predefined mappings.
     - For general-purpose models, the default template is raw text (`"{text}"`).
-    - For chat, instruction, or code models, structured templates are applied 
+    - For chat, instruction, or code models, structured templates are applied
       (e.g., "User: ...\nAssistant:", instruction headers, or code docstring format).
     - Only a single column from the dataset is required for calibration; the placeholder
       in the template is filled with values from this column.
-    
+
     Args:
         examples (dict):
             A batch from a Hugging Face dataset.
-        column (str):
+        input_column (str):
             Name of the column that contains text to be used for calibration.
         tokenizer (transformers.PreTrainedTokenizerBase):
             The tokenizer associated with the model being calibrated.
@@ -77,39 +78,30 @@ def tokenize_for_calibration(
                     "placeholder": "content"
                 }
             If provided, this template is used instead of the default template.
-    
+
     Returns:
         dict:
             A dictionary containing tokenized fields (e.g., "input_ids",
             "attention_mask") compatible with LM Compressor / GPTQ calibration.
     """
-    
-    
+
     DEFAULT_TEMPLATES = {
-    "general": "{text}",
-    "chat": "User: {text}\nAssistant:",    
-    "instruction": (
-        "Instruction: {text}\n"
-        "Input:\n"
-        "Output:"
-    ),
-    "code": (
-        "# Task description:\n"
-        "{text}\n"
-        "# Solution:"
-    )
+        "general": "{text}",
+        "chat": "User: {text}\nAssistant:",
+        "instruction": ("Instruction: {text}\nInput:\nOutput:"),
+        "code": ("# Task description:\n{text}\n# Solution:"),
     }
-    tokenizer.pad_token = tokenizer.eos_token    
+    tokenizer.pad_token = tokenizer.eos_token
     try:
         texts = examples[input_column]
         if isinstance(texts, str):
-            texts = [texts] # huggingface tokenizer expects a list 
-    except (KeyError, TypeError):
+            texts = [texts]  # huggingface tokenizer expects a list
+    except (KeyError, TypeError) as err:
         raise ValueError(
-            f"Expected `examples` to contain a {column} field. "
-            f"Please ensure your dataset has a {column} column."
-        )
-    
+            f"Expected `examples` to contain a {input_column} field. "
+            f"Please ensure your dataset has a {input_column} column."
+        ) from err
+
     # Choose template: user-defined or default
     if custom_template is None:
         # Use default template
@@ -117,16 +109,17 @@ def tokenize_for_calibration(
         placeholder = "text"
     else:
         # use custom template
-        if not isinstance(custom_template, dict) or \
-        "template_text" not in custom_template or \
-        "placeholder" not in custom_template:
+        if (
+            not isinstance(custom_template, dict)
+            or "template_text" not in custom_template
+            or "placeholder" not in custom_template
+        ):
             raise ValueError(
                 "custom_template must be a dict containing keys 'template_text' and 'placeholder'."
             )
         template = custom_template["template_text"]
         placeholder = custom_template.get("placeholder")
-    
-    
+
     if custom_template is not None:
         # check if the provided place holder exists in the custom template
         if "{" + placeholder + "}" not in template:
@@ -135,27 +128,23 @@ def tokenize_for_calibration(
             )
     # apply template
     texts = [template.format(**{placeholder: text}) for text in texts]
-    
-            
-            
+
     # Tokenize
     return tokenizer(
-        texts,
-        truncation=True,
-        max_length=max_length,
-        padding="max_length"
+        texts, truncation=True, max_length=max_length, padding="max_length"
     )
 
 
-def generate(model: str, 
-             prompt: str,
-             host: str = "127.0.0.1",
-             port: int = 8000,             
-             api_key: str = "empty",
-             max_tokens: int = 256,
-             seed: int = 42,
-             temperature = 0.7
-            ):
+def generate(
+    model: str,
+    prompt: str,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    api_key: str = "empty",
+    max_tokens: int = 256,
+    seed: int = 42,
+    temperature=0.7,
+):
     """
     Query a locally running vLLM server using the OpenAI-compatible API.
 
@@ -184,7 +173,7 @@ def generate(model: str,
 
     # Construct the OpenAI-compatible base URL internally
     base_url = f"http://{host}:{port}/v1"
-    
+
     # initialize an OpenAI client
     llm = OpenAI(base_url=base_url, api_key=api_key)
 
@@ -203,14 +192,17 @@ def generate(model: str,
 
     return response.choices[0].message.content
 
-def stream(model: str, 
-         prompt: str,
-         host: str = "127.0.0.1",
-         port: int = 8000,             
-         api_key: str = "empty",
-         max_tokens: int = 256,
-         seed: int = 42,
-         temperature = 0.7):
+
+def stream(
+    model: str,
+    prompt: str,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    api_key: str = "empty",
+    max_tokens: int = 256,
+    seed: int = 42,
+    temperature=0.7,
+):
     """Stream response token by token.
     Args:
         messages (list): List of messages in the chat format.
@@ -224,15 +216,13 @@ def stream(model: str,
     messages.append(user_message)
 
     stream = llm.chat.completions.create(
-        model= model,
-        messages=messages,
-        stream=True,
-        seed=42
+        model=model, messages=messages, stream=True, seed=42
     )
     for chunk in stream:
         if content := chunk.choices[0].delta.content:
             yield content
-            
+
+
 def extract_task_metrics(results):
     """
     Extracts per-task metrics from the 'results' section of an lm-eval result JSON.
@@ -245,14 +235,13 @@ def extract_task_metrics(results):
     for task_name, metrics in task_results.items():
         # Create a new dictionary excluding the "alias" key
         cleaned_metrics = {
-            key: value
-            for key, value in metrics.items()
-            if key != "alias"
+            key: value for key, value in metrics.items() if key != "alias"
         }
 
         cleaned[task_name] = cleaned_metrics
 
     return cleaned
+
 
 def evaluate(
     model_path: str,
@@ -262,11 +251,10 @@ def evaluate(
     device: str = None,
     limit: Union[int, float, None] = None,
     apply_chat_template: bool = False,
-    verbosity: str = None,                       
+    verbosity: str = None,
     log_samples: bool = False,
-    batch_size: Union[int, str] = None   
+    batch_size: Union[int, str] = None,
 ):
-   
     """
     Evaluate a language model on specified tasks using lm-eval-harness.
 
@@ -283,7 +271,7 @@ def evaluate(
     device : str or None, default None
         Device to run evaluation on ("cpu" or "cuda"). Auto-detected if None.
     limit : int, float, or None, default None
-        Limit number of documents per task (int for count, float for fraction). 
+        Limit number of documents per task (int for count, float for fraction).
     apply_chat_template : bool, default False
         When True, adjusts delimiter handling for chat-style prompts:
         sets the target delimiter to an empty string instead of the default whitespace.
@@ -299,38 +287,40 @@ def evaluate(
     dict
         Evaluation results from simple_evaluate.
     """
-    
-    if device is None: # check device
-        device = "cuda" if torch.cuda.is_available() else "cpu" 
+
+    if device is None:  # check device
+        device = "cuda" if torch.cuda.is_available() else "cpu"
     if limit is None:
-        limit = None if device=="cuda" else 4
+        limit = None if device == "cuda" else 4
     if batch_size is None:
-        batch_size = "auto" if device=="cuda" else 4
-        
-    model_args={"pretrained": model_path}
+        batch_size = "auto" if device == "cuda" else 4
+
+    model_args = {"pretrained": model_path}
 
     try:
         results = simple_evaluate(
-                model=model,
-                model_args=model_args,
-                tasks=tasks,  
-                num_fewshot=num_fewshot,                           
-                limit=limit,
-                device=device,                           
-                apply_chat_template=apply_chat_template,                
-                verbosity=verbosity,                       
-                log_samples=log_samples, 
-                batch_size=batch_size                                         
-            )
+            model=model,
+            model_args=model_args,
+            tasks=tasks,
+            num_fewshot=num_fewshot,
+            limit=limit,
+            device=device,
+            apply_chat_template=apply_chat_template,
+            verbosity=verbosity,
+            log_samples=log_samples,
+            batch_size=batch_size,
+        )
     except Exception as e:
-            raise RuntimeError(f"Could not run accuracy evaluation : {e}")
-        
+        raise RuntimeError("Could not run accuracy evaluation") from e
+
     return results
-                             
+
+
 def save_pickle(path, data):
     os.makedirs(path, exist_ok=True)
     with open(f"{path}/results.pkl", "wb") as f:
         pickle.dump(data, f)
+
 
 def load_pickle(path):
     with open(f"{path}/results.pkl", "rb") as f:
