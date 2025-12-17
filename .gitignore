@@ -1,7 +1,4 @@
 metrics/**
-examples/model_serve_flow/base_model
-examples/model_serve_flow/test_server.ipynb
-
 pipelines/*.yaml
 # Ignore all the uv lock file
 

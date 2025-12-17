@@ -1,0 +1,9 @@
+[project]
+name = "Performance_Benchmarking"
+version = "0.1.0"
+description = "Benchmark system level performance of a LLM using GuideLLM"
+requires-python = ">=3.12"
+
+dependencies = [
+    "guidellm==0.2.0"
+]

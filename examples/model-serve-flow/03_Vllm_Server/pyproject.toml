@@ -1,0 +1,10 @@
+[project]
+name = "vLLM_Server"
+version = "0.1.0"
+description = "Serve a LLM using vLLM"
+requires-python = ">=3.12"
+
+dependencies = [
+    "vllm>=0.11.0",
+    "openai==2.8.1"
+]
