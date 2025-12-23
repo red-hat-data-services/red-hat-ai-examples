@@ -74,7 +74,7 @@ def evaluate(
             batch_size=batch_size,
         )
     except Exception as e:
-        raise RuntimeError("Could not run accuracy evaluation") from e
+        raise RuntimeError(f"Could not run accuracy evaluation: {e}") from e
 
     return results
 

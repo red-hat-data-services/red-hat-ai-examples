@@ -5,6 +5,5 @@ description = "Evaluate the accuracy of a LLM (full + quantized)"
 requires-python = ">=3.12"
 
 dependencies = [
-    "torch==2.8.0",
-    "lm-eval[ifeval]>=0.4.8",
+    "lm-eval[ifeval]==0.4.9.2",
 ]

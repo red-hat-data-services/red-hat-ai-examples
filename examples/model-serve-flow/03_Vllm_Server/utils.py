@@ -17,7 +17,7 @@ def generate(
     Parameters
     ----------
     model : str
-        Name of the model served by vLLM (the folder name of the compressed model).
+        Path to the model served by vLLM (the folder name of the compressed model).
     messages : list[dict]
         Chat messages in OpenAI format: [{"role": "user", "content": "..."}]
     host : str, optional
@@ -71,7 +71,20 @@ def stream(
 ):
     """Stream response token by token.
     Args:
-        messages (list): List of messages in the chat format.
+    ----------
+    messages : list[dict]
+        Chat messages in OpenAI format: [{"role": "user", "content": "..."}]
+    host : str, optional
+        Host where the vLLM server is running. Defaults to "127.0.0.1".
+    port : int, optional
+        Port where the vLLM server is listening. Defaults to 8000.
+    temperature : float, optional
+        Sampling temperature for generation.
+    max_tokens : int, optional
+        Maximum number of tokens to generate.
+    seed : int or None, optional
+        Seed for reproducible sampling.
+        
     yields: str: Yields response token by token.
     """
     base_url = f"http://{host}:{port}/v1"
