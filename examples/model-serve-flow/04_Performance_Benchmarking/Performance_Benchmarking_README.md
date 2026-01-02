@@ -37,4 +37,4 @@ Results will be saved in the `results` folder.
 
 ## Next step
 
-Proceed to [Step 5: Comparison](../05_Comparison).
+Proceed to [Step 5: Comparison](../05_Comparison) for [accuracy comparison](../05_Comparison/Accuracy_Comparison.md) and [performance comparison](../05_Comparison/Performance_Comparison.md).

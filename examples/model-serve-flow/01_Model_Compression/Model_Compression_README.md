@@ -33,4 +33,4 @@ You should be able to downlaod a model, compress it and verify that the compress
 
 ## Next step
 
-Proceed to [Step 2: Accuracy_Benchmarking.md](../02_Accuracy_Benchmarking/Accuracy_Benchmarking.md).
+Proceed to [Step 2: Accuracy_Benchmarking.md](../02_Accuracy_Benchmarking/Accuracy_Benchmarking_README.md).

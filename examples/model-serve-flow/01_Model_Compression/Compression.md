@@ -60,7 +60,7 @@ This scheme requires a calibration dataset as it is a data-aware quantization te
 
 To quantize a model with the W8A8-INT8 scheme, we first apply Smooth Quant and then compress the model using the GPTQ algorithm.
 
-**SmoothQuant** SmoothQuant operates on the activations (outputs of intermediate layers that become inputs to the next layer) produced by the base model. These activations can sometimes have extreme values (outliers). SmoothQuant scales the activations to reduce these outliers so that most values fall within a reasonable range, e.g., [-4, 4].
+**SmoothQuant**: SmoothQuant operates on the activations (outputs of intermediate layers that become inputs to the next layer) produced by the base model. These activations can sometimes have extreme values (outliers). SmoothQuant scales the activations to reduce these outliers so that most values fall within a reasonable range, e.g., [-4, 4].
 
 To ensure that the overall layer output remains unchanged (Y = W * A), SmoothQuant also scales the corresponding weights by multiplying them with the same factor.
 
@@ -72,7 +72,7 @@ $W^*=W∗s$
 
 This way, the layer output remains approximately the same, but the activations are now suitable for stable low-bit quantization.
 
-**GPTQModifier** GPTQ takes the smoothed activations and weights produced by SmoothQuant and computes a quantization scale for each weight matrix. This scale determines how weights will be mapped into low-bit integers (e.g., int8).
+**GPTQModifier**: GPTQ takes the smoothed activations and weights produced by SmoothQuant and computes a quantization scale for each weight matrix. This scale determines how weights will be mapped into low-bit integers (e.g., int8).
 
 GPTQ then:
 

@@ -42,4 +42,4 @@ Testing the server using `generate` and  `stream` methods should yield results.
 
 ## Next step
 
-Proceed to [Step 4: Performance Benchmarking](../04_Performance_Benchmarking.md).
+Proceed to [Step 4: Performance Benchmarking](../04_Performance_Benchmarking/Performance_Benchmarking_README.md).

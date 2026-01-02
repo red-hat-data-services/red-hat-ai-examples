@@ -36,7 +36,7 @@ By using GuideLLM, you can systematically measure the efficiency of your LLM dep
 
 ### Metrics provided by GuideLLM
 
-GuideLLM provides multiple metrics tat can be used to evaluate the performace of a LLM.
+GuideLLM provides multiple metrics that can be used to evaluate the performace of a LLM.
 
 These performance metrics include:
 
@@ -125,7 +125,7 @@ GuideLLM allows fine-grained configuration of benchmark runs. Below are the key 
 - ``poisson``: Sends requests following a Poisson distribution
 - ``sweep``: Automatically determines optimal performance points (default)
 
-**3. rate**: The numeric rate value whose meaning depends on profile - for sweep it's the number of benchmarks, for concurrent it's simultaneous requests, for constant/poisson it's requests per second. GuideLLM supports multiple workload simulation modes. Each rate type determines which benchmarks are run. The example above uses sweep, which runs a series of benchmarks for 30 seconds each: first, a synchronous test that sends one request at a time (representing minimal traffic), then a throughput test where all requests are sent in parallel to identify the system's maximum RPS. Finally, it runs intermediate RPS levels to capture latency metrics across the full traffic spectrum.
+**3. rate**: The numeric rate value whose meaning depends on profile - for sweep it's the number of benchmarks, for concurrent it's simultaneous requests, for constant/poisson it's requests per second. GuideLLM supports multiple workload simulation modes. Each rate type determines which benchmarks are run. This example uses sweep, which runs a series of benchmarks for 120 seconds each: first, a synchronous test that sends one request at a time (representing minimal traffic), then a throughput test where all requests are sent in parallel to identify the system's maximum RPS. Finally, it runs intermediate RPS levels to capture latency metrics across the full traffic spectrum.
 
 **4. data**: Specifies the dataset source. This can be a file path, Hugging Face dataset ID, synthetic data configuration, or in-memory data. In this case, we will be setting it to define a synthetic data configuration.
 Synthetic datasets allow you to generate data on the fly with customizable parameters. This is useful for controlled experiments, stress testing, and simulating specific scenarios. For example, you might want to evaluate how a model handles long prompts or generates outputs with specific characteristics. Data can be configured for different use cases like chat, RAG, code generation etc.

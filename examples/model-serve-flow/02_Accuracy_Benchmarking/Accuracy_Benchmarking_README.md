@@ -35,4 +35,4 @@ All cells should run successfully and base and compressed accuracy results shoul
 
 ## Next step
 
-Proceed to [Step 3: vLLM_Server](../03_Vllm_Server/Vllm_Server.md).
+Proceed to [Step 3: vLLM_Server](../03_Vllm_Server/Vllm_Server_README.md).

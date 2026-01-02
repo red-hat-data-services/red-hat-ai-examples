@@ -19,7 +19,7 @@ For single-node, single-GPU or multi-GPU (but not multi-node) vLLM serving, the 
 
 --host                  : Host IP address (default 127.0.0.1)
 
---gpu-memory-utilization: controls what fraction of each GPU’s memory vLLM will use for the model executor and KV cache. For example, --gpu-memory-utilization 0.5 means vLLM will use 50% of the GPU memory.
+--gpu-memory-utilization: Controls what fraction of each GPU’s memory vLLM will use for the model executor and KV cache. For example, --gpu-memory-utilization 0.5 means vLLM will use 50% of the GPU memory.
 
 --quantization          : Method used to quantize the weights
 
