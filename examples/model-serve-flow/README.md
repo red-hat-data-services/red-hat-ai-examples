@@ -1,12 +1,19 @@
-## Example Workflow
-
-This example demonstrates the end-to-end workflow for quantizing, benchmarking, serving, and evaluating a LLaMA-3.1 8B model. Each step is designed to optimize model performance while maintaining accuracy and usability in production.
-
 ## Project Overview
 
 The `model-serve-flow` project demonstrates an end-to-end workflow for compressing, evaluating, serving, and benchmarking large language models in a production-style setup.
 
 The project is organized as a sequence of clearly defined steps, each representing a distinct stage in the model compression and deployment lifecycle, from quantization and accuracy evaluation to inference serving and performance benchmarking.
+
+This repository uses a LLaMA-3.1 8B model as a concrete example to illustrate the full workflow, with each step designed to optimize model performance while maintaining accuracy and usability in production.
+
+## Setup & Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/red-hat-data-services/red-hat-ai-examples.git
+cd red-hat-ai-examples/examples/model-serve-flow
+```
 
 ## Detailed Step-by-Step Workflow
 
@@ -16,11 +23,11 @@ Quantization is the process of converting model parameters (weights and activati
 
 **Why we quantize**:
 
-- Reduce memory usage: Lower precision weights occupy less GPU memory, allowing larger batch sizes and longer KV caches, which improves overall system throughput.
+- *Reduce memory usage*: Lower precision weights occupy less GPU memory, allowing larger batch sizes and longer KV caches, which improves overall system throughput.
 
-- Speed up computation: Low-precision matrix multiplications (INT8/FP8) are inherently faster on modern GPU architectures than high-precision operations, significantly reducing inference time.
+- *Speed up computation*: Low-precision matrix multiplications (INT8/FP8) are inherently faster on modern GPU architectures than high-precision operations, significantly reducing inference time.
 
-- Enable deployment on resource-constrained environments: Quantization makes large language models feasible for real-time applications and devices with limited VRAM.
+- *Enable deployment on resource-constrained environments*: Quantization makes large language models feasible for real-time applications and devices with limited VRAM.
 
 **How We Quantize in This Example**
 
@@ -41,15 +48,13 @@ Quantization is a lossy compression technique. Converting floating-point numbers
 
 **Why we benchmark accuracy**:
 
-- Ensure minimal degradation: Benchmarking verifies that the accuracy drop introduced by quantization is within an acceptable tolerance for production needs
+- *Ensure minimal degradation*: Benchmarking verifies that the accuracy drop introduced by quantization is within an acceptable tolerance for production needs
 
-- Compare performance trade-offs: It provides critical data to confirm that the speed improvements gained from compression do not come at a significant cost to model capabilities (e.g., reasoning, knowledge)
+- *Compare performance trade-offs*: It provides critical data to confirm that the speed improvements gained from compression do not come at a significant cost to model capabilities (e.g., reasoning, knowledge)
 
 **How We Perform Accuracy Benchmarking**
 
-Models Evaluated:
-
-Accuracy evaluation is done for both the original base model and compressed model
+`Models Evaluated` - Accuracy evaluation is done for both the original base model and compressed model.
 
 `Tool Used` – LMEval
 
@@ -71,7 +76,11 @@ More details on evaluating LLMs is provided in [Accuracy_Evaluation.md](02_Accur
 
 ### 3. Launching the Model for Inference using vLLM
 
-vLLM is a very popular inference engine used for deploying LLMs. Various performance benchmarking tools like GuideLLM are used to evaluate the performance of models hosted by such systems. The idea is to test the performance keeping a production setup in mind. So we serve both base and compressed models using vLLM so their performance can be assessed and compared using GuideLLM.
+vLLM is a very popular inference engine used for deploying LLMs. Various performance benchmarking tools like GuideLLM are used to evaluate the performance of models hosted by such systems.
+
+**Why we deploy models using vLLM**:
+
+The idea is to test the performance keeping a production setup in mind. So we serve both base and compressed models using vLLM so their performance can be assessed and compared using GuideLLM.
 
 **How We Serve the Models**
 
