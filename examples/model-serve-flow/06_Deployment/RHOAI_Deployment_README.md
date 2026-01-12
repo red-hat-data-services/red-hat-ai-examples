@@ -24,7 +24,7 @@ Before deploying the model, ensure the following conditions are met:
 2. Navigate to the `Deployments tab`.
 3. Click `Deploy Model`.
 
-![Shown here](assets/4.png)
+![Shown here](../assets/4.png)
 
 ### Step 2: Configure Model Details
 
@@ -42,7 +42,7 @@ red-hat-ai-examples/examples/model-serve-flow/Llama_3.1_8B_Instruct_int8_dynamic
 1. For **Model type**, select `Generative AI model (Examople LLM)`
 2. Click **Next** to proceed to the `Model Deployment` Section
 
-![Shown here](assets/5.png)
+![Shown here](../assets/5.png)
 
 ### Step 3: Configure Model Deployment
 
@@ -63,7 +63,7 @@ Example: `llama-3.1-8b-int8"`
 5. Set the number of replicas (can be left as 1).
 6. Click **Next** to go to `Advanced Settings`
 
-![Shown here](assets/6.png)
+![Shown here](../assets/6.png)
 
 ### Step 4: Configure Advanced Settings
 
@@ -81,7 +81,7 @@ Fill out the **Advanced Settings** section:
 4. Select `Rolling update` as the **Deployment strategy**
 5. Click **Next** and review the deployment details.
 
-![Shown here](assets/7.png)
+![Shown here](../assets/7.png)
 
 ### Step 5: Deploy the Model
 
@@ -99,9 +99,9 @@ After the deployment status shows Started, you need the endpoints and token to i
 3. Copy the token.
 4. Click on the **internal and external endpoints** to get the endpoints. Use the `internal endpoint` when accessing the model from within the cluster and the `external enpoint` from outside the cluster.
 
-![Retrieve token](assets/8.png)
+![Retrieve token](../assets/8.png)
 
-![Retrieve endpoints](assets/9.png)
+![Retrieve endpoints](../assets/9.png)
 
 ## Validating the Deployment
 
@@ -197,16 +197,16 @@ Go to OpenshiftAI Console
 
 Click on Workloads and then on Pods
 
-   ![Shown here](assets/1.png)
+   ![Shown here](../assets/1.png)
 
 Search by the name of your project to get the list of pods
 
 Click on your project
 
-   ![Shown here](assets/2.png)
+   ![Shown here](../assets/2.png)
 
 Click on Pods again. This will list all the pods associated with your project.
 
 Find your deployment pod by the name you had set up for model deployment.
 
-   ![Shown here](assets/3.png)
+   ![Shown here](../assets/3.png)
