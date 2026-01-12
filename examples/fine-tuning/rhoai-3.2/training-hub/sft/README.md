@@ -10,14 +10,10 @@ It uses Training-Hub SFT and PyTorch FSDP to distribute the training on multiple
 
 ## Requirements
 
-* An OpenShift cluster with OpenShift AI (RHOAI) 3.0 installed:
+* An OpenShift cluster with OpenShift AI (RHOAI) 3.2 installed:
   * The `dashboard`, `trainingoperator` and `workbenches` components enabled
 * Sufficient worker nodes for your configuration(s) with NVIDIA GPUs (Ampere-based or newer recommended).
 * A dynamic storage provisioner supporting RWX PVC provisioning
-
-## Note
-
-* This example is compatible with RHOAI version 3.0. For a version compatible with RHOAI 3.2 see [this README](../../rhoai-3.2/training-hub/sft/README.md).
 
 ## Setup
 
@@ -48,7 +44,7 @@ It uses Training-Hub SFT and PyTorch FSDP to distribute the training on multiple
 ![](./images/05.png)
 * From the workbench, clone this repository, i.e., `https://github.com/Red-hat-data-services/red-hat-ai-examples`
 ![](./docs/06.png)
-* Navigate to the `red-hat-ai-examples/examples/fine-tuning/training-hub/sft` directory and open the `sft` notebook
+* Navigate to the `red-hat-ai-examples/examples/fine-tuning/rhoai-3.2/training-hub/sft` directory and open the `sft` notebook
 
 > [!IMPORTANT]
 >

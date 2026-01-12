@@ -4,10 +4,6 @@ This example provides an overview of the OSFT algorithm and an example on how to
 
 Our example will go through distributed training on two nodes with two GPUs each (2x48GB) however it can be tweaked to run on smaller configurations.
 
-## Note
-
-This example is compatible with RHOAI version 3.0. For a version compatible with RHOAI 3.2 see [this README](../rhoai-3.2/osft/README.md).
-
 ## Overview
 
 Fine-tuning language models is hard—you need good data, lots of resources, and even small changes can cause problems. This makes it tough to add new abilities to a model. This problem is called continual learning and is what our new training technique, orthogonal subspace fine-tuning (OSFT), solves.
@@ -73,9 +69,8 @@ osft(..., use_processed_dataset=True)
 
 ## General requirements to run the example notebook
 
-- An OpenShift cluster with OpenShift AI (RHOAI 3.0) installed:
+- An OpenShift cluster with OpenShift AI (RHOAI) installed:
   - The `dashboard`, `trainingoperator` and `workbenches` components enabled
-  - Note: for a RHOAI 3.2 compatible example see [this README](../rhoai-3.2/osft/README.md).
 
 ## Hardware requirements to run the example notebook
 
@@ -141,7 +136,7 @@ osft(..., use_processed_dataset=True)
 ![](./docs/05.png)
 - From the workbench, clone this repository, i.e., `https://red-hat-data-services/red-hat-ai-examples.git`
 ![](./docs/06.png)
-- Navigate to the `examples/fine-tuning/osft` directory and open the `osft-example.ipynb` notebook
+- Navigate to the `examples/fine-tuning/rhoai-3.2/osft` directory and open the `osft-example.ipynb` notebook
 
 > [!IMPORTANT]
 >
