@@ -1,0 +1,9 @@
+[project]
+name = "Model_Compression"
+version = "0.1.0"
+description = "Compress a LLM using llmcompressor"
+requires-python = ">=3.12"
+
+dependencies = [
+    "llmcompressor==0.8.1"
+]
