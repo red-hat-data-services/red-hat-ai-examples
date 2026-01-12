@@ -188,9 +188,15 @@ Step 5 compares the accuracy and performance results of the two models.
 
 ### Recommended Execution Order
 
-For Steps 3 (vLLM Serving) and 4 (Performance Benchmarking), the notebooks should be run model-by-model, not step-by-step across models.
+**Note**: Follow this execution order if you do not have sufficient resources to run the vLLM servers for the base and compressed models simultaneously. If your system can host both models at the same time, you can execute **Step 3** for both models first, followed by **Step 4** for both models.
 
-### Correct execution order
+This example was created using a **46 GB NVIDIA L40S GPU** and uses `RedHatAI/Llama-3.1-8B-Instruct` as the base model, which requires approximately **16 GB** of GPU memory, while its compressed version requires approximately **8 GB**. With this setup, both models can be served concurrently using vLLM. When `gpu-memory-utilization` is set to `0.4`, each vLLM server instance can allocate approximately **18–19 GB** of GPU memory per model, allowing both the base and compressed models to run simultaneously on the same GPU, which sums up to **~38 GB — well within the 46 GB available**.
+
+However, if your available GPU memory is lower (for example, 20 GB), you may not be able to serve both models at the same time.
+
+If resources are not sufficient to host both models simultaneously, then for **Step 3**(vLLM Serving) and **Step 4** (Performance Benchmarking), notebooks should be executed **model-by-model**, rather than running the same step across both models before proceeding to the next step.
+
+### Correct execution order for limited resources
 
 1. Launch the vLLM server for the base model (Step 3 → [Base.ipynb](03_Vllm_Server/Base.ipynb))
 
