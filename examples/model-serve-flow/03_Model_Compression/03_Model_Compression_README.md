@@ -1,4 +1,4 @@
-# Step 1: Compress a LLM to INT8
+# Step 3: Compress the Base Model to INT8
 
 ## Navigation
 

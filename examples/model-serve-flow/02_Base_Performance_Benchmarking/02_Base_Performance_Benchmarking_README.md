@@ -1,4 +1,4 @@
-# Step 4: Evaluating System Level Performance of the Base and Compressed Models
+# Step 2: Evaluating System Level Performance of the Base Model
 
 ## Navigation
 

@@ -1,4 +1,4 @@
-# Step 2: Evaluating Accuracy of a Model
+# Step 1: Evaluating Accuracy of Base Model
 
 ## Navigation
 

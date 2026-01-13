@@ -1,4 +1,4 @@
-# Step 2: Evaluating Accuracy of a Model
+# Step 4: Evaluating Accuracy of the Compressed Model
 
 ## Navigation
 
