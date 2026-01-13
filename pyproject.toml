@@ -1,0 +1,85 @@
+[project]
+name = "red-hat-ai-examples"
+version = "0.1.0"
+description = "Red Hat AI Examples - Notebooks and flows for AI/ML on Red Hat platforms"
+requires-python = ">=3.11"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.6.0",
+    "nbformat>=5.10.0",
+    "nbconvert>=7.16.0",
+    "jupyter>=1.1.0",
+    "ipykernel>=6.29.0",
+    "polars>=1.17.0",
+]
+
+dev = [
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+]
+
+[tool.pytest.ini_options]
+# Test discovery patterns
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+# Test paths
+testpaths = ["tests"]
+
+# Add markers
+markers = [
+    "smoke: Smoke tests that run quickly",
+    "validation: Validation tests for notebook structure",
+    "slow: Tests that take longer to run",
+    "integration: Integration tests",
+]
+
+# Output options
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--disable-warnings",
+]
+
+# Ignore certain paths
+norecursedirs = [
+    ".git",
+    ".tox",
+    "dist",
+    "build",
+    "*.egg",
+    "examples/*/output",
+    "examples/*/.venv",
+    ".venv",
+    "venv",
+]
+
+# Filter warnings
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["examples"]
+omit = [
+    "*/.venv/*",
+    "*/venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

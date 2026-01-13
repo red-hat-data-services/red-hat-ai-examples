@@ -1,37 +1,33 @@
-# Step 6: Evaluation
+# Module 6: Evaluation
 
 ## Navigation
 
 - [Knowledge Tuning Overview](../README.md)
 - [Setup](../00_Setup/00_Setup_README.md)
-- [Step 1: Base Model Evaluation](../01_Base_Model_Evaluation/01_Base_Model_Evaluation_README.md)
-- [Step 2: Data Processing](../02_Data_Processing/02_Data_Processing_README.md)
-- [Step 3: Knowledge Generation](../03_Knowledge_Generation/03_Knowledge_Generation_README.md)
-- [Step 4: Knowledge Mixing](../04_Knowledge_Mixing/04_Knowledge_Mixing_README.md)
-- [Step 5: Model Training](../05_Model_Training/05_Model_Training_README.md)
-- Step 6: Evaluation
+- [Module 1: Base Model Evaluation](../01_Base_Model_Evaluation/01_Base_Model_Evaluation_README.md)
+- [Module 2: Data Processing](../02_Data_Processing/02_Data_Processing_README.md)
+- [Module 3: Knowledge Generation](../03_Knowledge_Generation/03_Knowledge_Generation_README.md)
+- [Module 4: Knowledge Mixing](../04_Knowledge_Mixing/04_Knowledge_Mixing_README.md)
+- [Module 5: Model Training](../05_Model_Training/05_Model_Training_README.md)
+- Module 6: Evaluation
 
 ## Evaluate the trained model
 
-This step evaluates trained models and generated datasets against held-out test data. It computes metrics and produces
-human-readable reports for quality assessment.
+In this module, the notebook evaluates trained models and generated datasets against held-out test data. It computes metrics and produces human-readable reports for quality assessment.
 
 ### Prerequisites
 
-- Previous sections successfully completed in order
-- Environment variables are set via workbench secrets or `.env` file. See [.env.example](./.env.example) for reference.
+- You completed the steps in [Module 5: Model Training](../05_Model_Training/05_Model_Training_README.md).
 
-#### Environment variables
-
-- `STUDENT_MODEL_NAME` — Model name
+- The [.env.example](./.env.example) file sets the `STUDENT_MODEL_NAME` environment variable to the name of the trained model.
 
 ### Procedure
 
-1. Open the [Evaluation.ipynb](./Evaluation.ipynb) file in JupyterLab and follow the instructions directly in the notebook.
+- In JupyterLab, open the [Evaluation.ipynb](./Evaluation.ipynb) file and follow the notebook instructions.
 
 ### Verification
 
-The trained model was successfully evaluated.
+The notebook generates metrics and produces a quality assessment report.
 
 ## Next steps
 

@@ -1,48 +1,44 @@
-# Step 5: Model Training
+# Module 5: Model Training
 
 ## Navigation
 
 - [Knowledge Tuning Overview](../README.md)
 - [Setup](../00_Setup/00_Setup_README.md)
-- [Step 1: Base Model Evaluation](../01_Base_Model_Evaluation/01_Base_Model_Evaluation_README.md)
-- [Step 2: Data Processing](../02_Data_Processing/02_Data_Processing_README.md)
-- [Step 3: Knowledge Generation](../03_Knowledge_Generation/03_Knowledge_Generation_README.md)
-- [Step 4: Knowledge Mixing](../04_Knowledge_Mixing/04_Knowledge_Mixing_README.md)
-- Step 5: Model Training
-- [Step 6: Evaluation](../06_Evaluation/06_Evaluation_README.md)
+- [Module 1: Base Model Evaluation](../01_Base_Model_Evaluation/01_Base_Model_Evaluation_README.md)
+- [Module 2: Data Processing](../02_Data_Processing/02_Data_Processing_README.md)
+- [Module 3: Knowledge Generation](../03_Knowledge_Generation/03_Knowledge_Generation_README.md)
+- [Module 4: Knowledge Mixing](../04_Knowledge_Mixing/04_Knowledge_Mixing_README.md)
+- Module 5: Model Training
+- [Module 6: Evaluation](../06_Evaluation/06_Evaluation_README.md)
 
 ## Fine tuning the model
 
-This step demonstrates how to fine-tune or instruction-tune a student model using the mixed datasets produced earlier.
-Training may be done on a GPU-enabled workbench or a training cluster.
+Ihe notebook in this module demonstrates how to fine-tune a student model by using the mixed datasets produced in Module 4. The following diagram illustrates the model training workflow.
 
 ![Model Training Flow Diagram](../../../assets/usecase/knowledge-tuning/Model%20Training.png)
 
 ### Prerequisites
 
-- Previous sections successfully completed in order
-- Environment variables are set via workbench secrets or `.env` file. See [.env.example](./.env.example) for reference.
-- GPU-enabled workbench recommended for training. See [Setup](../00_Setup/00_Setup_README.md) for details.
+- You completed the steps in [Module 4: Knowledge Mixing](../04_Knowledge_Mixing/04_Knowledge_Mixing_README.md).
 
-#### Environment variables
+- Your workbench is GPU-enabled for training, as described in [Setup](../00_Setup/00_Setup_README.md).
 
-- `STUDENT_MODEL` — Model to be fine tune
+- The [.env.example](./.env.example) file sets the `STUDENT_MODEL` environment variable.
 
 ### Procedure
 
-1. Open the [Model_Training.ipynb](./Model_Training.ipynb) file in JupyterLab and follow the instructions directly in
-the notebook, or run your training script/entrypoint.
+- In JupyterLab, open the [Model_Training.ipynb](./Model_Training.ipynb) file and follow the notebook instructions.
 
 ### Verification
 
-After completing the notebook instructions, the following artifacts are generated.
+The notebook generates the following artifacts:
 
 - `output/step_05/checkpoints/` — Model checkpoints and training logs
 
 ## Debug & tips
 
-- Monitor GPU memory if needed.
+- Monitor GPU memory if, for example, the model takes longer than expected to return a result. You can use the NVIDIA System Management Interface (nvidia-smi) command-line utility to monitor the GPU utilization to determine whether the model is using GPU memory.
 
 ## Next step
 
-Proceed to [Step 6: Evaluation](../06_Evaluation/06_Evaluation_README.md).
+Proceed to [Module 6: Evaluation](../06_Evaluation/06_Evaluation_README.md).
