@@ -24,7 +24,6 @@ Compress a Large Language Model (LLM) to reduce its size and computational cost 
 
 1. ```text
         cd 01_Model_Compression
-        pip install .
 
 2. Open the [Model_Compression.ipynb](Model_Compression.ipynb) file in JupyterLab and follow the instructions directly in the notebook.
 
