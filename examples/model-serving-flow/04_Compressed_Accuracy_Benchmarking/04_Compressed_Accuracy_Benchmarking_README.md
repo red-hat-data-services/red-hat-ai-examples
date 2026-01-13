@@ -1,0 +1,35 @@
+# Step 2: Evaluating Accuracy of a Model
+
+## Navigation
+
+- [Model Serving Overview](../README.md)
+- [Step 1: Base Accuracy Benchmarking](../01_Base_Accuracy_Benchmarking/)
+- [Step 2: Base Performance Benchmarking](../02_Base_Performance_Benchmarking/)
+- [Step 3: Model Compression](../03_Model_Compression/)
+- Step 4: Base Accuracy Benchmarking
+- [Step 5: Compressed Performance Benchmarking](../05_Compressed_Performance_Benchmarking/)
+- [Step 6: Comparison](../06_Comparison)
+- [Step 7: Model Deployment](../07_Deployment)
+
+## Accuracy Benchmarking
+
+This step will use lm_eval to run accuracy benchmarking on the compressed model. The results from benchmarking the compressed model will be compared against the baseline developed by the base model.
+
+### Prerequisites
+
+- The base model has been compressed successfully.
+
+### Procedure
+
+1. ```text
+    cd ../04_Compressed_Accuracy_Benchmarking
+
+2. Open the [Compressed.ipynb](Compressed.ipynb) file in JupyterLab and follow the instructions directly in the notebook. This will give results for the base model.
+
+### Verification
+
+Results for the compressed model accuracy should be saved in the [results](../results) folder.
+
+## Next step
+
+Proceed to [Step 5: Compressed Performance Benchmarking](../05_Compressed_Performance_Benchmarking_README.md).
