@@ -2,18 +2,19 @@
 
 ## Navigation
 
-- Overview - [Knowledge Tuning Overview](../README.md)
-- Step 00 - Setup
-- Step 01 - [Base Model Evaluation](../01_Base_Model_Evaluation/01_Base_Model_Evaluation_README.md)
-- Step 02 - [Data Processing](../02_Data_Processing/02_Data_Processing_README.md)
-- Step 03 - [Knowledge Generation](../03_Knowledge_Generation/03_Knowledge_Generation_README.md)
-- Step 04 - [Knowledge Mixing](../04_Knowledge_Mixing/04_Knowledge_Mixing_README.md)
-- Step 05 - [Model Training](../05_Model_Training/05_Model_Training_README.md)
-- Step 06 - [Evaluation](../06_Evaluation/06_Evaluation_README.md)
+- [Model Serving Overview](../README.md)
+- Step 0: 00_Setup
+- [Step 1: Base Accuracy Benchmarking](../01_Base_Accuracy_Benchmarking/)
+- [Step 2: Base Performance Benchmarking](../02_Base_Performance_Benchmarking/)
+- [Step 3: Model Compression](../03_Model_Compression/)
+- [Step 4: Base Accuracy Benchmarking](../04_Compressed_Accuracy_Benchmarking/)
+- [Step 5: Compressed Performance Benchmarking](../05_Compressed_Performance_Benchmarking/)
+- [Step 6: Comparison](../06_Comparison)
+- [Step 7: Model Deployment](../07_Deployment)
 
 ## Set up your working environment
 
-To use the Knowledge Tuning example, follow these steps to set up your working environment on your Red Hat OpenShift AI cluster:
+To use the `model-serve-flow` example, follow these steps to set up your working environment on your Red Hat OpenShift AI cluster:
 
 1. [Configure resources on the OpenShift cluster](#configure-resources-on-the-openshift-cluster)
 2. [Create a project](#create-a-project)
@@ -24,8 +25,7 @@ To use the Knowledge Tuning example, follow these steps to set up your working e
 
 Ask your OpenShift cluster administrator to configure your cluster as follows:
 
-- **GPUs:** GPUs are optional for the preprocessing and mixing notebooks. In the model training step, fine-tuning
-large models requires at least one NVIDIA A100/40GB or similar. Training smaller student models requires 8–16 GB GPU.
+- **GPUs:** At least 1 GPU is required. This example was built using a 46GB L40S.
 
 - **Persistent Volumes:** Attach a persistent volume with at least 200 GB.
 
@@ -78,11 +78,19 @@ a workbench image that has the tools and libraries that you need for developing 
 
 5. Select the latest version: **2025.2**.
 
-6. For **Deployment size**, select the appropriate size for your workload.
+6. For **Deployment size**, set the following:
 
-   <!-- need to complete these steps for storage and environment variables.
-   It looks like - for environment variables - they need to set these at the notebook level rather than here in the workbench - TBD
-   -->
+   **Hardware profile** = Nvidia-GPU-Accelerator
+
+   **CPU requests** = 4
+
+   **CPU limits** = 4 to 16
+
+   **Memory requests** = 8
+
+   **Memory limits** = 32 to 64
+
+   **Nvidia GPU requests** = 1
 
 7. Click **Create workbench**.
 
@@ -130,4 +138,4 @@ README files provide details about each step in the knowledge training workflow.
 
 ## Next step
 
-Proceed to [Step 1: Base Model Evaluation](../01_Base_Model_Evaluation/01_Base_Model_Evaluation_README.md).
+Proceed to [Step 1: Base Accuracy Benchmarking](../01_Base_Accuracy_Benchmarking/).
