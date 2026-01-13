@@ -17,36 +17,15 @@ cd red-hat-ai-examples/examples/model-serve-flow
 
 ## Detailed Step-by-Step Workflow
 
-### 1. Quantize the Model
+### Step 1. Baseline Accuracy Evaluation (Base Model)
 
-Quantization is the process of converting model parameters (weights and activations) from high-precision floating-point formats (e.g., FP16 or BF16) to lower-precision integer formats (e.g., INT8).
+Before applying any form of model compression, we first evaluate the base model to establish an accuracy baseline. This baseline is critical for understanding how subsequent compression techniques impact model quality.
 
-**Why we quantize**:
-
-- *Reduce memory usage*: Lower precision weights occupy less GPU memory, allowing larger batch sizes and longer KV caches, which improves overall system throughput.
-
-- *Speed up computation*: Low-precision matrix multiplications (INT8/FP8) are inherently faster on modern GPU architectures than high-precision operations, significantly reducing inference time.
-
-- *Enable deployment on resource-constrained environments*: Quantization makes large language models feasible for real-time applications and devices with limited VRAM.
-
-**How We Quantize in This Example**
-
-- `Base Model` – LLama-3.1-8B-Instruct
-
-- `Tool Used` – LLM Compressor
-
-- `Quantization Scheme` – INT8 W8A8 (8-bit weights and 8-bit activations), specifically employing dynamic quantization of activations
-
-- `Output Model` – A compressed model named LLama_3.1_8B_Instruct_int8_dynamic
-
----
-More details on quantization are provided in [Compression.md](01_Model_Compression/Compression.md).
-
-### 2. Accuracy Benchmarking
-
-Quantization is a lossy compression technique. Converting floating-point numbers to integers introduces minor rounding errors, which can accumulate across millions of parameters and potentially degrade the model's predictive capabilities.
+Quantization is a lossy compression technique. Converting high-precision floating-point parameters into lower-precision representations introduces rounding errors that can accumulate across millions (or billions) of parameters and potentially degrade predictive performance. Establishing a baseline ensures that any accuracy changes observed later can be attributed to compression rather than evaluation or serving artifacts.
 
 **Why we benchmark accuracy**:
+
+- Create a reference baseline against which the compressed model’s accuracy can be compared
 
 - *Ensure minimal degradation*: Benchmarking verifies that the accuracy drop introduced by quantization is within an acceptable tolerance for production needs
 
@@ -72,46 +51,41 @@ We measure performance across diverse capabilities to get a holistic view:
 
 ---
 
-More details on evaluating LLMs is provided in [Accuracy_Evaluation.md](02_Accuracy_Benchmarking/Accuracy_Evaluation.md)
+More details on evaluating LLMs is provided in [Accuracy_Evaluation.md](docs/Accuracy_Evaluation.md)
 
-### 3. Launching the Model for Inference using vLLM
+### Step 2. Baseline Inference Serving & Performance Benchmarking (Base Model)
+
+After establishing the accuracy baseline, the next step is to evaluate the system-level inference performance of the base model in a production-style setup.
+
+In this step, the base model is served using vLLM, and its inference performance is measured under load using GuideLLM. The results from this step serve as the performance baseline for later comparison with the compressed model.
+
+#### Launching the Model for Inference using vLLM
 
 vLLM is a very popular inference engine used for deploying LLMs. Various performance benchmarking tools like GuideLLM are used to evaluate the performance of models hosted by such systems.
 
-**Why we deploy models using vLLM**:
+Why we deploy models using vLLM:
 
 The idea is to test the performance keeping a production setup in mind. So we serve both base and compressed models using vLLM so their performance can be assessed and compared using GuideLLM.
 
-**How We Serve the Models**
+How We Serve the Models
 
-`Tool Used` – vLLM (a high-throughput serving engine for LLMs)
+Tool Used – vLLM (a high-throughput serving engine for LLMs)
 
-`Models Served` – Both the Base and the Compressed models are served under identical conditions
+Models Served – Both the Base and the Compressed models are served under identical conditions
 
-**Key Settings for Production Optimization**:
+Key Settings for Production Optimization:
 
-- `--max-num-seqs` – Sets maximum concurrent requests to optimize throughput via continuous batching
+--max-num-seqs – Sets maximum concurrent requests to optimize throughput via continuous batching
 
-- `--enable-chunked-prefill` – Reduces GPU memory usage by splitting long prompts (prefills) into manageable chunks
+--enable-chunked-prefill – Reduces GPU memory usage by splitting long prompts (prefills) into manageable chunks
 
-- `--enable-prefix-caching` – Reuses previously computed Key-Value (KV) caches for faster decoding of repeated or shared prompts
+--enable-prefix-caching – Reuses previously computed Key-Value (KV) caches for faster decoding of repeated or shared prompts
 
-- `--gpu-memory-utilization` – Explicitly manages the percentage of GPU memory used for KV caching
+--gpu-memory-utilization – Explicitly manages the percentage of GPU memory used for KV caching
 
----
-More details on vLLM are provided in [Model_Serving_vLLM.md](03_Vllm_Server/Vllm_Server_README.md)
+#### Performance Benchmarking
 
-### 4. Performance Benchmarking
-
-While quantization should lead to speed improvements, performance benchmarking confirms the real-world inference efficiency under load. This is the ultimate test of the quantization value proposition.
-
-**Why we benchmark performance**
-
-- *Understand model efficiency* – Confirms that the compressed model delivers the expected speed gains (reduced latency and higher throughput) compared to the base model
-
-- *Identify bottlenecks* – Highlights limits of concurrency or potential latency spikes under heavy load
-
-- *Direct comparison* – Provides verifiable metrics to justify the deployment of the compressed model over the original
+Once the model is running, GuideLLM is used to generate concurrent inference traffic and collect performance metrics. Performance benchmarking confirms the real-world inference efficiency under load.
 
 **How We Measure Performance**
 
@@ -128,11 +102,60 @@ While quantization should lead to speed improvements, performance benchmarking c
 - `Concurrency` – Maximum number of requests the model can handle in parallel before performance significantly degrades
 
 ---
-More details on system level performance benchmarking and GuideLLM are provided in [System_Level_Performance_Benchmarking.md](04_Performance_Benchmarking/System_Level_Performance_Benchmarking.md)
+More details on system level performance benchmarking and GuideLLM are provided in [System_Level_Performance_Benchmarking.md](docs/System_Level_Performance_Benchmarking.md)
 
-### 5. Result Comparison
+### Step 3: Model Quantization
 
-The final step integrates the accuracy and performance data to provide a comprehensive view of the quantization trade-offs
+Quantization is the process of converting model parameters (weights and activations) from high-precision floating-point formats (e.g., FP16 or BF16) to lower-precision integer formats (e.g., INT8).
+
+**Why we quantize**:
+
+- *Reduce memory usage*: Lower precision weights occupy less GPU memory, allowing larger batch sizes and longer KV caches, which improves overall system throughput.
+
+- *Speed up computation*: Low-precision matrix multiplications (INT8/FP8) are inherently faster on modern GPU architectures than high-precision operations, significantly reducing inference time.
+
+- *Enable deployment on resource-constrained environments*: Quantization makes large language models feasible for real-time applications and devices with limited VRAM.
+
+**How We Quantize in This Example**
+
+- `Base Model` – LLama-3.1-8B-Instruct
+
+- `Tool Used` – LLM Compressor
+
+- `Quantization Scheme` – INT8 W8A8 (8-bit weights and 8-bit activations), specifically employing dynamic quantization of activations
+
+- `Output Model` – A compressed model named LLama_3.1_8B_Instruct_int8_dynamic
+
+---
+More details on quantization are provided in [Compression.md](docs/Compression.md).
+
+### Step 4: Accuracy Evaluation (Compressed Model)
+
+The compressed model is evaluated on the same benchmark datasets and metrics as the base model (Step 1). This allows a direct comparison against the accuracy baseline to quantify any impact of quantization.
+
+**Purpose**: Compare the accuracy of the compressed model to the base model
+
+**Metrics & Benchmarks**: Same as Step 1 (MMLU, IFEval, ARC, HellaSwag; accuracy, accuracy_norm, task-specific scores)
+
+**Outcome**: Quantitative metrics for the compressed model to assess if accuracy is preserved
+
+More details on evaluation methods are available in [Accuracy_Evaluation.md](docs/Accuracy_Evaluation.md)
+
+### Performance Benchmarking (Compressed Model)
+
+The compressed model is served using vLLM and benchmarked using GuideLLM following the same approach as Step 2 for the base model. This provides system-level metrics to compare latency, throughput, and concurrency with the baseline.
+
+**Purpose**: Assess inference performance of the compressed model relative to the base model
+
+**Metrics**: TTFT, ITL, throughput, concurrency (same as Step 2)
+
+**Outcome**: Baseline comparison for performance trade-offs after compression
+
+More details on system-level benchmarking are available in [System_Level_Performance_Benchmarking.md](docs/System_Level_Performance_Benchmarking)
+
+### 6. Result Comparison
+
+This step integrates the accuracy and performance data to provide a comprehensive view of the quantization trade-offs
 
 All results are compiled in a comparison markdown file (comparison.md)
 
@@ -154,62 +177,28 @@ Key comparisons include:
 
 - **Communicate results clearly** – Provides a single reference for model selection
 
+Results are compared in [Accuracy_Comparison.md](docs/Accuracy_Comparison.md) and [Performance_Comparison.md](docs/Performance_Comparison.md)
+
+### Step 7: Model Deployement
+
+This step provides a guide to deploy the compressed model on a Red Hat OpenShift AI (RHOAI) cluster and vLLM. Detailed instructions are available in: [RHOAI_Deployment_README.md](07_Deployment/RHOAI_Deployment_README.md) and [VLLM_Deployment_README.md](07_Deployment/VLLM_Deployment_README.md)
+
 ## Project Structure
 
 The `model-serve-flow` project is organized into sequential steps, with each step contained in its own directory:
 
-- Step 1: [01_Model_Compression](01_Model_Compression)
+- Step 1: [01_Base_Accuracy_Benchmarking](01_Base_Accuracy_Benchmarking)
 
-- Step 2: [02_Accuracy_Benchmarking](02_Accuracy_Benchmarking)
+- Step 2: [02_Base_Performance_Benchmarking](02_Base_Performance_Benchmarking)
 
-- Step 3: [03_Vllm_server](03_Vllm_server)
+- Step 3: [03_Model_Compression](03_Model_Compression)
 
-- Step 4: [04_Performance_Benchmarking](04_Performance_Benchmarking)
+- Step 4: [04_Compressed_Accuracy_Benchmarking](04_Compressed_Accuracy_Benchmarking)
 
-- Step 5: [05_Comparison](05_Comparison)
+- Step 5: [05_Compressed_Performance_Benchmarking](05_Compressed_Performance_Benchmarking)
+
+- Step 6: [06_Comparison](06_Comparison)
+
+- Step 7: [07_Deployment](07_Deployment)
 
 Each step represents a distinct stage in the model compression, evaluation, and deployment workflow.
-
-### Base vs Compressed Model Workflow
-
-- Step 1 is executed once to generate the compressed model.
-
-- Steps 2 through 4 must be executed separately for both the base and the compressed models.
-
-To ensure clean execution and to avoid GPU out-of-memory (OOM) issues, each of these steps contains two separate notebooks:
-
-- `Base.ipynb` — for experiments using the base model
-
-- `Compressed.ipynb` — for experiments using the compressed model
-
-Keeping the base and compressed workflows in separate notebooks ensures that only one model is loaded into GPU memory at a time and prevents interference between experiments.
-
-Step 5 compares the accuracy and performance results of the two models.
-
-### Recommended Execution Order
-
-**Note**: Follow this execution order if you do not have sufficient resources to run the vLLM servers for the base and compressed models simultaneously. If your system can host both models at the same time, you can execute **Step 3** for both models first, followed by **Step 4** for both models.
-
-This example was created using a **46 GB NVIDIA L40S GPU** and uses `RedHatAI/Llama-3.1-8B-Instruct` as the base model, which requires approximately **16 GB** of GPU memory, while its compressed version requires approximately **8 GB**. With this setup, both models can be served concurrently using vLLM. When `gpu-memory-utilization` is set to `0.4`, each vLLM server instance can allocate approximately **18–19 GB** of GPU memory per model, allowing both the base and compressed models to run simultaneously on the same GPU, which sums up to **~38 GB — well within the 46 GB available**.
-
-However, if your available GPU memory is lower (for example, 20 GB), you may not be able to serve both models at the same time.
-
-If resources are not sufficient to host both models simultaneously, then for **Step 3**(vLLM Serving) and **Step 4** (Performance Benchmarking), notebooks should be executed **model-by-model**, rather than running the same step across both models before proceeding to the next step.
-
-### Correct execution order for limited resources
-
-1. Launch the vLLM server for the base model (Step 3 → [Base.ipynb](03_Vllm_Server/Base.ipynb))
-
-2. Run performance benchmarking for the base model (Step 4 → [Base.ipynb](04_Performance_Benchmarking/Base.ipynb))
-
-3. Launch the vLLM server for the compressed model (Step 3 → [Compressed.ipynb](03_Vllm_Server/Compressed.ipynb))
-
-4. Run performance benchmarking for the compressed model (Step 4 → [Compressed.ipynb](04_Performance_Benchmarking/Compressed.ipynb))
-
-This order ensures that:
-
-- Only one inference server is active at a time
-
-- GPU resources are fully released before switching models
-
-- Performance measurements remain consistent and comparable

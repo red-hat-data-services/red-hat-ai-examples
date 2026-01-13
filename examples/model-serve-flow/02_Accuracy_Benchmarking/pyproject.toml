@@ -1,9 +1,0 @@
-[project]
-name = "Accuracy_Benchmarking"
-version = "0.1.0"
-description = "Evaluate the accuracy of a LLM (full + quantized)"
-requires-python = ">=3.12"
-
-dependencies = [
-    "lm-eval[ifeval]==0.4.9.2",
-]
