@@ -1,5 +1,4 @@
 metrics/**
-
 pipelines/*.yaml
 # Ignore all the uv lock file
 
