@@ -43,13 +43,22 @@ def test_no_execution_counts(notebook_path, relative_path):
 
 
 def test_no_stored_outputs(notebook_path, relative_path):
-    """Test that notebooks have no stored outputs (should be cleared)."""
+    """Test that notebooks have no stored outputs (should be cleared).
+
+    Cells with 'keep_output' tag in metadata are ignored.
+    """
     with open(notebook_path, encoding="utf-8") as f:
         nb = json.load(f)
 
     cells_with_outputs = []
     for i, cell in enumerate(nb.get("cells", [])):
         if cell.get("cell_type") == "code":
+            # Check if cell has keep_output tag
+            metadata = cell.get("metadata", {})
+            tags = metadata.get("tags", [])
+            if "keep_output" in tags:
+                continue
+
             outputs = cell.get("outputs", [])
             if len(outputs) > 0:
                 cells_with_outputs.append((i, len(outputs)))
