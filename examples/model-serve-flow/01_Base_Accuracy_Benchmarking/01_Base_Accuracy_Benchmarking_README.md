@@ -3,11 +3,12 @@
 ## Navigation
 
 - [Model Serving Overview](../README.md)
+- [Step 0: 00_Setup](../00_Setup/00_Setup_README.md)
 - Step 1: Base Accuracy Benchmarking
-- [Step 2: Base Performance Benchmarking](../02_Base_Performance_Benchmarking/)
-- [Step 3: Model Compression](../03_Model_Compression/)
-- [Step 4: Base Accuracy Benchmarking](../04_Compressed_Accuracy_Benchmarking/)
-- [Step 5: Compressed Performance Benchmarking](../05_Compressed_Performance_Benchmarking/)
+- [Step 2: Base Performance Benchmarking](../02_Base_Performance_Benchmarking/02_Base_Performance_Benchmarking_README.md)
+- [Step 3: Model Compression](../03_Model_Compression/03_Model_Compression_README.md)
+- [Step 4: Base Accuracy Benchmarking](../04_Compressed_Accuracy_Benchmarking/04_Compressed_Accuracy_Benchmarking_README.md)
+- [Step 5: Compressed Performance Benchmarking](../05_Compressed_Performance_Benchmarking/05_Base_Performance_Benchmarking_README.md)
 - [Step 6: Comparison](../06_Comparison)
 - [Step 7: Model Deployment](../07_Deployment)
 
@@ -28,7 +29,7 @@ This step will use lm_eval to run accuracy benchmarking on the base model. The r
 
 ### Verification
 
-A model should be downlaoded and saved in the [base_model](../base_model) folder. All cells should run successfully. Results for the base model accuracy should be saved in the [results](../results) folder.
+A model should be downlaoded and saved in the `model-serve-flow/base_model/` folder. All cells should run successfully. Results for the base model accuracy should be saved in the `model-serve-flow/results/` folder.
 
 ## Next step
 

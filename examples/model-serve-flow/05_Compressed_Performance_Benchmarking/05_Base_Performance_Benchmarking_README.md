@@ -3,10 +3,11 @@
 ## Navigation
 
 - [Model Serving Overview](../README.md)
-- [Step 1: Base Accuracy Benchmarking](../01_Base_Accuracy_Benchmarking/)
-- [Step 2: Base Performance Benchmarking](../02_Base_Performance_Benchmarking/)
-- [Step 3: Model Compression](../03_Model_Compression/)
-- [Step 4: Base Accuracy Benchmarking](../04_Compressed_Accuracy_Benchmarking/)
+- [Step 0: 00_Setup](../00_Setup/00_Setup_README.md)
+- [Step 1: Base Accuracy Benchmarking](../01_Base_Accuracy_Benchmarking/01_Base_Accuracy_Benchmarking_README.md)
+- [Step 2: Base Performance Benchmarking](../02_Base_Performance_Benchmarking/02_Base_Performance_Benchmarking_README.md)
+- [Step 3: Model Compression](../03_Model_Compression/03_Model_Compression_README.md)
+- [Step 4: Base Accuracy Benchmarking](../04_Compressed_Accuracy_Benchmarking/04_Compressed_Accuracy_Benchmarking_README.md)
 - Step 5: Compressed Performance Benchmarking
 - [Step 6: Comparison](../06_Comparison)
 - [Step 7: Model Deployment](../07_Deployment)
@@ -29,7 +30,7 @@ Use GuideLLM to run performance benchmarking on the compressed model. The result
 ### Verification
 
 - A vLLM server hosting the base model has started
-- Performance metrics have been saved in the [results](../results) folder
+- Performance metrics have been saved in the `model-serve-flow/results/` folder
 
 ## Next step
 

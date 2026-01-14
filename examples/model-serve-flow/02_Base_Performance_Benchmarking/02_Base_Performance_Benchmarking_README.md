@@ -3,11 +3,12 @@
 ## Navigation
 
 - [Model Serving Overview](../README.md)
-- [Step 1: Base Accuracy Benchmarking](../01_Base_Accuracy_Benchmarking/)
+- [Step 0: 00_Setup](../00_Setup/00_Setup_README.md)
+- [Step 1: Base Accuracy Benchmarking](../01_Base_Accuracy_Benchmarking/01_Base_Accuracy_Benchmarking_README.md)
 - Step 2: Base Performance Benchmarking
-- [Step 3: Model Compression](../03_Model_Compression/)
-- [Step 4: Base Accuracy Benchmarking](../04_Compressed_Accuracy_Benchmarking/)
-- [Step 5: Compressed Performance Benchmarking](../05_Compressed_Performance_Benchmarking/)
+- [Step 3: Model Compression](../03_Model_Compression/03_Model_Compression_README.md)
+- [Step 4: Base Accuracy Benchmarking](../04_Compressed_Accuracy_Benchmarking/04_Compressed_Accuracy_Benchmarking_README.md)
+- [Step 5: Compressed Performance Benchmarking](../05_Compressed_Performance_Benchmarking/05_Base_Performance_Benchmarking_README.md)
 - [Step 6: Comparison](../06_Comparison)
 - [Step 7: Model Deployment](../07_Deployment)
 
@@ -17,7 +18,7 @@ Use GuideLLM to run performance benchmarking on the base model. The results from
 
 ### Prerequisites
 
-- A base model (RedHatAI/Llama-3.1-8B-Instruct) has been downloaded and saved in [base_model](../base_model) folder.
+- A base model (RedHatAI/Llama-3.1-8B-Instruct) has been downloaded and saved in `model-serve-flow/base_model/` folder.
 
 ### Procedure
 
@@ -29,7 +30,7 @@ Use GuideLLM to run performance benchmarking on the base model. The results from
 ### Verification
 
 - A vLLM server hosting the base model has started
-- Performance metrics have been saved in the [results](../results) folder
+- Performance metrics have been saved in the `model-serve-flow/results/` folder
 
 ## Next step
 
