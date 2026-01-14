@@ -13,7 +13,7 @@ It uses Training-Hub SFT and PyTorch FSDP to distribute the training on multiple
 * An OpenShift cluster with OpenShift AI (RHOAI) 3.2 installed:
   * The `dashboard`, `trainingoperator` and `workbenches` components enabled
 * Sufficient worker nodes for your configuration(s) with NVIDIA GPUs (Ampere-based or newer recommended).
-* A dynamic storage provisioner supporting RWX PVC provisioning
+* A dynamic storage provisioner supporting RWX PVC provisioning. Talk to your cluster administrator about RWX storage options.
 
 ## Setup
 

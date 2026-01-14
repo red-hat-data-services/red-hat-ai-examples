@@ -106,7 +106,7 @@ osft(..., use_processed_dataset=True)
 |---------|------|-------------|---------------|-------|
 | Shared Storage (PVC) total | 10Gi (Example Default) | RWX | Dynamic provisioner required | Shared between workbench and training pods |
 
-> - Storage can be created in `Create Workbench` view on RHOAI Platform, however, dynamic RWX provisioner is required to be configured prior to creating shared file storage in RHOAI.
+> - Storage can be created in `Create Workbench` view on RHOAI Platform, however, dynamic RWX provisioner is required to be configured prior to creating shared file storage in RHOAI. Talk to your cluster administrator about RWX storage options.
 
 ## Setup
 
