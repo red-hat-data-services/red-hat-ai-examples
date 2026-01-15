@@ -127,7 +127,7 @@ You created a workbench, as described in *Create a workbench*.
 
    c. Select the **Include submodules** option, and then click **Clone**.
 
-   d. In the file browser, double-click the folders to browse to the newly-created **red-hat-ai-examples/examples/knowledge-tuning** folder.
+   d. In the file browser, double-click the folders to browse to the newly-created **red-hat-ai-examples/examples/model-serve-flow** folder.
 
 ### Verification
 

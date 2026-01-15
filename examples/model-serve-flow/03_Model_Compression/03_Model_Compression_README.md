@@ -18,7 +18,7 @@ Compress a Large Language Model (LLM) to reduce its size and computational cost 
 
 ### Prerequisites
 
-- A base model (RedHatAI/Llama-3.1-8B-Instruct) has been downloaded and saved in `model-serve-flow/base_model/` folder.
+- A base model (RedHatAI-Llama-3.1-8B-Instruct) has been downloaded and saved in `model-serve-flow/base_model/` folder.
 - Have enough resources for saving and loading a model. E.g., a model having 7 to 8 billion parameters takes around 14GB of memory to load.
 
 ### Procedure
@@ -31,7 +31,7 @@ Compress a Large Language Model (LLM) to reduce its size and computational cost 
 ### Verification
 
 - You should be able to compress the base model and verify that the compressed model is almost half the size of the base model.
-- A compressed model should be saved in `model-serve-flow/Llama_3.1_8B_Instruct_int8_dynamic` directory.
+- A compressed model (RedHatAI-Llama-3.1-8B-Instruct-int8-dynamic) should be saved in `model-serve-flow/compressed_model` directory.
 
 ## Next step
 

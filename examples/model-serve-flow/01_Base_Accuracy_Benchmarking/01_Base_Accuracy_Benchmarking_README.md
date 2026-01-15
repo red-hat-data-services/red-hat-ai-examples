@@ -25,7 +25,7 @@ This step will use lm_eval to run accuracy benchmarking on the base model. The r
 1. ```text
     cd ../01_Base_Accuracy_Benchmarking
 
-2. Open the [Base.ipynb](Base.ipynb) file in JupyterLab and follow the instructions directly in the notebook. This will give results for the base model.
+2. Open the [Base_Accuracy_Benchmarking.ipynb](Base_Accuracy_Benchmarking.ipynb) file in JupyterLab and follow the instructions directly in the notebook. This will give results for the base model.
 
 ### Verification
 

@@ -25,7 +25,7 @@ This step will use lm_eval to run accuracy benchmarking on the compressed model.
 1. ```text
     cd ../04_Compressed_Accuracy_Benchmarking
 
-2. Open the [Compressed.ipynb](Compressed.ipynb) file in JupyterLab and follow the instructions directly in the notebook. This will give results for the base model.
+2. Open the [Compressed_Accuracy_Benchmarking.ipynb](Compressed_Accuracy_Benchmarking.ipynb) file in JupyterLab and follow the instructions directly in the notebook. This will give results for the base model.
 
 ### Verification
 

@@ -25,7 +25,7 @@ Use GuideLLM to run performance benchmarking on the base model. The results from
 1. ```text
         cd ../02_Base_Performance_Benchmarking
 
-2. Open the [Base.ipynb](Base.ipynb) file in JupyterLab and follow the instructions directly in the notebook. This will give results for the base model.
+2. Open the [Base_Performance_Benchmarking.ipynb](Base_Performance_Benchmarking.ipynb) file in JupyterLab and follow the instructions directly in the notebook. This will give results for the base model.
 
 ### Verification
 

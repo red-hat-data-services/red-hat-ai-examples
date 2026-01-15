@@ -6,6 +6,10 @@ The project is organized as a sequence of clearly defined steps, each representi
 
 This repository uses a LLaMA-3.1 8B model as a concrete example to illustrate the full workflow, with each step designed to optimize model performance while maintaining accuracy and usability in production.
 
+The overall flow of this example is illustrated below.
+
+![Flow diagram](assets/flow_diagram.png)
+
 ## Setup & Installation
 
 Clone the repository:

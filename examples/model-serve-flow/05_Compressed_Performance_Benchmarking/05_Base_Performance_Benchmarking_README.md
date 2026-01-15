@@ -25,7 +25,7 @@ Use GuideLLM to run performance benchmarking on the compressed model. The result
 1. ```text
         cd ../05_Compressed_Performance_Benchmarking
 
-2. Open the [Compressed.ipynb](Compressed.ipynb) file in JupyterLab and follow the instructions directly in the notebook. This will give results for the base model.
+2. Open the [Compressed_Performance_Benchmarking.ipynb](Compressed_Performance_Benchmarking.ipynb) file in JupyterLab and follow the instructions directly in the notebook. This will give results for the base model.
 
 ### Verification
 
