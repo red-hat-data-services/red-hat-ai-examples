@@ -67,8 +67,14 @@ def evaluate(
         Evaluation results from simple_evaluate.
     """
 
-    if device is None:  # check device
+    # Auto-detect device if no preference is provided
+    if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Validate explicit GPU request
+    if device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA requested but no GPU is available.")
+
     if limit is None:
         limit = None if device == "cuda" else 4
     if batch_size is None:
