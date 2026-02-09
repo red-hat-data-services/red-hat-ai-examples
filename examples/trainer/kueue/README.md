@@ -65,6 +65,8 @@ The notebook uses two different mount conventions:
 
 Access the OpenShift AI dashboard from the top navigation bar menu:
 
+![](./images/landing_page.png)
+
 ### 2. Create a Data Science Project
 
 Log in, then go to **Data Science Projects** and create a project:
@@ -76,13 +78,13 @@ Log in, then go to **Data Science Projects** and create a project:
 
 Once the project is created, click on **Create a workbench**:
 
-![](./images/create_worbench.png)
+![](./images/create_workbench.png)
 
 Configure the workbench with the following settings:
 
 * Choose the appropriate hardware profile based on your needs:
 
-![](./images/create_workbench_gharware_profile_options.png)
+![](./images/create_workbench_hardware_profile_options.png)
 
 > [!NOTE]
 > Adding an accelerator is optional - only needed to test fine-tuned models from within the workbench.
@@ -132,7 +134,7 @@ If upgrading from a previous RHOAI version, you must manually add the TrainJob f
 oc get csv -n openshift-operators | grep kueue
 ```
 
-1. Verify Kueue controller recognizes TrainJob:
+2. Verify Kueue controller recognizes TrainJob:
 
 ```bash
 oc get kueues.kueue.openshift.io cluster -o jsonpath='{.spec.config.integrations.frameworks}'
@@ -144,7 +146,7 @@ Expected output:
 ["Deployment","Pod","PyTorchJob","RayCluster","RayJob","StatefulSet","TrainJob"]
 ```
 
-If `TrainJob` is missing, add it:
+3. If `TrainJob` is missing, add it:
 
 ```bash
 oc patch kueues.kueue.openshift.io cluster --type=json -p '[
@@ -190,11 +192,15 @@ kueue_options = [
 
 If your namespace uses the default LocalQueue created by the operator, you can use that name directly in the notebook.
 
-### Progress Tracking
+Click on a job to view detailed resource allocation and pod status.
 
-Navigate to **Training Jobs** in the OpenShift AI Dashboard to view real-time training progress:
+### Workload Metrics
 
-Click on a job to view detailed resource allocation and pod status:
+To observe and monitor namespace-scoped Kueue-managed workloads, go to **Observe and Monitor** > **Workload Metrics** in the OpenShift AI Dashboard:
+
+![](./images/workload_metrics_page.png)
+
+This page shows queue utilization, pending workloads, and resource consumption for TrainJobs managed by Kueue.
 
 ### Checkpointing (optional)
 
