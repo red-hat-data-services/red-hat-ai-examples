@@ -1,16 +1,12 @@
 # OSFT Continual Learning on Red Hat OpenShift AI (RHOAI)
 
-This guide provides an overview of the [OSFT algorithm from Training Hub](https://github.com/Red-Hat-AI-Innovation-Team/training_hub/tree/main?tab=readme-ov-file#orthogonal-subspace-fine-tuning-osft) and examples on how to use it with Red Hat OpenShift AI.
+This example provides an overview of the OSFT algorithm and an example on how to use it with Red Hat OpenShift AI.
 
-## Execution modes
+Our example will go through distributed training on two nodes with two GPUs each (2x48GB) however it can be tweaked to run on smaller configurations.
 
-OSFT can run directly in a workbench, where training occurs on a single pod. Alternatively, it supports distributed training across multiple nodes/pods using Kubeflow Trainer. Two notebooks are provided to demonstrate these approaches: `osft-local.ipynb` for single-pod training and `osft-distributed.ipynb` for distributed training. While workbench setup is similar for both, we highlight specific configuration differences below.
+## Note
 
-To learn more about execution modes, see the [fine-tuning execution modes overview](../README.md#execution-modes).
-
-## RHOAI compatibility
-
-This example is compatible with RHOAI version 3.3. For a version compatible with RHOAI 3.2 see [this README](../rhoai-3.2/osft/README.md). For RHOAI 3.0 see [this README](../rhoai-3.0/osft/README.md).
+This example is compatible with RHOAI version 3.0. For a version compatible with RHOAI 3.2 see [this README](../rhoai-3.2/osft/README.md).
 
 ## Overview
 
@@ -77,24 +73,13 @@ osft(..., use_processed_dataset=True)
 
 ## General requirements to run the example notebook
 
-- An OpenShift cluster with OpenShift AI (RHOAI 3.3) installed:
-  - The `dashboard` and `workbenches` components enabled
-  - The `trainer` component should be enabled if running the distributed notebook.
+- An OpenShift cluster with OpenShift AI (RHOAI 3.0) installed:
+  - The `dashboard`, `trainingoperator` and `workbenches` components enabled
+  - Note: for a RHOAI 3.2 compatible example see [this README](../rhoai-3.2/osft/README.md).
 
 ## Hardware requirements to run the example notebook
 
-### Workbench Requirements (Local example)
-
-| Image Type | Use Case | GPU | CPU | Memory | Notes |
-|------------|----------|-----|-----|--------|-------|
-| CUDA PyTorch Python 3.12 | NVIDIA GPU training | 1× GPU | 4 cores | 32Gi | Recommended for faster training |
-
-> [!NOTE]
->
-> - Local mode is recommended for smaller training jobs.
-> - For larger training jobs consider the distributed training approach.
-
-### Training Job Requirements (Distributed example)
+### Training Job Requirements
 
 | Component | Configuration | GPU per node | Total GPU | GPU Type (per GPU) | CPU | Memory | Flash Attention |
 |-----------|--------------|---|---|------------|-----|--------|-----------------|
@@ -107,7 +92,7 @@ osft(..., use_processed_dataset=True)
 > - CPU and Memory requirements scale with batch size and model size. Above suit the example as it is.
 > - Worker pods are configurable from the `client.create_job` call within the notebook.
 
-### Workbench Requirements (Distributed example)
+### Workbench Requirements
 
 | Image Type | Use Case | GPU | CPU | Memory | Notes |
 |------------|----------|-----|-----|--------|-------|
@@ -120,64 +105,46 @@ osft(..., use_processed_dataset=True)
 > - Evaluation was performed on L40S GPU however, it will work on smaller/larger configurations.
 > - Workbench resources and accelerator are configurable in `Create Workbench` view on RHOAI Platform
 
-### Storage Requirements (Distributed example)
+### Storage Requirements
 
 | Purpose | Size | Access Mode | Storage Class | Notes |
 |---------|------|-------------|---------------|-------|
 | Shared Storage (PVC) total | 10Gi (Example Default) | RWX | Dynamic provisioner required | Shared between workbench and training pods |
 
-> [!NOTE]
->
 > - Storage can be created in `Create Workbench` view on RHOAI Platform, however, dynamic RWX provisioner is required to be configured prior to creating shared file storage in RHOAI.
-> - Shared storage is not required for the local example as dataset, model download and training all happen on the same pod.
 
 ## Setup
 
 ### Setup Workbench
 
-- **Access the OpenShift AI dashboard**, for example from the top navigation bar menu:
-  ![](./docs/01.png)
-
-- Log in, then go to **_Data Science Projects_** and create a project:
-  ![](./docs/02.png)
-
-- Once the project is created, click on **_Create a workbench_**:
-  ![](./docs/03.png)
-
+- Access the OpenShift AI dashboard, for example from the top navigation bar menu:
+![](./docs/01.png)
+- Log in, then go to _Data Science Projects_ and create a project:
+![](./docs/02.png)
+- Once the project is created, click on _Create a workbench_:
+![](./docs/03.png)
 - Then create a workbench with the following settings:
-  - Select the appropriate Workbench based on local or distributed use case. See options above:
+  - Select the `Jupyter | Minimal | CPU | Python 3.12` notebook image if you want to run CPU based evaluation, `Jupyter | Minimal | CUDA | Python 3.12` for NVIDIA GPUs evaluation and `Medium` container size:
     ![](./docs/04a.png)
-
-  - Similarly, you may want to add a **Hardware Profile** for reuse within the Workbench settings
+  - Add an accelerator if you plan on evaluating your model on GPUs (faster):
     ![](./docs/04b.png)
-
-  - Select the Hardware profile just created:
-    ![](./docs/04c.png)
     > [!NOTE]
-    > Adding an accelerator (GPU) for the distributed use case is only needed to test the fine-tuned model from within the workbench so you can spare an accelerator if you plan to skip that step. An accelerator (GPU) is required in local mode as the training happens on the workbench pod.
-
-  - For distributed training, create **shared storage** that'll be shared between the workbench and the training pods.
-    Make sure it uses a storage class with RWX capability and set it to 15GiB in size.
-    ![](./docs/04d.png)
+    > Adding an accelerator is only needed to test the fine-tuned model from within the workbench so you can spare an accelerator if needed.
+  - Create a storage that'll be shared between the workbench and the training pods.
+    Make sure it uses a storage class with RWX capability and set it to 15GiB in size:
+        ![](./docs/04c.png)
     > [!NOTE]
-    > For the local example, dataset, model download, and training all happen on the same pod, so shared storage is not required.
     > You can attach an existing shared storage if you already have one instead.
-
   - Review the storage configuration and click "Create workbench":
-    ![](./docs/04e.png)
-
-- From "Workbenches" page, click on **_Open_** when the workbench you've just created becomes ready:
-  ![](./docs/05.png)
+    ![](./docs/04d.png)
+- From "Workbenches" page, click on _Open_ when the workbench you've just created becomes ready:
+![](./docs/05.png)
+- From the workbench, clone this repository, i.e., `https://red-hat-data-services/red-hat-ai-examples.git`
+![](./docs/06.png)
+- Navigate to the `examples/fine-tuning/osft` directory and open the `osft-example.ipynb` notebook
 
 > [!IMPORTANT]
 >
-> - By default:
->   - The example goes through distributed training on two nodes (2xL40/L40S) with two GPUs each (2x48GB). However, it can be tweaked to run on smaller configurations.
->   - If you want to do model evaluation part of the distributed example, ideally an accelerator is attached to the workbench
->   - For the local example an accelerator is required for the WorkBench to execute the fine tuning with OSFT.
-
-### Running the example notebooks
-
-- From the workbench, clone this repository, i.e., `https://red-hat-data-services/red-hat-ai-examples.git`
-  ![](./docs/06.png)
-- Navigate to the `examples/fine-tuning/osft` directory and open the [`osft-local.ipynb`](./osft-local.ipynb) notebook or [`osft-distributed.ipynb`](./osft-distributed.ipynb) as required
+> - By default, the notebook requires 2xL40/L40S (2x48GB) but:
+>   - The example goes through distributed training on two nodes with two GPUs but it can be changed
+>   - If you want to do model evaluation part of the example, ideally an accelerator is attached to the workbench

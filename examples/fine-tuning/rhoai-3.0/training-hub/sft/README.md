@@ -1,16 +1,7 @@
 # SFT Fine-Tuning with Kubeflow Training on OpenShift AI
 
-This example provides an overview of the [SFT algorithm from Training Hub](https://github.com/Red-Hat-AI-Innovation-Team/training_hub?tab=readme-ov-file#supervised-fine-tuning-sft) and an example on how to use it with Red Hat OpenShift AI.
-
-## Execution modes
-
-Training Hub SFT can run directly in a workbench, where training occurs on a single pod. Alternatively, it supports distributed training across multiple nodes/pods using Kubeflow Trainer. Two notebooks are provided to demonstrate these approaches: `sft-local.ipynb` for single-pod training and `sft-distributed.ipynb` for distributed training. While workbench setup is similar for both, we highlight specific configuration differences below.
-
-To learn more about execution modes, see the [fine-tuning execution modes overview](../../README.md#execution-modes).
-
-## RHOAI compatibility
-
-This example is compatible with RHOAI version 3.3. For a version compatible with RHOAI 3.2 see [this README](../rhoai-3.2/training-hub/sft/README.md). For RHOAI 3.0 see [this README](../rhoai-3.0/training-hub/sft/README.md).
+This example demonstrates how to fine-tune LLMs with Training Hub and the Kubeflow Training operator on OpenShift AI.
+It uses Training-Hub SFT and PyTorch FSDP to distribute the training on multiple GPUs / nodes.
 
 > [!IMPORTANT]
 > This example has been tested with the configurations listed in the [validation](#validation) section.
@@ -19,26 +10,16 @@ This example is compatible with RHOAI version 3.3. For a version compatible with
 
 ## Requirements
 
-* An OpenShift cluster with OpenShift AI (RHOAI) 3.3 installed:
-  * The `dashboard` and `workbenches` components enabled
-  * The `trainer` component should be enabled if running the distributed notebook.
+* An OpenShift cluster with OpenShift AI (RHOAI) 3.0 installed:
+  * The `dashboard`, `trainingoperator` and `workbenches` components enabled
 * Sufficient worker nodes for your configuration(s) with NVIDIA GPUs (Ampere-based or newer recommended).
-* (Distributed Example only) A dynamic storage provisioner supporting RWX PVC provisioning. Talk to your cluster administrator about RWX storage options.
+* A dynamic storage provisioner supporting RWX PVC provisioning
+
+## Note
+
+* This example is compatible with RHOAI version 3.0. For a version compatible with RHOAI 3.2 see [this README](../../rhoai-3.2/training-hub/sft/README.md).
 
 ## Setup
-
-## Hardware requirements to run the example notebook
-
-### Workbench Requirements
-
-| Image Type | Use Case | GPU | CPU | Memory | Notes |
-|------------|----------|-----|-----|--------|-------|
-| CUDA PyTorch Python 3.12 | NVIDIA GPU training | 1× GPU | 4 cores | 32Gi | Recommended for faster training/evaluation |
-
-> [!NOTE]
->
-> * Local mode is recommended for smaller training jobs.
-> * For larger training jobs consider the distributed training approach.
 
 ### Setup Workbench
 
@@ -51,27 +32,23 @@ This example is compatible with RHOAI version 3.3. For a version compatible with
 * Then create a workbench with the following settings:
   * Select the `Jupyter | PyTorch | CUDA | Python 3.12`  notebook image:
     ![](./images/04a.png)
-  * Add a **Hardware Profile** for reuse within the Workbench settings
+  * Select the `Medium` container size and add an accelerator:
     ![](./images/04b.png)
-  * Select the Hardware profile just created
-    ![](./images/04c.png)
     > [!NOTE]
-    > Adding an accelerator (GPU) is only needed in distributed mode to test the fine-tuned model from within the workbench so you can spare an accelerator if needed. An accelerator (GPU) is needed in local mode as the training happens on the workbench pod.
-  * Create a storage that'll be shared between the workbench and the fine-tuning runs. (Only required for distributed)
-    Make sure it uses a storage class with RWX capability and give it enough size according to the size of the model you want to fine-tune. For local mode, the default storage is sufficient.
+    > Adding an accelerator is only needed to test the fine-tuned model from within the workbench so you can spare an accelerator if needed.
+  * Create a storage that'll be shared between the workbench and the fine-tuning runs.
+    Make sure it uses a storage class with RWX capability and give it enough size according to the size of the model you want to fine-tune:
+    ![](./images/04c.png)
     ![](./images/04d.png)
-    ![](./images/04e.png)
     > [!NOTE]
     > You can attach an existing shared storage if you already have one instead.
   * Review the configuration and click "Create workbench":
-    ![](./images/04f.png)
-
-### Running the example notebooks
-
+    ![](./images/04e.png)
 * From "Workbenches" page, click on _Open_ when the workbench you've just created becomes ready:
-  ![](./images/05.png)
-* From the workbench, clone this repository, i.e., `https://red-hat-data-services/red-hat-ai-examples.git`
-* Navigate to the `examples/fine-tuning/training-hub/sft` directory and open the [`sft-local.ipynb`](./sft-local.ipynb) notebook or [`sft-distributed.ipynb`](./sft-distributed.ipynb) as required
+![](./images/05.png)
+* From the workbench, clone this repository, i.e., `https://github.com/Red-hat-data-services/red-hat-ai-examples`
+![](./docs/06.png)
+* Navigate to the `red-hat-ai-examples/examples/fine-tuning/training-hub/sft` directory and open the `sft` notebook
 
 > [!IMPORTANT]
 >
