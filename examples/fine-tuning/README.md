@@ -16,11 +16,11 @@ For detailed algorithm documentation and configuration options, see the upstream
 
 There are three ways to run fine tuning examples:
 
-1. **Local mode (Workbench-only)**
-2. **Distributed mode (Kubeflow Trainer)**
+1. **Interactive Notebooks (Single Node Fine Tuning)**
+2. **Training Jobs (Distributed Fine Tuning with Kubeflow Trainer)**
 3. **Pipeline mode (automated training, model evaluation, and registration with Kubeflow Pipelines)**
 
-### Local Mode (Workbench-only)
+### Interactive Notebooks (Single Node Fine Tuning)
 
 **What it is**
 
@@ -54,7 +54,7 @@ Training runs directly inside a **single Workbench pod** (your notebook environm
 
 ---
 
-### Distributed Mode (Kubeflow Trainer)
+### Training Jobs (Distributed Fine Tuning with Kubeflow Trainer)
 
 **What it is**
 

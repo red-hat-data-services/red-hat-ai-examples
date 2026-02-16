@@ -4,7 +4,12 @@ This example provides an overview of the [SFT algorithm from Training Hub](https
 
 ## Execution modes
 
-Training Hub SFT can run directly in a workbench, where training occurs on a single pod. Alternatively, it supports distributed training across multiple nodes/pods using Kubeflow Trainer. Two notebooks are provided to demonstrate these approaches: `sft-local.ipynb` for single-pod training and `sft-distributed.ipynb` for distributed training. While workbench setup is similar for both, we highlight specific configuration differences below.
+Training Hub SFT supports two execution modes:
+
+- **Interactive Notebooks (Single Node Fine Tuning)**: training runs directly in a workbench on a single pod, demonstrated by `sft-interactive-notebook.ipynb`.
+- **Training Jobs (Distributed Fine Tuning with Kubeflow Trainer)**: training runs as distributed jobs across multiple nodes/pods via Kubeflow Trainer, demonstrated by `sft-distributed.ipynb`.
+
+While workbench setup is similar for both, we highlight specific configuration differences below.
 
 To learn more about execution modes, see the [fine-tuning execution modes overview](../../README.md#execution-modes).
 
@@ -19,11 +24,11 @@ This example is compatible with RHOAI version 3.3. For a version compatible with
 
 ## Requirements
 
-* An OpenShift cluster with OpenShift AI (RHOAI) 3.3 installed:
-  * The `dashboard` and `workbenches` components enabled
-  * The `trainer` component should be enabled if running the distributed notebook.
-* Sufficient worker nodes for your configuration(s) with NVIDIA GPUs (Ampere-based or newer recommended).
-* (Distributed Example only) A dynamic storage provisioner supporting RWX PVC provisioning. Talk to your cluster administrator about RWX storage options.
+- An OpenShift cluster with OpenShift AI (RHOAI) 3.3 installed:
+  - The `dashboard` and `workbenches` components enabled
+  - The `trainer` component should be enabled if running the distributed notebook.
+- Sufficient worker nodes for your configuration(s) with NVIDIA GPUs (Ampere-based or newer recommended).
+- (Distributed Example only) A dynamic storage provisioner supporting RWX PVC provisioning. Talk to your cluster administrator about RWX storage options.
 
 ## Setup
 
@@ -37,59 +42,59 @@ This example is compatible with RHOAI version 3.3. For a version compatible with
 
 > [!NOTE]
 >
-> * Local mode is recommended for smaller training jobs.
-> * For larger training jobs consider the distributed training approach.
+> - **Interactive notebooks (single node fine tuning)** are recommended for smaller training jobs.
+> - For larger training jobs, consider the **training jobs (distributed fine tuning with Kubeflow Trainer)** approach.
 
 ### Setup Workbench
 
-* Access the OpenShift AI dashboard, for example from the top navigation bar menu:
+- Access the OpenShift AI dashboard, for example from the top navigation bar menu:
 ![](./images/01.png)
-* Log in, then go to _Data Science Projects_ and create a project:
+- Log in, then go to _Data Science Projects_ and create a project:
 ![](./images/02.png)
-* Once the project is created, click on _Create a workbench_:
+- Once the project is created, click on _Create a workbench_:
 ![](./images/03.png)
-* Then create a workbench with the following settings:
-  * Select the `Jupyter | PyTorch | CUDA | Python 3.12`  notebook image:
+- Then create a workbench with the following settings:
+  - Select the `Jupyter | PyTorch | CUDA | Python 3.12`  notebook image:
     ![](./images/04a.png)
-  * Add a **Hardware Profile** for reuse within the Workbench settings
+  - Add a **Hardware Profile** for reuse within the Workbench settings
     ![](./images/04b.png)
-  * Select the Hardware profile just created
+  - Select the Hardware profile just created
     ![](./images/04c.png)
     > [!NOTE]
-    > Adding an accelerator (GPU) is only needed in distributed mode to test the fine-tuned model from within the workbench so you can spare an accelerator if needed. An accelerator (GPU) is needed in local mode as the training happens on the workbench pod.
-  * Create a storage that'll be shared between the workbench and the fine-tuning runs. (Only required for distributed)
-    Make sure it uses a storage class with RWX capability and give it enough size according to the size of the model you want to fine-tune. For local mode, the default storage is sufficient.
+    > Adding an accelerator (GPU) is only needed in distributed mode to test the fine-tuned model from within the workbench so you can spare an accelerator if needed. An accelerator (GPU) is needed in interactive mode as the training happens on the workbench pod.
+  - Create a storage that'll be shared between the workbench and the fine-tuning runs. (Only required for distributed)
+    Make sure it uses a storage class with RWX capability and give it enough size according to the size of the model you want to fine-tune. For interactive mode, the default storage is sufficient.
     ![](./images/04d.png)
     ![](./images/04e.png)
     > [!NOTE]
     > You can attach an existing shared storage if you already have one instead.
-  * Review the configuration and click "Create workbench":
+  - Review the configuration and click "Create workbench":
     ![](./images/04f.png)
 
 ### Running the example notebooks
 
-* From "Workbenches" page, click on _Open_ when the workbench you've just created becomes ready:
+- From "Workbenches" page, click on _Open_ when the workbench you've just created becomes ready:
   ![](./images/05.png)
-* From the workbench, clone this repository, i.e., `https://red-hat-data-services/red-hat-ai-examples.git`
-* Navigate to the `examples/fine-tuning/training-hub/sft` directory and open the [`sft-local.ipynb`](./sft-local.ipynb) notebook or [`sft-distributed.ipynb`](./sft-distributed.ipynb) as required
+- From the workbench, clone this repository, i.e., `https://red-hat-data-services/red-hat-ai-examples.git`
+- Navigate to the `examples/fine-tuning/training-hub/sft` directory and open the [`sft-interactive-notebook.ipynb`](./sft-interactive-notebook.ipynb) notebook or [`sft-distributed.ipynb`](./sft-distributed.ipynb) as required
 
 > [!IMPORTANT]
 >
-> * You will need a Hugging Face token if using gated models:
->   * The examples use gated Llama models that require a token (e.g., <https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct>)
->   * Set the `HF_TOKEN` environment variable in your job configuration
->   * Note: You can skip the token if switching to non-gated models
-> * This example supports Kueue integration for workload management:
->   * When using Kueue:
->     * Follow the [Configure Kueue (Optional)](#configure-kueue-optional) section to set up required resources
->     * Add the local-queue name label to your job configuration to enforce workload management
->   * You can skip Kueue usage by:
+> - You will need a Hugging Face token if using gated models:
+>   - The examples use gated Llama models that require a token (e.g., <https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct>)
+>   - Set the `HF_TOKEN` environment variable in your job configuration
+>   - Note: You can skip the token if switching to non-gated models
+> - This example supports Kueue integration for workload management:
+>   - When using Kueue:
+>     - Follow the [Configure Kueue (Optional)](#configure-kueue-optional) section to set up required resources
+>     - Add the local-queue name label to your job configuration to enforce workload management
+>   - You can skip Kueue usage by:
 >
 >       > [!NOTE]
 >       > Kueue Enablement via Validating Admission Policy was introduced in RHOAI 2.21. You can skip this section if using an earlier RHOAI release version.
 >
->     * Disabling the existing `kueue-validating-admission-policy-binding`
->     * Omitting the local-queue-name label in your job configuration
+>     - Disabling the existing `kueue-validating-admission-policy-binding`
+>     - Omitting the local-queue-name label in your job configuration
 
 You can now proceed with the instructions from the notebook. Enjoy!
 
@@ -100,20 +105,20 @@ You can now proceed with the instructions from the notebook. Enjoy!
 > Kueue is not already configured in your cluster.
 > Resources below can be found in the [distributed-workloads repository](https://github.com/opendatahub-io/distributed-workloads/tree/main/workshops/kueue)
 
-* Update the `nodeLabels` in the `workshops/kueue/resources/resource_flavor.yaml` file to match your AI worker nodes
-* Create the ResourceFlavor:
+- Update the `nodeLabels` in the `workshops/kueue/resources/resource_flavor.yaml` file to match your AI worker nodes
+- Create the ResourceFlavor:
 
     ```console
     oc apply -f workshops/kueue/resources/resource_flavor.yaml
     ```
 
-* Create the ClusterQueue:
+- Create the ClusterQueue:
 
     ```console
     oc apply -f workshops/kueue/resources/team1_cluster_queue.yaml
     ```
 
-* Create a LocalQueue in your namespace:
+- Create a LocalQueue in your namespace:
 
     ```console
     oc apply -f workshops/kueue/resources/team1_local_queue.yaml -n <your-namespace>
@@ -125,10 +130,10 @@ This example has been validated with the following configurations:
 
 ### Qwen2.5 1.5B Instruct - TableGPT Dataset - Training-Hub - 4x NVIDIA A100/80G
 
-* Infrastructure:
-  * OpenShift AI 3.0
-  * 8x NVIDIA-A100-SXM4-80GB
-* Configuration:
+- Infrastructure:
+  - OpenShift AI 3.0
+  - 8x NVIDIA-A100-SXM4-80GB
+- Configuration:
 
     ```yaml
   # ################################################################################
@@ -168,7 +173,7 @@ This example has been validated with the following configurations:
   # ###############################################################################
     ```
 
-* Job:
+- Job:
 
     ```yaml
     num_workers: 4
@@ -185,10 +190,10 @@ This example has been validated with the following configurations:
 
 ### Qwen2.5 7B Instruct - TableGPT Dataset - Training-Hub - 4x NVIDIA A100/80G
 
-* Infrastructure:
-  * OpenShift AI 3.0
-  * 8x NVIDIA-A100-SXM4-80GB
-* Configuration:
+- Infrastructure:
+  - OpenShift AI 3.0
+  - 8x NVIDIA-A100-SXM4-80GB
+- Configuration:
 
     ```yaml
   # ################################################################################
@@ -228,7 +233,7 @@ This example has been validated with the following configurations:
   # ###############################################################################
     ```
 
-* Job:
+- Job:
 
     ```yaml
     num_workers: 4
@@ -245,10 +250,10 @@ This example has been validated with the following configurations:
 
 ### Qwen2.5 14B Instruct - TableGPT Dataset - Training-Hub - 4x NVIDIA A100/80G
 
-* Infrastructure:
-  * OpenShift AI 3.0
-  * 8x NVIDIA-A100-SXM4-80GB
-* Configuration:
+- Infrastructure:
+  - OpenShift AI 3.0
+  - 8x NVIDIA-A100-SXM4-80GB
+- Configuration:
 
     ```yaml
   # ################################################################################
@@ -288,7 +293,7 @@ This example has been validated with the following configurations:
   # ###############################################################################
     ```
 
-* Job:
+- Job:
 
     ```yaml
     num_workers: 4

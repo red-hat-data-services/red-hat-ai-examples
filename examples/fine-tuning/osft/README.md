@@ -4,9 +4,14 @@ This guide provides an overview of the [OSFT algorithm from Training Hub](https:
 
 ## Execution modes
 
-OSFT can run directly in a workbench, where training occurs on a single pod. Alternatively, it supports distributed training across multiple nodes/pods using Kubeflow Trainer. Two notebooks are provided to demonstrate these approaches: `osft-local.ipynb` for single-pod training and `osft-distributed.ipynb` for distributed training. While workbench setup is similar for both, we highlight specific configuration differences below.
+OSFT supports two execution modes:
 
-To learn more about execution modes, see the [fine-tuning execution modes overview](../README.md#execution-modes).
+- **Interactive Notebooks (Single Node Fine Tuning)**: training runs directly in a workbench on a single pod, demonstrated by `osft-interactive-notebook.ipynb`.
+- **Training Jobs (Distributed Fine Tuning with Kubeflow Trainer)**: training runs as distributed jobs across multiple nodes/pods via Kubeflow Trainer, demonstrated by `osft-distributed.ipynb`.
+
+While workbench setup is similar for both, we highlight specific configuration differences below.
+
+To learn more about these execution modes, see the [fine-tuning execution modes overview](../README.md#execution-modes).
 
 ## RHOAI compatibility
 
@@ -83,7 +88,7 @@ osft(..., use_processed_dataset=True)
 
 ## Hardware requirements to run the example notebook
 
-### Workbench Requirements (Local example)
+### Workbench Requirements (Interactive example)
 
 | Image Type | Use Case | GPU | CPU | Memory | Notes |
 |------------|----------|-----|-----|--------|-------|
@@ -91,8 +96,8 @@ osft(..., use_processed_dataset=True)
 
 > [!NOTE]
 >
-> - Local mode is recommended for smaller training jobs.
-> - For larger training jobs consider the distributed training approach.
+> - **Interactive notebooks (single node fine tuning)** are recommended for smaller training jobs.
+> - For larger training jobs, consider the **training jobs (distributed fine tuning with Kubeflow Trainer)** approach.
 
 ### Training Job Requirements (Distributed example)
 
@@ -129,7 +134,7 @@ osft(..., use_processed_dataset=True)
 > [!NOTE]
 >
 > - Storage can be created in `Create Workbench` view on RHOAI Platform, however, dynamic RWX provisioner is required to be configured prior to creating shared file storage in RHOAI.
-> - Shared storage is not required for the local example as dataset, model download and training all happen on the same pod.
+> - Shared storage is not required for the interactive example as dataset, model download and training all happen on the same pod.
 
 ## Setup
 
@@ -145,7 +150,7 @@ osft(..., use_processed_dataset=True)
   ![](./docs/03.png)
 
 - Then create a workbench with the following settings:
-  - Select the appropriate Workbench based on local or distributed use case. See options above:
+  - Select the appropriate Workbench based on interactive or distributed use case. See options above:
     ![](./docs/04a.png)
 
   - Similarly, you may want to add a **Hardware Profile** for reuse within the Workbench settings
@@ -154,13 +159,13 @@ osft(..., use_processed_dataset=True)
   - Select the Hardware profile just created:
     ![](./docs/04c.png)
     > [!NOTE]
-    > Adding an accelerator (GPU) for the distributed use case is only needed to test the fine-tuned model from within the workbench so you can spare an accelerator if you plan to skip that step. An accelerator (GPU) is required in local mode as the training happens on the workbench pod.
+    > Adding an accelerator (GPU) for the distributed use case is only needed to test the fine-tuned model from within the workbench so you can spare an accelerator if you plan to skip that step. An accelerator (GPU) is required in interactive mode as the training happens on the workbench pod.
 
   - For distributed training, create **shared storage** that'll be shared between the workbench and the training pods.
     Make sure it uses a storage class with RWX capability and set it to 15GiB in size.
     ![](./docs/04d.png)
     > [!NOTE]
-    > For the local example, dataset, model download, and training all happen on the same pod, so shared storage is not required.
+    > For the interactive example, dataset, model download, and training all happen on the same pod, so shared storage is not required.
     > You can attach an existing shared storage if you already have one instead.
 
   - Review the storage configuration and click "Create workbench":
@@ -174,10 +179,10 @@ osft(..., use_processed_dataset=True)
 > - By default:
 >   - The example goes through distributed training on two nodes (2xL40/L40S) with two GPUs each (2x48GB). However, it can be tweaked to run on smaller configurations.
 >   - If you want to do model evaluation part of the distributed example, ideally an accelerator is attached to the workbench
->   - For the local example an accelerator is required for the WorkBench to execute the fine tuning with OSFT.
+>   - For the interactive example an accelerator is required for the WorkBench to execute the fine tuning with OSFT.
 
 ### Running the example notebooks
 
 - From the workbench, clone this repository, i.e., `https://red-hat-data-services/red-hat-ai-examples.git`
   ![](./docs/06.png)
-- Navigate to the `examples/fine-tuning/osft` directory and open the [`osft-local.ipynb`](./osft-local.ipynb) notebook or [`osft-distributed.ipynb`](./osft-distributed.ipynb) as required
+- Navigate to the `examples/fine-tuning/osft` directory and open the [`osft-interactive-notebook.ipynb`](./osft-interactive-notebook.ipynb) notebook or [`osft-distributed.ipynb`](./osft-distributed.ipynb) as required
