@@ -35,7 +35,6 @@ Key optimizations:
 
 - Red Hat OpenShift AI with:
   - KubeRay operator installed
-  - CodeFlare operator installed
 
 ### Hardware requirements
 
@@ -66,7 +65,7 @@ Key optimizations:
 
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `NUM_FILES` | 10000 | Number of PDF files to process |
+| `NUM_FILES` | 5000 | Number of PDF files to process |
 | `MIN_ACTORS` | 16 | Minimum warm actors (avoids cold starts) |
 | `MAX_ACTORS` | 16 | Maximum parallel actors |
 | `CPUS_PER_ACTOR` | 4 | CPUs allocated to each Docling actor |
