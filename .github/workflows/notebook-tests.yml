@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    name: Test Suite
+    name: Validation & Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -38,7 +38,7 @@ jobs:
 
       - name: Check test results
         run: |
-          # Fail the workflow if any tests failed
+          # Fail the workflow if any tests failed (excluding validation warnings)
           grep -q "failed" validation-output.txt && exit 1 || true
           grep -q "failed" smoke-output.txt && exit 1 || true
           exit 0
@@ -51,6 +51,8 @@ jobs:
           path: |
             validation-results.xml
             smoke-results.xml
+            validation-output.txt
+            smoke-output.txt
           retention-days: 7
 
       - name: Generate test summary
@@ -59,9 +61,25 @@ jobs:
           echo "## Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Extract validation warnings section
           echo "### Validation Tests" >> $GITHUB_STEP_SUMMARY
-          tail -n 1 validation-output.txt >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check if there are validation warnings
+          if grep -q "Validation Warnings Summary" validation-output.txt; then
+            echo "**Validation Warnings Found:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            sed -n '/Validation Warnings Summary/,/passed\|failed\|error/p' validation-output.txt | head -n -1 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No validation warnings." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Show test result summary line
+          echo "**Result:** $(tail -n 1 validation-output.txt)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Smoke Tests" >> $GITHUB_STEP_SUMMARY
-          tail -n 1 smoke-output.txt >> $GITHUB_STEP_SUMMARY
+          echo "**Result:** $(tail -n 1 smoke-output.txt)" >> $GITHUB_STEP_SUMMARY

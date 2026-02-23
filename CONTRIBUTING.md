@@ -129,10 +129,100 @@ All contributions must pass the automated code quality checks before being merge
 - No secrets or sensitive information should be committed
 - No trailing whitespace or other common file issues
 
+## Contributing Examples
+
+When contributing new examples or modifying existing ones, please follow these standards:
+
+### Required Documentation
+
+All examples MUST include:
+
+1. **Metadata file (`example.yaml`)** - Structured metadata describing the example
+   - See [docs/METADATA_SCHEMA.md](docs/METADATA_SCHEMA.md) for complete schema documentation
+   - Includes hardware requirements, duration estimates, tags, and more
+
+2. **README file** - Clear documentation following our structure
+   - See [docs/EXAMPLE_STYLE_GUIDE.md](docs/EXAMPLE_STYLE_GUIDE.md) for README requirements
+
+3. **Dependencies** - `pyproject.toml`
+   - Pin major versions: `package>=4.57.0,<5.0`
+   - See style guide for structure and best practices
+
+4. **Environment variables** - `.env.example` if your example uses env vars
+   - Document all required variables with comments
+   - Never commit actual `.env` files
+
+### Style Guide
+
+Follow the comprehensive style guide for:
+
+- File naming conventions
+- Directory structure patterns
+- README structure and required sections
+- Jupyter notebook organization
+- Dependency management
+- Code quality standards
+
+**Read the full guide:** [docs/EXAMPLE_STYLE_GUIDE.md](docs/EXAMPLE_STYLE_GUIDE.md)
+
+### Metadata Schema
+
+All examples require an `example.yaml` metadata file with:
+
+- Title and description
+- Hardware requirements (GPU, CPU, memory, storage)
+- Duration estimates
+- Tags and use case classification
+- Components required
+- Structure information
+
+**Read the full schema:** [docs/METADATA_SCHEMA.md](docs/METADATA_SCHEMA.md)
+
+### Validation
+
+Your contribution will be automatically validated for:
+
+- Metadata schema compliance
+- Required files present
+- Naming conventions followed
+- README structure
+- YAML syntax validity
+
+Run validation locally before submitting:
+
+```bash
+# Install test dependencies
+pip install -e ".[test]"
+
+# Run metadata validation
+pytest tests/validation/test_example_metadata.py -v
+
+# Run structure validation
+pytest tests/validation/test_example_structure.py -v
+
+# Run all validation tests
+pytest tests/validation/ -v
+```
+
+### Example Contribution Checklist
+
+Before submitting a pull request with a new example:
+
+- [ ] Created `example.yaml` with all required metadata fields
+- [ ] Wrote comprehensive README.md following the style guide
+- [ ] Included `pyproject.toml` with pinned versions
+- [ ] Created `.env.example` if example uses environment variables
+- [ ] Followed naming conventions for directories and files
+- [ ] Tested the example end-to-end
+- [ ] Ran validation tests locally and all pass
+- [ ] No secrets or credentials committed
+- [ ] Pre-commit hooks pass
+
 ## Submitting Changes
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Ensure all pre-commit hooks pass
-5. Submit a pull request
+5. Run validation tests locally
+6. Submit a pull request
