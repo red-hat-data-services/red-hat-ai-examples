@@ -1,29 +1,91 @@
 # Distributed PDF Processing with Ray Data and Docling
 
-This example demonstrates how to build and submit a distributed PDF-to-JSON conversion pipeline using [Ray Data](https://docs.ray.io/en/latest/data/data.html) and [Docling](https://github.com/DS4SD/docling) on Red Hat OpenShift AI. The pipeline is submitted as a **RayJob** via the CodeFlare SDK, which handles cluster lifecycle and job management.
+This example demonstrates how to build and run a distributed PDF-to-JSON conversion pipeline using [Ray Data](https://docs.ray.io/en/latest/data/data.html) and [Docling](https://github.com/DS4SD/docling) on Red Hat OpenShift AI. Two notebooks are provided, each using a different approach to cluster and job management via the [CodeFlare SDK](https://github.com/project-codeflare/codeflare-sdk).
 
-## Overview
+## Notebooks
 
-The notebook (`ray-data-with-docling.ipynb`) walks through:
+| Notebook | Approach | Use case |
+|---|---|---|
+| `ray-data-with-docling.ipynb` | **RayJob** with managed cluster | Single batch jobs with automatic cluster lifecycle |
+| `ray-cluster-data-with-docling.ipynb` | **RayCluster** with job submission | Long-lived clusters for submitting multiple jobs |
 
-1. Authenticating to an OpenShift cluster
-2. Creating a Ray Data processing script that converts PDFs to structured JSON using Docling
-3. Configuring a RayJob with a managed RayCluster (including PVC mounts, resource requests, and performance tuning parameters)
-4. Submitting the job and monitoring its status
-5. Retrieving job logs with a detailed performance report
+### RayJob approach (`ray-data-with-docling.ipynb`)
 
-### Pipeline architecture
+Uses the CodeFlare SDK `RayJob` and `ManagedClusterConfig` to submit a job that automatically creates a RayCluster, runs the processing pipeline, and tears down the cluster when done. This is ideal for one-off batch processing where you don't need to manage cluster lifecycle.
 
-The submitted script (`ray_data_process_async.py`) uses a stateful `DoclingProcessor` actor pool to:
+### RayCluster approach (`ray-cluster-data-with-docling.ipynb`)
 
-- **Read** PDF files from a Persistent Volume Claim (PVC) using `ray.data.read_binary_files`
-- **Convert** PDFs to structured JSON using Docling's `DocumentConverter` with configurable pipeline options (OCR, table structure extraction)
-- **Write** results back to the PVC with retry logic
+Uses the CodeFlare SDK `Cluster` and `ClusterConfiguration` to create a persistent RayCluster, then submits jobs to it using the Ray Job Submission Client. This is ideal for interactive or iterative workflows where you want to submit multiple jobs to the same cluster.
 
-Key optimizations:
+## Architecture
+
+Both notebooks submit the same processing script (`ray_data_process_async.py`), which implements a three-stage Ray Data pipeline distributed across a RayCluster.
+
+### Cluster architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                       OpenShift / Kubernetes                         │
+│                                                                      │
+│  ┌────────────────────┐                                              │
+│  │   KubeRay Operator  │  Manages RayCluster lifecycle               │
+│  └─────────┬──────────┘                                              │
+│            │ creates                                                  │
+│            ▼                                                          │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │                         RayCluster                              │  │
+│  │                                                                  │  │
+│  │  ┌──────────────────┐                                            │  │
+│  │  │    Head Node       │  Schedules Ray Data stages               │  │
+│  │  └────────┬─────────┘                                            │  │
+│  │           │                                                       │  │
+│  │     ┌─────┼──────┬──────────┬─── ─ ─ ─ ┐                        │  │
+│  │     ▼     ▼      ▼          ▼           ▼                        │  │
+│  │  ┌──────┐┌──────┐┌──────┐┌──────┐   ┌──────┐                   │  │
+│  │  │Wkr 1 ││Wkr 2 ││Wkr 3 ││Wkr 4 │   │Wkr N │                   │  │
+│  │  │      ││      ││      ││      │   │      │                   │  │
+│  │  │Doclng││Doclng││Doclng││Doclng│   │Doclng│                   │  │
+│  │  │Actor ││Actor ││Actor ││Actor │   │Actor │                   │  │
+│  │  └──┬───┘└──┬───┘└──┬───┘└──┬───┘   └──┬───┘                   │  │
+│  │     │       │       │       │           │                        │  │
+│  └─────┼───────┼───────┼───────┼───────────┼────────────────────────┘  │
+│        │       │       │       │           │                           │
+│        ▼       ▼       ▼       ▼           ▼                           │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │                    PVC (ReadWriteMany)                          │  │
+│  │                                                                  │  │
+│  │   input/pdfs/  ──────────────────────►  output/json/            │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Ray Data pipeline stages
+
+The processing script (`ray_data_process_async.py`) runs the following pipeline:
+
+```
+┌──────────────────┐     ┌───────────────────────────┐     ┌──────────────────┐
+│   Stage 1: Read   │     │   Stage 2: Process         │     │  Stage 3: Report  │
+│                    │────▶│                             │────▶│                    │
+│ ray.data.read_     │     │ DoclingProcessor actors     │     │ iter_batches()     │
+│ binary_files()     │     │                             │     │                    │
+│                    │     │ For each PDF:               │     │ Collects results   │
+│ Reads PDFs from    │     │  1. Convert via Docling     │     │ and prints a       │
+│ PVC into Ray       │     │  2. Export to JSON dict     │     │ performance        │
+│ data blocks        │     │  3. Write JSON to PVC       │     │ report with:       │
+│                    │     │                             │     │  - Throughput       │
+│ .filter(.pdf)      │     │ ActorPoolStrategy:          │     │  - Actor stats     │
+│ .limit(NUM_FILES)  │     │  min_size -> max_size       │     │  - Error summary   │
+└──────────────────┘     └───────────────────────────┘     └──────────────────┘
+                                │
+                          Prefetching and streaming
+                          overlap all three stages
+```
+
+### Key optimizations
 
 | Optimization | Description |
-| --- | --- |
+|---|---|
 | One-time model loading | Docling models are loaded once per actor, avoiding repeated startup overhead |
 | Actor pool autoscaling | `ActorPoolStrategy` with configurable `min_size`/`max_size` |
 | Streaming execution | Read, process, and write stages overlap via `iter_batches()` with prefetching |
@@ -38,10 +100,10 @@ Key optimizations:
 
 ### Hardware requirements
 
-#### RayCluster (managed by the RayJob)
+#### RayCluster
 
 | Component | Configuration | Notes |
-| --- | --- | --- |
+|---|---|---|
 | Worker nodes | 8 nodes x 8 CPUs | Configurable in notebook |
 | Worker memory | 8Gi per worker | Adjust based on PDF complexity |
 | Head node | Default resources | Manages scheduling only |
@@ -49,13 +111,13 @@ Key optimizations:
 #### Workbench
 
 | Image | GPU | CPU | Memory | Notes |
-| --- | --- | --- | --- | --- |
+|---|---|---|---|---|
 | Minimal Python 3.12 | None | 2 cores | 8Gi | Used to submit jobs only |
 
 ### Storage
 
 | Purpose | Size | Access mode | Notes |
-| --- | --- | --- | --- |
+|---|---|---|---|
 | Shared PVC | Varies by dataset | ReadWriteMany (RWX) | Required for concurrent reads/writes from all workers |
 
 > [!NOTE]
@@ -63,8 +125,10 @@ Key optimizations:
 
 ## Performance tuning parameters
 
+Both notebooks use the same tuning parameters, configured as environment variables in the job submission:
+
 | Parameter | Default | Description |
-| --- | --- | --- |
+|---|---|---|
 | `NUM_FILES` | 5000 | Number of PDF files to process |
 | `MIN_ACTORS` | 16 | Minimum warm actors (avoids cold starts) |
 | `MAX_ACTORS` | 16 | Maximum parallel actors |
@@ -85,7 +149,7 @@ Access the OpenShift AI dashboard from the top navigation bar menu.
 
 Log in, then go to **Data Science Projects** and create a project.
 
-### 3. Create a PVC with RWX Access
+### 3. Create a PVC with RWX access
 
 Create a PersistentVolumeClaim with `ReadWriteMany` access mode and upload your PDF files to it:
 
@@ -102,11 +166,11 @@ spec:
       storage: 50Gi
 ```
 
-### 4. Create a Workbench
+### 4. Create a workbench
 
-Create a workbench with a Minimal Python 3.12 image. No GPU is required since the workbench is only used to submit the RayJob.
+Create a workbench with a Minimal Python 3.12 image. No GPU is required since the workbench is only used to submit jobs.
 
-### 5. Clone the Repository
+### 5. Clone the repository
 
 From your workbench, clone this repository:
 
@@ -114,32 +178,44 @@ From your workbench, clone this repository:
 git clone https://github.com/red-hat-data-services/red-hat-ai-examples.git
 ```
 
-Navigate to `examples/ray/data/docling` and open the `ray-data-with-docling.ipynb` notebook.
+Navigate to `examples/ray/data/docling` and open the notebook for your chosen approach.
 
-## Running the example
+## Running the examples
 
-The notebook walks you through:
+### RayJob approach (`ray-data-with-docling.ipynb`)
 
-1. **Importing SDK components** -- CodeFlare SDK (`RayJob`, `ManagedClusterConfig`) and Kubernetes client
-2. **Authenticating** -- `oc login` to your OpenShift cluster
-3. **Creating the processing script** -- Writes `ray_data_process_async.py` with the Docling actor pool
-4. **Verifying the PVC** -- Checks that the PVC exists and has RWX access mode
-5. **Configuring the RayJob** -- Sets up cluster specs, PVC mounts, environment variables, and runtime dependencies
-6. **Submitting the job** -- Submits the RayJob to KubeRay
-7. **Monitoring status** -- Checks job status via the CodeFlare SDK
-8. **Retrieving logs** -- Views job logs including a detailed performance report with throughput metrics, actor distribution, and error summary
+1. **Import SDK components** -- CodeFlare SDK (`RayJob`, `ManagedClusterConfig`) and Kubernetes client
+2. **Authenticate** -- `oc login` to your OpenShift cluster
+3. **Create the processing script** -- Writes `ray_data_process_async.py` with the Docling actor pool
+4. **Verify the PVC** -- Checks that the PVC exists and has RWX access mode
+5. **Configure the RayJob** -- Sets up managed cluster specs, PVC mounts, environment variables, and runtime dependencies
+6. **Submit the job** -- Creates a RayJob custom resource that manages the full cluster lifecycle
+7. **Monitor status** -- Checks job status via the CodeFlare SDK
+8. **Retrieve logs** -- Views job logs including a detailed performance report
+
+### RayCluster approach (`ray-cluster-data-with-docling.ipynb`)
+
+1. **Import SDK components** -- CodeFlare SDK (`Cluster`, `ClusterConfiguration`) and Kubernetes client
+2. **Authenticate** -- `oc login` to your OpenShift cluster
+3. **Create the processing script** -- Writes `ray_data_process_async.py` with the Docling actor pool
+4. **Verify the PVC** -- Checks that the PVC exists and has RWX access mode
+5. **Create a RayCluster** -- Defines cluster resources and creates the cluster
+6. **Submit a job** -- Uses the Ray Job Submission Client to submit the processing job
+7. **Monitor status** -- Lists and checks job status via the job client
+8. **Retrieve logs** -- Views or streams job logs
+9. **Clean up** -- Deletes the job and tears down the cluster
 
 ## Customization
 
 | Parameter | Where to change | Description |
-| --- | --- | --- |
-| `num_workers` | `ManagedClusterConfig` | Number of Ray worker nodes |
-| `worker_cpu_requests` | `ManagedClusterConfig` | CPUs per worker node |
-| `worker_memory_requests` | `ManagedClusterConfig` | Memory per worker node |
-| `image` | `ManagedClusterConfig` | Container image with Ray and Docling |
+|---|---|---|
+| `num_workers` | Cluster configuration | Number of Ray worker nodes |
+| `worker_cpu_requests` | Cluster configuration | CPUs per worker node |
+| `worker_memory_requests` | Cluster configuration | Memory per worker node |
+| `image` | Cluster configuration | Container image with Ray and Docling |
 | `INPUT_PATH` | Environment variables | Path to input PDFs on the PVC |
 | `OUTPUT_PATH` | Environment variables | Path for output JSON files on the PVC |
-| `active_deadline_seconds` | `RayJob` | Job timeout (default: 7200s / 2 hours) |
+| `active_deadline_seconds` | `RayJob` (RayJob approach only) | Job timeout (default: 7200s / 2 hours) |
 
 ## Troubleshooting
 
@@ -148,6 +224,9 @@ The notebook walks you through:
 ```bash
 # Check RayJob status
 oc get rayjob <job-name> -o yaml
+
+# Check RayCluster status
+oc get raycluster <cluster-name> -o yaml
 
 # Check for pending pods
 oc get pods -l ray.io/cluster=<cluster-name>
