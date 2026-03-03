@@ -51,6 +51,7 @@ Training runs directly inside a **single Workbench pod** (your notebook environm
 
 - [SFT fine-tuning example](training-hub/sft/README.md)
 - [OSFT fine-tuning example](osft/README.md)
+- [LORA fine-tuning example](lora/README.md)
 
 ---
 
