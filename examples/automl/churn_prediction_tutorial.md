@@ -320,13 +320,12 @@ After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-ks
 13. Review configuration and click **Deploy model**.
 14. After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#-deployment-scoring) for an example request.
 
-**Screenshot examples for the steps above**
 
-**Step 1 — Model details**
+**Steps 1-6 — Model details**
 
 ![Model deployment - step 1](images/model_deployment_first_step.png)
 
-**Step 2 — Model deployment settings**
+**Steps 7-9 — Model deployment settings**
 
 ![Model deployment - step 2](images/model_deployment_second_step.png)
 
