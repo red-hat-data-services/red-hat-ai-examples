@@ -328,11 +328,11 @@ After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-ks
 | **⓫** | After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#-deployment-scoring) for an example request. |
 
 
-**Steps ①-⑤ — Model details**
+**Steps ②-⑤ — Model details**
 
 ![Model deployment - step 1](images/model_deployment_first_step.png)
 
-**Steps ⑥-⑨ — Model deployment settings**
+**Steps ⑥-⑧ — Model deployment settings**
 
 ![Model deployment - step 2](images/model_deployment_second_step.png)
 
