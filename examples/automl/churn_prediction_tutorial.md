@@ -83,6 +83,10 @@ Use this connection when configuring the Pipeline Server (e.g., in **Pipeline ru
 | **②** | In Red Hat OpenShift AI, go to **Pipelines** (or **Develop & Train** → **Pipelines**) for your project. |
 | **③** | Upload the compiled pipeline as a new **Pipeline Definition** (or create a pipeline from the YAML), following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines). |
 
+**Step ③ — Upload the compiled pipeline as a new Pipeline Definition**
+
+![Pipeline configuration](images/pipeline_configuration_1.png)
+
 ### ▶️ Run AutoML with the required inputs
 
 | Step | Action |
@@ -91,6 +95,11 @@ Use this connection when configuring the Pipeline Server (e.g., in **Pipeline ru
 | **②** | Set the **Name** of the pipeline run and run parameters (see section **What you need to provide** for what each means): **train_data_secret_name** (connection name from **Create the S3 connections** — training data connection), **train_data_bucket_name** (bucket from that same connection), **train_data_file_key** (e.g. `data/WA_FnUseC_TelcoCustomerChurn.csv`), **label_column** `Churn`, **task_type** `binary`, **top_n** `3` (or another positive integer). If the UI asks for an experiment or run name, set them as run metadata. |
 | **③** | Ensure the Pipeline Server is configured with the results S3 connection from **Create the S3 connections**, so artifacts are stored in the expected bucket. |
 | **④** | Start the run via **Create run** and wait for it to complete. |
+
+**Step ② — Set the pipeline run details**
+
+![Pipeline run configuration details 1](images/pipeline_configuration_details_1.png)
+![Pipeline run configuration details 2](images/pipeline_configuration_details_2.png)
 
 ### 📊 View the leaderboard
 
@@ -101,6 +110,10 @@ After the run has completed successfully:
 | **①** | Open the run details and go to **Artifacts** (or the artifact store configured for the run). |
 | **②** | Locate the **leaderboard** artifact (e.g., an HTML file in the leaderboard-evaluation output). |
 | **③** | Download or open the HTML leaderboard to compare the ranked models and their metrics. |
+
+**Step ② — Preview of the leaderboard artifact**
+
+![Leaderboard](images/leaderboard.png)
 
 For exact artifact paths and layout, see the pipeline reference below.
 
@@ -119,6 +132,10 @@ The notebook is saved under `model_artifact.path` / `model_name_FULL` / `noteboo
 | **⑤** | **Customize** if required: edit the model path or artifact location to point to a specific refitted model (e.g. `LightGBM_BAG_L1_FULL`), add cells for extra visualizations or metrics, change sample data, or adapt the notebook for your own workflows. Save the notebook in the workbench when done.                                                                                                                                                                                                                                                       |
 
 For the notebook path and artifact layout per refitted model, see the [autogluon_models_full_refit component](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_automl/components/training/automl/autogluon_models_full_refit). For the overall pipeline, see the [pipeline reference](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_automl/pipelines/training/automl/autogluon_tabular_training_pipeline). For creating and importing notebooks in the workbench, see [Creating and importing notebooks](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_in_your_data_science_ide/working_in_jupyterlab#creating-and-importing-jupyter-notebooks_ide) in the Red Hat OpenShift AI documentation.
+
+**Preview of the predictor notebook in Workbench**
+
+![Predictor notebook preview](images/predictor_notebook_preview.png)
 
 ### 📚 Model Registry
 
