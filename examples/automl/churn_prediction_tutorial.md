@@ -152,9 +152,7 @@ If your cluster does not yet have a model registry, an OpenShift AI administrato
 | **③** | In **Connect to external MySQL database**, enter **Host**, **Port**, **Username**, **Password**, and **Database**. Add a CA certificate if the database uses TLS. |
 | **④** | Click **Create**. The new model registry appears on the Model registry settings page. |
 
-**Step ② — Create model registry settings:**
-
-**Model registry settings example**
+**Step ② — Create model registry settings**
 
 ![Model registry settings](images/model_registry_settings.png)
 
@@ -295,13 +293,11 @@ Replace `{SERVING_IMAGE}` with the image URL above and `{NAMESPACE}` with your p
 5. In **Select the model types this runtime supports**, select **Predictive model**.
 6. Click **Create**.
 
-**Screenshot examples for the steps above**
-
-**Step ④–⑤ — REST protocol and Predictive model setup**
+**Step ③–⑤ — REST protocol and Predictive model setup**
 
 ![Serving Runtime configuration](images/serving_runtime_example_config.png)
 
-**Step ③ — ServingRuntime YAML details (container args, security context, resources)**
+
 
 ![Serving Runtime configuration - continued](images/serving_runtime_example_config_2.png)
 
@@ -329,7 +325,7 @@ After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-ks
 
 ![Model deployment - step 2](images/model_deployment_second_step.png)
 
-11. You can configure **Advanced settings** to control access and reachability—for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service).
+11. You can configure **Advanced settings** to control access and reachability - for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service).
 12. Click **Next**.
 13. Review configuration and click **Deploy model**.
 14. After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#-deployment-scoring) for an example request.
