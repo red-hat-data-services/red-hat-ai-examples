@@ -152,6 +152,10 @@ If your cluster does not yet have a model registry, an OpenShift AI administrato
 | **③** | In **Connect to external MySQL database**, enter **Host**, **Port**, **Username**, **Password**, and **Database**. Add a CA certificate if the database uses TLS. |
 | **④** | Click **Create**. The new model registry appears on the Model registry settings page. |
 
+**Model registry settings example**
+
+![Model registry settings](images/model_registry_settings.png)
+
 For full details and prerequisites (e.g. MySQL 5.x or 8.x), see [Creating a model registry](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_cloud_service/1/html/managing_model_registries/creating-a-model-registry_managing-model-registries) in the Red Hat OpenShift AI documentation.
 
 **Registering a refitted AutoGluon model from the pipeline run**
@@ -289,6 +293,10 @@ Replace `{SERVING_IMAGE}` with the image URL above and `{NAMESPACE}` with your p
 5. In **Select the model types this runtime supports**, select **Predictive model**.
 6. Click **Create**.
 
+**Serving Runtime configuration (REST + Predictive model)**
+
+![Serving Runtime configuration](images/serving_runtime_example_config.png)
+
 ## 🚀 Model Deployment
 
 After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-kserve-preparation) is created, deploy your AutoGluon model (e.g. from an AutoML run) so it is available for inference. This assumes the model is stored in S3.
@@ -299,10 +307,20 @@ After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-ks
 4. Fill in all required fields (bucket, path, etc.).
 5. For **Model type**, choose **Predictive model**.
 6. Click **Next**.
+
+**Step 1 — Model details**
+
+![Model deployment - step 1](images/model_deployment_first_step.png)
+
 7. In **Model deployment name**, enter the model name under which the model should be available for inference.
 8. Under **Model framework**, select **autogluon - 1**.
 9. Under **Serving runtime**, choose **Select from list…** → **AutoGluon ServingRuntime for KServe**.
 10. Click **Next**.
+
+**Step 2 — Model deployment settings**
+
+![Model deployment - step 2](images/model_deployment_second_step.png)
+
 11. You can configure **Advanced settings** to control access and reachability—for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service).
 12. Click **Next**.
 13. Review configuration and click **Deploy model**.
