@@ -71,7 +71,7 @@ Use this connection when configuring the Pipeline Server (e.g., in **Pipeline ru
 
 | Step | Action |
 |------|--------|
-| **①** | Download the Customer Churn dataset: [WA_FnUseC_TelcoCustomerChurn.csv](https://github.com/IBM/watsonx-ai-samples/blob/master/cloud/data/customer_churn/WA_FnUseC_TelcoCustomerChurn.csv) (from the IBM watsonx AI samples repository). |
+| **①** | Download the Customer Churn dataset: [WA_FnUseC_TelcoCustomerChurn.csv](data/WA_FnUseC_TelcoCustomerChurn.csv) (in the `data` folder in this repository). |
 | **②** | Upload the file to the S3 bucket configured in the **training data** connection. Place it in a path you will use as the object key (for example, `data/WA_FnUseC_TelcoCustomerChurn.csv` or just `WA_FnUseC_TelcoCustomerChurn.csv`). |
 | **③** | Note the **bucket name** and the **object key** (path) of the file; you will need them for `train_data_bucket_name` and `train_data_file_key` in the pipeline run. |
 
@@ -121,7 +121,7 @@ For exact artifact paths and layout, see the pipeline reference below.
 
 The AutoML pipeline generates a **predictor notebook** (e.g. `automl_predictor_notebook.ipynb`) that loads and uses the selected AutoGluon predictor for predictions, evaluation, and exploration. You can download this notebook from the run artifacts, upload it to your workbench, run it, and customize it as needed.
 
-The notebook is saved under `model_artifact.path` / `model_name_FULL` / `notebooks`, where `model_artifact.path` is a path like `autogluon-tabular-training-pipeline/.<run_id>/autogluon-models-full-refit/<task_id>/model_artifact/` (one such path per refitted model). For example: `...<run_id>/autogluon-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb`.
+The notebook is saved under `model_artifact.path/model_name_FULL/notebooks`, where `model_artifact.path` is a path like `autogluon-tabular-training-pipeline/<run_id>/autogluon-models-full-refit/<task_id>/model_artifact/` (one such path per refitted model). For example: `...<run_id>/autogluon-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb`.
 
 | Step | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 |------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
