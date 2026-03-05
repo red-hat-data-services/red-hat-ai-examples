@@ -296,6 +296,7 @@ Replace `{SERVING_IMAGE}` with the image URL above and `{NAMESPACE}` with your p
 **Serving Runtime configuration (REST + Predictive model)**
 
 ![Serving Runtime configuration](images/serving_runtime_example_config.png)
+![Serving Runtime configuration - continued](images/serving_runtime_example_config_2.png)
 
 ## 🚀 Model Deployment
 
