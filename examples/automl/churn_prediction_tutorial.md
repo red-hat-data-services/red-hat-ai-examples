@@ -59,6 +59,14 @@ Use this connection when configuring the Pipeline Server (e.g., in **Pipeline ru
 | **②** | During workbench setup, use **Attach existing connections** to attach both the **results** S3 connection and the **training data** S3 connection you created above, so the workbench can access the buckets (e.g. to download leaderboard or artifacts later) without a restart. |
 | **③** | Save and launch the workbench. For full steps, see [Creating a project and workbench](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/getting_started_with_red_hat_openshift_ai_self-managed/creating-a-workbench-select-ide_get-started) in the Red Hat OpenShift AI documentation. |
 
+**Step ① — Choose workbench image and size:**
+
+![Workbench image selection](images/workbench_image.png)
+
+**Step ② — Attach existing connections:**
+
+![Workbench connections](images/workbench_connection.png)
+
 ### ⬆️ Upload the training dataset to S3
 
 | Step | Action |
