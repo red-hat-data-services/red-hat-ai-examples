@@ -1,0 +1,29 @@
+[
+  {
+    "question": "What did IBM announce regarding HashiCorp in first quarter 2024?",
+    "correct_answers": [
+      "IBM announced its intent to acquire HashiCorp, Inc. for $35 per share in cash, representing an enterprise value of $6.4 billion. The transaction was expected to close by the end of 2024."
+    ],
+    "correct_answer_document_ids": [
+      "ibm-1q25-earnings-press-release.pdf"
+    ]
+  },
+  {
+    "question": "How much did IBM invest in acquisitions in the first quarter of 2025, including HashiCorp?",
+    "correct_answers": [
+      "The company invested $7.1 billion in acquisitions, including the acquisition of HashiCorp."
+    ],
+    "correct_answer_document_ids": [
+      "ibm-1q25-earnings-press-release.pdf"
+    ]
+  },
+  {
+    "question": "What quarterly dividend did the IBM board approve in July 2025?",
+    "correct_answers": [
+      "On July 23, 2025, the IBM board of directors approved a regular quarterly cash dividend of $1.68 per common share, to stockholders of record on August 8, 2025."
+    ],
+    "correct_answer_document_ids": [
+      "ibm-2q25-earnings-press-release.pdf"
+    ]
+  }
+]

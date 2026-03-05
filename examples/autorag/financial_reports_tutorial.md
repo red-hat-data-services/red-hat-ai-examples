@@ -1,62 +1,129 @@
-## 📚 Tutorial: Ask questions against 2025 IBM financial reports
+# 📚 Tutorial: Ask questions against IBM financial reports
 
-**Scenario:** You have **IBM financial reports from 2025** (one document per quarter) and a **test_data.json** file with questions about them. The goal is to run a RAG workflow from a notebook in OpenShift AI (using ai4rag-style execution) against a **Llama-stack RAG server**, then explore answers and retrieval results in the notebook.
+**Scenario:** You use the **sample data** provided in this repository under `data/financial_reports/`: **input documents** (IBM financial reports, e.g. quarterly PDFs) in `input_data/` and **benchmark_data.json** (questions and expected answers) in the same folder. These documents are sourced from [IBM Financial Reporting](https://www.ibm.com/investor/financial-reporting) (for context and to obtain additional reports if needed). The goal is to run the **Documents RAG Optimization Pipeline** on Red Hat OpenShift AI: upload the provided data to S3, run the pipeline against a **Llama-stack RAG server**, and get a **leaderboard** of RAG patterns plus artifacts (e.g. pattern configs, evaluation results, indexing and inference notebooks) for production RAG.
 
-This tutorial walks you through: creating a project and workbench, preparing S3 with the documents and test data, ensuring the [Llama stack is set up](../../llamastack/SETUP.md) and the RAG stack is deployed, running the AutoRAG notebook, and exploring the results in the notebook.
+This tutorial walks you through: creating a project, creating S3 connections for pipeline results and for test/data, ensuring the [Llama stack is set up](../../llamastack/SETUP.md) and the RAG stack is deployed, adding the `documents_rag_optimization_pipeline` as a Pipeline Definition, running the pipeline with the required parameters, and viewing the leaderboard and RAG pattern artifacts.
 
 ## Table of contents
 
-- [Create a project and workbench](#create-a-project-and-workbench)
-- [Deploy Llama-stack server with RAG stack](#deploy-llama-stack-server-with-rag-stack)
-- [Create S3 connection and upload documents](#create-s3-connection-and-upload-documents)
-- [Attach S3 connection to the workbench](#attach-s3-connection-to-the-workbench)
-- [Open and configure the AutoRAG notebook](#open-and-configure-the-autorag-notebook)
-- [Run the notebook and explore results](#run-the-notebook-and-explore-results)
+- [🏗️ Create a project](#create-a-project)
+- [🚀 Deploy Llama-stack server with RAG stack](#deploy-llama-stack-server-with-rag-stack)
+- [🔑 Create Llama-stack connection (secret)](#create-llama-stack-connection-secret)
+- [💾 Create S3 connections](#create-s3-connections)
+- [🔗 Create workbench with connections attached](#create-workbench-with-connections-attached)
+- [⬆️ Upload documents and test data to S3](#upload-documents-and-test-data-to-s3)
+- [📋 Add the Documents RAG Optimization Pipeline](#add-the-documents-rag-optimization-pipeline)
+- [▶️ Run the pipeline with required inputs](#run-the-pipeline-with-required-inputs)
+- [📊 View the leaderboard and RAG patterns](#view-the-leaderboard-and-rag-patterns)
+- [📓 Work with the best RAG pattern notebooks](#work-with-the-best-rag-pattern-notebooks)
 
-### 🏗️ Create a project and workbench
+## 🏗️ Create a project
 
 | Step | Action |
 |------|--------|
 | **①** | Log in to Red Hat OpenShift AI. |
 | **②** | Go to **Data science projects** and create a new project (e.g. `ibm-reports-rag`). |
-| **③** | Create a **workbench** (notebook environment) in the project. Choose an image that includes the dependencies required by the AutoRAG notebook (e.g. Python, ai4rag-related libraries if used). For full steps, see [Creating a project and workbench](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.8/html/getting_started_with_red_hat_openshift_ai_self-managed/creating-a-project-workbench_get-started). |
+| **③** | Configure a **Pipeline Server** for the project with object storage for runs and artifacts (you will use the results S3 connection from [Create S3 connections](#create-s3-connections) when configuring the Pipeline Server). For full steps, see [Creating a project and workbench](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.8/html/getting_started_with_red_hat_openshift_ai_self-managed/creating-a-project-workbench_get-started) and pipeline runtime configuration in the Red Hat OpenShift AI documentation. |
 
-### 🚀 Deploy Llama-stack server with RAG stack
+## 🚀 Deploy Llama-stack server with RAG stack
 
 | Step | Action |
 |------|--------|
 | **①** | In the project, deploy a **Llama-stack server** with the **RAG stack** enabled (chat model, embedding model, vector store such as Milvus). Follow [Llama stack setup](../../llamastack/SETUP.md) for installation and configuration; see also [Deploying a RAG stack in a project](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.0/html/working_with_llama_stack/deploying-a-rag-stack-in-a-project_rag). |
-| **②** | Note the RAG/API endpoint and any credentials the notebook will need to call the stack. |
 
-### 📦 Create S3 connection and upload documents
+**Note:** You will need the **RAG/API base URL** and any **API key** for the Llama-stack connection (secret) used by the pipeline (see next section).
 
-| Step | Action |
-|------|--------|
-| **①** | In the project, open **Connections** and add an **S3 compatible object storage** connection to a bucket you will use for documents and test data. |
-| **②** | Download **IBM financial reports from 2025** from [IBM Financial Reporting](https://www.ibm.com/investor/financial-reporting): under **Find a quarterly earnings presentation**, select year **2025** and download the PDFs for **Q1**, **Q2**, **Q3**, and **Q4** (e.g. Press Release, Charts, or Prepared Remarks per quarter, as needed). |
-| **③** | Upload those PDFs to your S3 bucket — one file per quarter (or one combined set). Place them in a known path (e.g. `documents/2025/` or `documents/`). Use the format expected by your RAG stack/notebook. |
-| **④** | Upload the **benchmark JSON** (e.g. `benchmark.json` or `test_data.json`) to the same bucket. The file must be a JSON array of objects with `question`, `correct_answers` (array of strings), and `correct_answer_document_ids` (array of document filenames/IDs that contain the answer). Example: `[{"question": "What was IBM's revenue in Q1 2024?", "correct_answers": ["Revenue of $14.5 billion..."], "correct_answer_document_ids": ["ibm-1q24-earnings-press-release.pdf"]}]`. |
-| **⑤** | Note the **bucket name** and **object keys** (paths) for the documents and for `test_data.json`; you will set these in the notebook if required. |
+## 🔑 Create Llama-stack connection (secret)
 
-### 🔗 Attach S3 connection to the workbench
+The pipeline expects a Kubernetes secret containing the Llama-stack client URL and API key. Use a two-step approach: (1) create a new connection type that defines the required properties, then (2) create a connection of that type in your project.
 
 | Step | Action |
 |------|--------|
-| **①** | Open **Workbenches**, edit your workbench, and **attach the S3 connection** you created in [Create S3 connection and upload documents](#create-s3-connection-and-upload-documents) so the notebook can read from the bucket. |
-| **②** | Save and restart the workbench if prompted. |
+| **①** | **Create a new connection type.** Go to **Settings** → **Environment Setup** → **Connection types** and click **Create connection type**. Define the required properties for Llama-stack: **LLAMA_STACK_CLIENT_BASE_URL** and **LLAMA_STACK_CLIENT_API_KEY**. This one-time setup is typically done by an administrator (or by you, if you have permissions). Once created, the Llama-stack connection type is available when creating connections in projects. |
+| **②** | **Create a connection of that type in the project.** In your project, open **Connections** and create a new connection. Select the **Llama-stack** connection type you defined in step ①. Enter **LLAMA_STACK_CLIENT_BASE_URL** (the base URL of your Llama-stack RAG server) and **LLAMA_STACK_CLIENT_API_KEY** (if your deployment requires it). The pipeline references this connection’s secret by name as `llama_stack_secret_name`. |
 
-### 📓 Open and configure the AutoRAG notebook
+**Note:** Use the connection’s **resource name** (or secret name) as `llama_stack_secret_name` when creating the pipeline run. For exact key names and options, see the [documents_rag_optimization_pipeline](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_autorag/pipelines/training/autorag/documents_rag_optimization_pipeline) README.
 
-| Step | Action |
-|------|--------|
-| **①** | Upload or clone the **AutoRAG notebook** into the workbench: [run_ai4rag.ipynb](https://github.com/IBM/ai4rag/blob/dev-samples/samples/run_ai4rag.ipynb) (ai4rag `dev-samples` branch). The notebook installs data-processing components from `pipelines-components` (branch `rhoai_autorag_data_processing_pipeline`): test data loader, documents sampling, and text extraction (Docling). |
-| **②** | Set **S3 credentials** in the notebook (or via env): `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT`. Set **bucket name** and **object keys** for the documents prefix and for the benchmark file (e.g. `benchmark.json`). |
-| **③** | Set the **Llama-stack client** URL and API key: `LLAMA_STACK_CLIENT_BASE_URL` and `LLAMA_STACK_CLIENT_API_KEY` (or set them in the notebook for `LlamaStackClient(base_url=..., api_key=...)`). Use the URL of the Llama-stack RAG server you deployed in [Deploy Llama-stack server with RAG stack](#deploy-llama-stack-server-with-rag-stack) (see [Llama stack setup](../../llamastack/SETUP.md) if you have not deployed it yet). |
-| **④** | Ensure the benchmark JSON format matches: list of objects with `question`, `correct_answers`, and `correct_answer_document_ids`. Extracted documents must have metadata `document_id` matching those IDs (e.g. stem of the filename). |
+## 💾 Create S3 connections
 
-### ▶️ Run the notebook and explore results
+Create S3-compatible connections so the pipeline can read test data and input documents, and so the Pipeline Server can store run artifacts (leaderboard, RAG patterns).
+
+**Results storage (Pipeline Server artifacts)**
 
 | Step | Action |
 |------|--------|
-| **①** | Run the notebook **cell by cell** from top to bottom. The notebook will: **Setup** — install `boto3` and KFP data-processing components; **Prepare experiment data** — upload sample PDFs and benchmark JSON to S3; **Process input documents** — test data loader → documents sampling → text extraction (Docling to Markdown); **Run ai4rag experiment** — `LlamaStackClient`, `AI4RAGSearchSpace`, `GAMOptSettings`, `AI4RAGExperiment` (e.g. `vector_store_type="ls_milvus"`); **Review results** — format best evaluation, use `query_rag_pattern` or `interactive_rag_query` for Q&A with grounding documents. |
-| **②** | **Explore the results** in the notebook: best configuration, generated answers, retrieved chunks, and evaluation metrics (e.g. faithfulness). Use this to assess RAG behavior and tune documents or test data as needed. |
+| **①** | In your project, open **Connections** and create an **S3 compatible object storage** connection to a bucket you will use for **pipeline results and artifacts** (leaderboard, RAG patterns, etc.). |
+| **②** | Use this connection when configuring the **Pipeline Server** for the project so that pipeline runs and artifacts are stored in this bucket. |
+
+**Test data and input documents (single connection)**
+
+| Step | Action |
+|------|--------|
+| **①** | Create one **S3 compatible object storage** connection pointing to the bucket (and credentials) where you will upload both the **benchmark file** (`data/financial_reports/benchmark_data.json`) and the **input documents** (`data/financial_reports/input_data/`). The connection must expose credentials that include `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT`, and `AWS_DEFAULT_REGION` (or equivalent) as expected by the pipeline. Use different object keys (paths) in that bucket for the benchmark file and for the input documents folder. |
+
+**Note:** Use the same **Connection name** for both `test_data_secret_name` and `input_data_secret_name` in the pipeline run. Use the same **bucket name** for both `test_data_bucket_name` and `input_data_bucket_name`; set `test_data_key` to the path of the benchmark file and `input_data_key` to the path (prefix) of the input documents.
+
+## 🔗 Create workbench with connections attached
+
+| Step | Action |
+|------|--------|
+| **①** | In the project, go to **Workbenches** and create a **Workbench** (notebook environment). Choose an image and resource size as needed. |
+| **②** | During workbench setup, use **Attach existing connections** to attach the **Llama-stack** connection (from [Create Llama-stack connection](#create-llama-stack-connection-secret)) and the **S3 data** connection (from [Create S3 connections](#create-s3-connections)) used for test data and input documents. |
+| **③** | Save and launch the workbench. For full steps, see [Creating a project and workbench](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.8/html/getting_started_with_red_hat_openshift_ai_self-managed/creating-a-workbench-select-ide_get-started) in the Red Hat OpenShift AI documentation. |
+
+## ⬆️ Upload documents and test data to S3
+
+Sample data is provided in this repository under **`data/financial_reports/`**: input documents (PDFs) in [data/financial_reports/input_data/](data/financial_reports/input_data/) and the benchmark file [data/financial_reports/benchmark_data.json](data/financial_reports/benchmark_data.json). The documents are sourced from [IBM Financial Reporting](https://www.ibm.com/investor/financial-reporting) (under **Find a quarterly earnings presentation**, year **2025**, Q1–Q4; you can use that page to obtain additional reports if needed).
+
+| Step | Action |
+|------|--------|
+| **①** | Upload the **input documents** from [data/financial_reports/input_data/](data/financial_reports/input_data/) to your S3 data bucket. Place the PDFs in a path you will use as the object key or prefix (e.g. `documents/2025/` or `input_data/`). Note the **bucket name** and **object key** (path or prefix) for `input_data_bucket_name` and `input_data_key`. |
+| **②** | Upload **[benchmark_data.json](data/financial_reports/benchmark_data.json)** from `data/financial_reports/` to the **same** S3 bucket, in a different path (e.g. `data/financial_reports/benchmark_data.json` or `benchmark_data.json`). Note the **object key** (path) for `test_data_key`; use the same bucket name for `test_data_bucket_name`. |
+
+## 📋 Add the Documents RAG Optimization Pipeline
+
+| Step | Action |
+|------|--------|
+| **①** | Get the compiled **Documents RAG Optimization Pipeline** from the repository: [documents_rag_optimization_pipeline](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_autorag/pipelines/training/autorag/documents_rag_optimization_pipeline) (branch `rhoai_autorag`). Build or download the compiled pipeline (e.g. the pipeline YAML or the Python pipeline definition). |
+| **②** | In Red Hat OpenShift AI, go to **Pipelines** (or **Develop & Train** → **Pipelines**) for your project. |
+| **③** | Upload the compiled pipeline as a new **Pipeline Definition** (or create a pipeline from the YAML/Python), following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines). |
+
+## ▶️ Run the pipeline with required inputs
+
+| Step | Action |
+|------|--------|
+| **①** | From **Pipelines**, create a new pipeline run using **Pipeline definitions → ⋮ → Create run** for the Documents RAG Optimization Pipeline you added. |
+| **②** | Set the **Name** of the run and the following run parameters (see the [pipeline README](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_autorag/pipelines/training/autorag/documents_rag_optimization_pipeline) for full descriptions): **test_data_secret_name** and **input_data_secret_name** (same connection name from the single S3 data connection), **test_data_bucket_name** and **input_data_bucket_name** (same bucket), **test_data_key** (path to the benchmark file, e.g. `benchmark_data.json`), **input_data_key** (path to documents folder or prefix, e.g. `input_data/`), **llama_stack_secret_name** (secret with `LLAMA_STACK_CLIENT_BASE_URL` and `LLAMA_STACK_CLIENT_API_KEY`), **embeddings_models** (list of embedding model identifiers to try, e.g. `["ibm/slate-125m-english-rtrvr-v2", "intfloat/multilingual-e5-large"]`), **generation_models** (list of foundation/generation model identifiers, e.g. `["mistralai/mixtral-8x7b-instruct-v01", "ibm/granite-13b-instruct-v2"]`), **optimization_metric** (e.g. `faithfulness`, `answer_correctness`, or `context_correctness`; default `faithfulness`). Optionally set **llama_stack_vector_database_id** (e.g. `ls_milvus`; default is `ls_milvus`). |
+| **③** | Ensure the **Pipeline Server** is configured with the results S3 connection from [Create S3 connections](#create-s3-connections), so artifacts are stored in the expected bucket. |
+| **④** | Start the run via **Create run** and wait for it to complete. |
+
+## 📊 View the leaderboard and RAG patterns
+
+| Step | Action |
+|------|--------|
+| **①** | Open the run details and go to **Artifacts** (or the artifact store configured for the run). |
+| **②** | Locate the **leaderboard** artifact (e.g. HTML from the leaderboard evaluation task). Download or open it to see RAG patterns ranked by the optimization metric. |
+| **③** | Locate the **rag_patterns_artifact** (or equivalent output). Each top-N RAG pattern includes: **pattern.json** (settings and scores), **evaluation_results.json** (per-question evaluation), **indexing_notebook.ipynb** (to build/populate the vector index), and **inference_notebook.ipynb** (for retrieval and generation). Use these to deploy or refine your RAG application. |
+
+For exact artifact paths and layout, see the [documents_rag_optimization_pipeline](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_autorag/pipelines/training/autorag/documents_rag_optimization_pipeline) README (Outputs and "Files stored in user storage" sections).
+
+## 📓 Work with the best RAG pattern notebooks
+
+Each RAG pattern in the **rag_patterns_artifact** includes two generated notebooks that you can use to run the optimized RAG configuration: one for **index building** and one for **retrieval and generation**. Use the **inference notebook** to ask questions against your RAG system. This section describes how to work with these notebooks for the **best** (top-ranked) pattern from the leaderboard.
+
+**Notebooks per pattern:**
+
+| Notebook | Purpose |
+|----------|---------|
+| **indexing_notebook.ipynb** | Builds or populates the vector index/collection for the RAG pattern. Run this first when you need to (re)index your documents into the vector store (e.g. Milvus) used by the pattern. |
+| **inference_notebook.ipynb** | Performs retrieval and generation: you ask questions and the notebook retrieves relevant context from the indexed documents and generates answers using the RAG pattern. **Use this notebook to ask questions against the RAG system.** |
+
+| Step | Action |
+|------|--------|
+| **①** | From the [leaderboard](#view-the-leaderboard-and-rag-patterns), identify the **best-ranked** RAG pattern (e.g. the top row). Note the pattern name (e.g. `pattern0`, `pattern1`) — it corresponds to a subfolder in the **rag_patterns_artifact**. |
+| **②** | In the run **Artifacts**, open the **rag_patterns_artifact** and go to the subfolder for that pattern (e.g. `rag_patterns_artifact/pattern0/`). Download **indexing_notebook.ipynb** and **inference_notebook.ipynb** (and **pattern.json** if you need the full config). You can download the whole pattern folder from the artifact store (e.g. via the Pipelines UI or from S3 if your workbench has the results connection attached). |
+| **③** | Open your **workbench** (from [Create workbench with connections attached](#create-workbench-with-connections-attached)). Ensure the workbench has access to the Llama-stack RAG server (same endpoint and credentials the pipeline used) and to any data paths the notebooks expect. Upload **indexing_notebook.ipynb** and **inference_notebook.ipynb** into the workbench (e.g. via JupyterLab **Upload** in the file browser). |
+| **④** | **Run the indexing notebook first** (if the vector index for this pattern is not already populated). Open **indexing_notebook.ipynb**, set any required config (e.g. document path, vector store connection, collection name — the notebook may read defaults from **pattern.json**). Run the cells to build or populate the vector index. This step is required so that the RAG system has documents to retrieve from when you ask questions. |
+| **⑤** | **Run the inference notebook to ask questions.** Open **inference_notebook.ipynb**, run the setup cells (e.g. connect to the Llama-stack RAG server, load the pattern config). Then use the notebook to **ask questions** against your RAG system: the notebook will retrieve relevant chunks from the index and generate answers using the pattern’s retrieval and generation settings. You can iterate on questions and inspect retrieved context and answers directly in the notebook. |
+
+The **inference_notebook.ipynb** is the main interface for querying your RAG system; the **indexing_notebook.ipynb** is needed when you first deploy a pattern or when you add or update documents in the index. For more detail on the contents of each notebook and the pattern configuration, see the [documents_rag_optimization_pipeline](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_autorag/pipelines/training/autorag/documents_rag_optimization_pipeline) README.
