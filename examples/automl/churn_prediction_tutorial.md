@@ -306,6 +306,7 @@ Replace `{SERVING_IMAGE}` with the image URL above and `{NAMESPACE}` with your p
 ![Serving Runtime configuration](images/serving_runtime_example_config.png)
 
 
+
 ![Serving Runtime configuration - continued](images/serving_runtime_example_config_2.png)
 
 ## 🚀 Model Deployment
@@ -318,23 +319,20 @@ After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-ks
 | **②** | Under **Model location**, choose **S3 object storage**. |
 | **③** | Create a new connection or use an existing one and fill in the S3 credentials and path to the model. |
 | **④** | Fill in all required fields (bucket, path, etc.). |
-| **⑤** | For **Model type**, choose **Predictive model**. |
-| **⑥** | Click **Next**. |
-| **⑦** | In **Model deployment name**, enter the model name under which the model should be available for inference. |
-| **⑧** | Under **Model framework**, select **autogluon - 1**. |
-| **⑨** | Under **Serving runtime**, choose **Select from list…** → **AutoGluon ServingRuntime for KServe**. |
-| **⑩** | Click **Next**. |
-| **⑪** | You can configure **Advanced settings** to control access and reachability - for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service). |
-| **⑫** | Click **Next**. |
-| **⑬** | Review configuration and click **Deploy model**. |
-| **⑭** | After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#-deployment-scoring) for an example request. |
+| **⑤** | For **Model type**, choose **Predictive model**, click **Next**. |
+| **⑥** | In **Model deployment name**, enter the model name under which the model should be available for inference. |
+| **⑦** | Under **Model framework**, select **autogluon - 1**. |
+| **⑧** | Under **Serving runtime**, choose **Select from list…** → **AutoGluon ServingRuntime for KServe**, click **Next**. |
+| **⑨** | You can configure **Advanced settings** to control access and reachability - for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service), click **Next**. |
+| **⓾** | Review configuration and click **Deploy model**. |
+| **⓫** | After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#-deployment-scoring) for an example request. |
 
 
-**Steps ①-⑥ — Model details**
+**Steps ①-⑤ — Model details**
 
 ![Model deployment - step 1](images/model_deployment_first_step.png)
 
-**Steps ⑦-⑨ — Model deployment settings**
+**Steps ⑥-⑨ — Model deployment settings**
 
 ![Model deployment - step 2](images/model_deployment_second_step.png)
 
