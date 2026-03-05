@@ -311,24 +311,24 @@ After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-ks
 4. Fill in all required fields (bucket, path, etc.).
 5. For **Model type**, choose **Predictive model**.
 6. Click **Next**.
+7. In **Model deployment name**, enter the model name under which the model should be available for inference.
+8. Under **Model framework**, select **autogluon - 1**.
+9. Under **Serving runtime**, choose **Select from list…** → **AutoGluon ServingRuntime for KServe**.
+10. Click **Next**.
+11. You can configure **Advanced settings** to control access and reachability - for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service).
+12. Click **Next**.
+13. Review configuration and click **Deploy model**.
+14. After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#-deployment-scoring) for an example request.
+
+**Screenshot examples for the steps above**
 
 **Step 1 — Model details**
 
 ![Model deployment - step 1](images/model_deployment_first_step.png)
 
-7. In **Model deployment name**, enter the model name under which the model should be available for inference.
-8. Under **Model framework**, select **autogluon - 1**.
-9. Under **Serving runtime**, choose **Select from list…** → **AutoGluon ServingRuntime for KServe**.
-10. Click **Next**.
-
 **Step 2 — Model deployment settings**
 
 ![Model deployment - step 2](images/model_deployment_second_step.png)
-
-11. You can configure **Advanced settings** to control access and reachability - for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service).
-12. Click **Next**.
-13. Review configuration and click **Deploy model**.
-14. After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#-deployment-scoring) for an example request.
 
 For more on serving and APIs, see [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user).
 
