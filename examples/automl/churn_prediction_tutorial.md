@@ -152,6 +152,8 @@ If your cluster does not yet have a model registry, an OpenShift AI administrato
 | **③** | In **Connect to external MySQL database**, enter **Host**, **Port**, **Username**, **Password**, and **Database**. Add a CA certificate if the database uses TLS. |
 | **④** | Click **Create**. The new model registry appears on the Model registry settings page. |
 
+**Step ② — Create model registry settings:**
+
 **Model registry settings example**
 
 ![Model registry settings](images/model_registry_settings.png)
@@ -293,9 +295,14 @@ Replace `{SERVING_IMAGE}` with the image URL above and `{NAMESPACE}` with your p
 5. In **Select the model types this runtime supports**, select **Predictive model**.
 6. Click **Create**.
 
-**Serving Runtime configuration (REST + Predictive model)**
+**Screenshot examples for the steps above**
+
+**Step ④–⑤ — REST protocol and Predictive model setup**
 
 ![Serving Runtime configuration](images/serving_runtime_example_config.png)
+
+**Step ③ — ServingRuntime YAML details (container args, security context, resources)**
+
 ![Serving Runtime configuration - continued](images/serving_runtime_example_config_2.png)
 
 ## 🚀 Model Deployment
