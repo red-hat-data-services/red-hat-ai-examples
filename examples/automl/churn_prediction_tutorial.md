@@ -293,7 +293,7 @@ Replace `{SERVING_IMAGE}` with the image URL above and `{NAMESPACE}` with your p
 5. In **Select the model types this runtime supports**, select **Predictive model**.
 6. Click **Create**.
 
-**Step ③–⑤ — REST protocol and Predictive model setup**
+**Step 3-5 — REST protocol and Predictive model setup**
 
 ![Serving Runtime configuration](images/serving_runtime_example_config.png)
 
