@@ -147,10 +147,10 @@ If your cluster does not yet have a model registry, an OpenShift AI administrato
 
 | Step | Action |
 |------|--------|
-| **①** | From the OpenShift AI dashboard, go to **Settings** → **Model registry settings**. |
+| **①** | From the OpenShift AI dashboard, go to **Settings** → **Model resources and operations** → **AI registry settings**. |
 | **②** | Click **Create model registry**. In the dialog, enter a **Name** (and optionally a **Description**). Optionally edit the **Resource name** (must be lowercase alphanumeric with hyphens, max 253 characters). |
 | **③** | In **Connect to external MySQL database**, enter **Host**, **Port**, **Username**, **Password**, and **Database**. Add a CA certificate if the database uses TLS. |
-| **④** | Click **Create**. The new model registry appears on the Model registry settings page. |
+| **④** | Click **Create**. The new model registry appears on the **AI registry settings** page. |
 
 **Step ② — Create model registry settings**
 
