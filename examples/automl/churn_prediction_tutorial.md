@@ -149,7 +149,7 @@ The notebook is saved under `model_artifact.path/model_name_FULL/notebooks`, whe
 
 For the notebook path and artifact layout per refitted model, see the [autogluon_models_full_refit component](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_automl/components/training/automl/autogluon_models_full_refit). For the overall pipeline, see the [pipeline reference](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_automl/pipelines/training/automl/autogluon_tabular_training_pipeline). For creating and importing notebooks in the workbench, see [Creating and importing notebooks](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_in_your_data_science_ide/working_in_jupyterlab#creating-and-importing-jupyter-notebooks_ide) in the Red Hat OpenShift AI documentation.
 
-**Preview of the predictor notebook in Workbench**
+**Step ④ — Preview of the predictor notebook in Workbench**
 
 ![Predictor notebook preview](images/predictor_notebook_preview.png)
 
