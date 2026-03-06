@@ -1,23 +1,24 @@
 
-# Tutorial: Predict the Customer Churn
+# 📚 Tutorial: Predict the Customer Churn
 
 **Scenario:** You have (or download) the **Telco Customer Churn** dataset: one row per customer, with features like contract type, tenure, charges, and a **Churn** column (Yes/No). The goal is to train a model that predicts **Churn**, so you can identify at-risk customers and use the best model from the leaderboard for retention or deployment.
 
 This tutorial walks you through that end-to-end: create a project, create S3 connections for results and training data, create a workbench with those connections attached during setup (so you do not need to restart later), add the AutoML pipeline and dataset, run AutoML with the right settings, and view the leaderboard to pick the best model.
 
 ## Table of contents
-  - [Create a new project](#%EF%B8%8F-create-a-new-project)
-  - [Create the S3 connections](#-create-the-s3-connections)
-  - [Create workbench with connections attached](#-create-workbench-with-connections-attached)
-  - [Upload the training dataset to S3](#%EF%B8%8F-upload-the-training-dataset-to-s3)
-  - [Add the AutoML pipeline as a Pipeline Definition](#-add-the-automl-pipeline-as-a-pipeline-definition)
-  - [Run AutoML with the required inputs](#%EF%B8%8F-run-automl-with-the-required-inputs)
-  - [View the leaderboard](#-view-the-leaderboard)
-  - [Predictor Notebook](#-predictor-notebook)
-  - [Model Registry](#-model-registry)
-  - [Prepare the ServingRuntime for AutoGluon with KServe](#%EF%B8%8F-prepare-the-servingruntime-for-autogluon-with-kserve)
-  - [Model Deployment](#-model-deployment)
-  - [Deployment Scoring](#-deployment-scoring)
+
+- [🏗️ Create a new project](#create-a-new-project)
+- [💾 Create the S3 connections](#create-the-s3-connections)
+- [🔗 Create workbench with connections attached](#create-workbench-with-connections-attached)
+- [⬆️ Upload the training dataset to S3](#upload-the-training-dataset-to-s3)
+- [📋 Add the AutoML pipeline as a Pipeline Definition](#add-the-automl-pipeline-as-a-pipeline-definition)
+- [▶️ Run AutoML with the required inputs](#run-automl-with-the-required-inputs)
+- [📊 View the leaderboard](#view-the-leaderboard)
+- [📓 Predictor Notebook](#predictor-notebook)
+- [📚 Model Registry](#model-registry)
+- [⚙️ Prepare the ServingRuntime for AutoGluon with KServe](#prepare-the-servingruntime-for-autogluon-with-kserve)
+- [🚀 Model Deployment](#model-deployment)
+- [🎯 Deployment Scoring](#deployment-scoring)
 
 ## 🏗️ Create a new project
 
