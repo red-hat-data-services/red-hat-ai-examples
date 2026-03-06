@@ -38,6 +38,7 @@ AutoML takes care of the full workflow so you can focus on your use case:
 You can run AutoML programmatically via the pipelines API or using AI Pipelines UI; no custom training code is required.
 
 <a id="what-automl-supports-developer-preview"></a>
+
 ### What AutoML supports (Developer Preview)
 
 In this preview, AutoML supports **classification** (binary and multiclass) and **regression** for tabular data. You can specify the task type and the label column; AutoML handles the rest.
@@ -94,7 +95,6 @@ To run AutoML, you need to provide where your data is and what to predict.
 | **Label column** | The name of the column you want to predict (target). |
 | **Task type** | `binary` or `multiclass` for classification, or `regression` for regression. |
 
-
 ### Optional input parameters
 
 | Parameter | Default | Description |
@@ -146,7 +146,6 @@ When the run finishes, open the run’s artifacts to get the leaderboard, traine
 **Scenario:** You have (or download) the **Telco Customer Churn** dataset: one row per customer, with features like contract type, tenure, charges, and a **Churn** column (Yes/No). The goal is to train a model that predicts **Churn**, so you can identify at-risk customers and use the best model from the leaderboard for retention or deployment.
 
 **Step-by-step guide:** The full tutorial walks you through creating a project, S3 connections for results and training data, a workbench with connections attached, adding the AutoML pipeline and dataset, running AutoML with the right settings, viewing the leaderboard, and optionally registering and deploying the best model. Follow the tutorial here: **[Churn prediction tutorial](churn_prediction_tutorial.md)**.
-
 
 ## References
 
