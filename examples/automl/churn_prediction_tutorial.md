@@ -9,6 +9,7 @@ This tutorial walks you through that end-to-end: create a project, create S3 con
 
 - [🏗️ Create a new project](#create-a-new-project)
 - [💾 Create the S3 connections](#create-the-s3-connections)
+- [⚙️ Configure the Pipeline Server](#configure-the-pipeline-server)
 - [🔗 Create workbench with connections attached](#create-workbench-with-connections-attached)
 - [⬆️ Upload the training dataset to S3](#upload-the-training-dataset-to-s3)
 - [📋 Add the AutoML pipeline as a Pipeline Definition](#add-the-automl-pipeline-as-a-pipeline-definition)
@@ -29,7 +30,7 @@ This tutorial walks you through that end-to-end: create a project, create S3 con
 
 ## 💾 Create the S3 connections
 
-Create two S3-compatible connections in your project: one for pipeline **results** (artifacts, leaderboard) and one for **training data**. Use the results connection when you configure the **Pipeline Server** for the project.
+Create two S3-compatible connections in your project: one for pipeline **results** (artifacts, leaderboard) and one for **training data**. You will use the results connection when you [configure the Pipeline Server](#configure-the-pipeline-server) in the next section.
 
 **Results storage connection**
 
@@ -51,6 +52,20 @@ Use this connection when configuring the Pipeline Server (e.g., in **Pipeline ru
 | **②** | Select **S3 compatible object storage - v1**. |
 | **③** | Enter a unique **Connection name** (for example, `customer-churn-data-s3`) and complete **Endpoint**, **Bucket**, **Region**, **Access key**, **Secret key** for the bucket you will use for training data. |
 | **④** | Click **Create**. Note the **Connection name**; you will use it as `train_data_secret_name` when creating the pipeline run. |
+
+## ⚙️ Configure the Pipeline Server
+
+Configure the **Pipeline Server** for your project so that pipeline runs and artifacts (e.g. leaderboard, trained models) are stored in your **results** S3 bucket. In Red Hat OpenShift AI, you do this from the project via the UI.
+
+| Step | Action |
+|------|--------|
+| **①** | From the OpenShift AI dashboard, go to **Data science projects** and click the name of your project (e.g. `customer-churn-ml`). |
+| **②** | Open the **Pipelines** tab (or the project details page where pipeline configuration is available). Click **Configure pipeline server**. |
+| **③** | In the **Configure pipeline server** dialog, in the **Object storage connection** section, enter the same S3-compatible storage details as your **results** connection: **Bucket** (name of the bucket for pipeline artifacts), **Region**, **Endpoint**, **Access key**, and **Secret key**. Use the same values you used when creating the results S3 connection in [Create the S3 connections](#create-the-s3-connections). If the UI offers **Select existing connection**, you can choose your results S3 connection instead of re-entering the fields. |
+| **④** | In the **Database** section, choose **Default database on the cluster** for development or testing, or **External MySQL database** if you have an external MySQL/MariaDB for production. |
+| **⑤** | Click **Create** (or **Save**) to create or update the pipeline server. Wait until the Pipeline Server is ready. |
+
+**Note:** For more details, see [Working with data science pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_ai_pipelines/working_with_ai_pipelines) in the Red Hat OpenShift AI documentation.
 
 ## 🔗 Create workbench with connections attached
 
@@ -94,7 +109,7 @@ Use this connection when configuring the Pipeline Server (e.g., in **Pipeline ru
 |------|--------|
 | **①** | From **Pipelines**, create a new pipeline run using **Pipeline definitions → ⋮ → Create run** for the AutoML pipeline you added. |
 | **②** | Set the **Name** of the pipeline run and run parameters (see section **What you need to provide** for what each means): **train_data_secret_name** (connection name from **Create the S3 connections** — training data connection), **train_data_bucket_name** (bucket from that same connection), **train_data_file_key** (e.g. `data/WA_FnUseC_TelcoCustomerChurn.csv`), **label_column** `Churn`, **task_type** `binary`, **top_n** `3` (or another positive integer). If the UI asks for an experiment or run name, set them as run metadata. |
-| **③** | Ensure the Pipeline Server is configured with the results S3 connection from **Create the S3 connections**, so artifacts are stored in the expected bucket. |
+| **③** | Ensure the Pipeline Server is configured (see [Configure the Pipeline Server](#configure-the-pipeline-server)) with the results S3 connection, so artifacts are stored in the expected bucket. |
 | **④** | Start the run via **Create run** and wait for it to complete. |
 
 **Step ② — Set the pipeline run details**
