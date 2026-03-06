@@ -58,6 +58,27 @@ You can register and serve the models AutoML produces using RHOAI Model Registry
 
 AutoML runs as a pipeline on Red Hat OpenShift AI, powered by AutoGluon and orchestrated by Kubeflow Pipelines. Your data is accessed securely via RHOAI Connections (S3 credentials stored as Kubernetes secrets). Model Registry and KServe are not part of the run; you can use them separately to register and/or serve the models  produced by AutoML. For implementation details and the pipeline source, see [References](#references).
 
+**AutoML (AutoGluon tabular) pipeline** — Kubeflow pipeline steps from the [autogluon tabular training pipeline](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_automl/pipelines/training/automl/autogluon_tabular_training_pipeline): load CSV from S3, split train/test, run model selection (top-N on sampled data), refit top-N models on full data, then produce leaderboard and model artifacts.
+
+```mermaid
+flowchart LR
+    Start([Pipeline Start]) --> DataIngestion["Data Ingestion<br/>Load CSV from S3"]
+    DataIngestion --> Preprocess["Preprocessing<br/>Split train / test"]
+    Preprocess --> Training["AutoGluon Training<br/>Train & compare models"]
+    Training --> SelectTopN["Model Selection<br/>Rank & select top-N"]
+    SelectTopN --> Refit["Refit on Full Data<br/>Production-ready predictors"]
+    Refit --> Artifacts["Artifacts Storage<br/>Leaderboard, models, notebook"]
+    Artifacts --> End([Pipeline Complete])
+    style Start fill:#2d8659,color:#fff,stroke-width:2px
+    style End fill:#2d8659,color:#fff,stroke-width:2px
+    style DataIngestion fill:#4a90d9,color:#fff,stroke-width:2px
+    style Preprocess fill:#4a90d9,color:#fff,stroke-width:2px
+    style Training fill:#4a90d9,color:#fff,stroke-width:2px
+    style SelectTopN fill:#4a90d9,color:#fff,stroke-width:2px
+    style Refit fill:#4a90d9,color:#fff,stroke-width:2px
+    style Artifacts fill:#4a90d9,color:#fff,stroke-width:2px
+```
+
 ---
 
 ## What you need to provide
