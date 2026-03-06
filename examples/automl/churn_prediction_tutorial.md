@@ -378,5 +378,15 @@ Example request (replace the placeholders and send a POST to your deployment’s
    }'
    ```
 
+Example response:
+
+```json
+{
+  "predictions": [
+    "No"
+  ]
+}
+```
+
   Reference for more info about v1 protocol: [KServe V1 Protocol](https://kserve.github.io/website/docs/concepts/architecture/data-plane/v1-protocol)
 ---
