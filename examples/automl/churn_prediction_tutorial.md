@@ -163,10 +163,14 @@ If your cluster does not yet have a model registry, an OpenShift AI administrato
 
 | Step | Action |
 |------|--------|
-| **①** | From the OpenShift AI dashboard, go to **Settings** → **Model registry settings**. |
+| **①** | From the OpenShift AI dashboard, go to **Settings** → **Model resources and operations** → **AI registry settings**. |
 | **②** | Click **Create model registry**. In the dialog, enter a **Name** (and optionally a **Description**). Optionally edit the **Resource name** (must be lowercase alphanumeric with hyphens, max 253 characters). |
 | **③** | In **Connect to external MySQL database**, enter **Host**, **Port**, **Username**, **Password**, and **Database**. Add a CA certificate if the database uses TLS. |
-| **④** | Click **Create**. The new model registry appears on the Model registry settings page. |
+| **④** | Click **Create**. The new model registry appears on the AI registry settings page. |
+
+**Step ② — Create model registry settings**
+
+![Model registry settings](images/model_registry_settings.png)
 
 For full details and prerequisites (e.g. MySQL 5.x or 8.x), see [Creating a model registry](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_cloud_service/1/html/managing_model_registries/creating-a-model-registry_managing-model-registries) in the Red Hat OpenShift AI documentation.
 
@@ -191,19 +195,22 @@ This section describes how to prepare the AutoGluon serving image and **Serving 
 
 **Flow overview**
 
-1. **Build the image** on the cluster using OpenShift ImageStream and BuildConfig. *(Steps described below.)*
-2. **Prepare ServingRuntime YAML** and **create the Serving Runtime** on the cluster. The image is in the internal registry, so you do not need to add image-pull credentials. After this, the runtime is ready for [Model Deployment](#-model-deployment).
-
+| Step | Action |
+|------|--------|
+| **①** | **Build the image** on the cluster using OpenShift ImageStream and BuildConfig. *(Steps described below.)* |
+| **②** | **Prepare ServingRuntime YAML** and **create the Serving Runtime** on the cluster. The image is in the internal registry, so you do not need to add image-pull credentials. After this, the runtime is ready for [Model Deployment](#-model-deployment). |
 ---
 
 ### Build image directly on Red Hat OpenShift AI
 
 Use the OpenShift Builds flow to build the image on the cluster, then a Serving Runtime that points to the internal image registry. Use the same project/namespace for the build and for the Serving Runtime (e.g. `automl-project`).
 
-**1. Create ImageStream**
+**Create ImageStream**
 
-1. In the OpenShift console, left side: **Builds** → **ImageStreams** → **Create ImageStream**.
-2. Paste the following YAML and click **Create**:
+| Step | Action |
+|------|--------|
+| **①** | In the OpenShift console, left side: **Builds** → **ImageStreams** → **Create ImageStream**. |
+| **②** | Paste the following YAML and click **Create**: |
 
 ```yaml
 apiVersion: image.openshift.io/v1
@@ -212,10 +219,13 @@ metadata:
   name: autogluonkserveimagev1
 ```
 
-**2. Create BuildConfig**
+**Create BuildConfig**
 
-1. In the console, left side: **Builds** → **BuildConfigs** → **Create BuildConfig** → **YAML View**.
-2. Paste the following and click **Create**:
+| Step | Action |
+|------|--------|
+| **①** | In the console, left side: **Builds** → **BuildConfigs** → **Create BuildConfig** → **YAML View**. |
+| **②** | Paste the following and click **Create**: |
+
 
 ```yaml
 apiVersion: build.openshift.io/v1
@@ -298,31 +308,48 @@ Replace `{SERVING_IMAGE}` with the image URL above and `{NAMESPACE}` with your p
 
 ### Create the Serving Runtime on OpenShift
 
-1. Log in to the Red Hat OpenShift AI cluster.
-2. In the left menu: **Settings** → **Model resources and operations** → **Serving runtimes** → **Add serving runtime** → **Upload files**.
-3. Upload the ServingRuntime YAML you prepared (with `image` and `namespace` set for your scenario).
-4. In **Select the API protocol this runtime supports**, choose **REST**.
-5. In **Select the model types this runtime supports**, select **Predictive model**.
-6. Click **Create**.
+| Step | Action |
+|------|--------|
+| **①** | Log in to the Red Hat OpenShift AI cluster. |
+| **②** | In the left menu: **Settings** → **Model resources and operations** → **Serving runtimes** → **Add serving runtime** → **Upload files**. |
+| **③** | Upload the ServingRuntime YAML you prepared (with `image` and `namespace` set for your scenario). |
+| **④** | In **Select the API protocol this runtime supports**, choose **REST**. |
+| **⑤** | In **Select the model types this runtime supports**, select **Predictive model**. |
+| **⑥** | Click **Create**. |
+
+**Step ③-⑤ — REST protocol and Predictive model setup**
+
+![Serving Runtime configuration](images/serving_runtime_example_config.png)
+
+
+
+![Serving Runtime configuration - continued](images/serving_runtime_example_config_2.png)
 
 ## 🚀 Model Deployment
 
 After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-kserve-preparation) is created, deploy your AutoGluon model (e.g. from an AutoML run) so it is available for inference. This assumes the model is stored in S3.
 
-1. In the left menu: **Projects** → ***Your Project*** → **Deployments** → **Deploy model**.
-2. Under **Model location**, choose **S3 object storage**.
-3. Create a new connection or use an existing one and fill in the S3 credentials and path to the model.
-4. Fill in all required fields (bucket, path, etc.).
-5. For **Model type**, choose **Predictive model**.
-6. Click **Next**.
-7. In **Model deployment name**, enter the model name under which the model should be available for inference.
-8. Under **Model framework**, select **autogluon - 1**.
-9. Under **Serving runtime**, choose **Select from list…** → **AutoGluon ServingRuntime for KServe**.
-10. Click **Next**.
-11. You can configure **Advanced settings** to control access and reachability—for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service).
-12. Click **Next**.
-13. Review configuration and click **Deploy model**.
-14. After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#-deployment-scoring) for an example request.
+| Step | Action |
+|------|--------|
+| **①** | In the left menu: **Projects** → ***Your Project*** → **Deployments** → **Deploy model**. |
+| **②** | Under **Model location**, choose **S3 object storage**. |
+| **③** | Create a new connection or use an existing one and fill in the S3 credentials and path to the model. |
+| **④** | For **Model type**, choose **Predictive model**, click **Next**. |
+| **⑤** | In **Model deployment name**, enter the model name under which the model should be available for inference. Use only lowercase letters, without spaces or special characters. |
+| **⑥** | Under **Model framework**, select **autogluon - 1**. |
+| **⑦** | Under **Serving runtime**, choose **Select from list…** → **AutoGluon ServingRuntime for KServe**, click **Next**. |
+| **⑧** | You can configure **Advanced settings** to control access and reachability - for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service), click **Next**. |
+| **⑨** | Review configuration and click **Deploy model**. |
+| **⑩** | After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#-deployment-scoring) for an example request. |
+
+
+**Steps ②-④ — Model details**
+
+![Model deployment - step 1](images/model_deployment_first_step.png)
+
+**Steps ⑤-⑦ — Model deployment settings**
+
+![Model deployment - step 2](images/model_deployment_second_step.png)
 
 For more on serving and APIs, see [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user).
 
@@ -366,6 +393,16 @@ Example request (replace the placeholders and send a POST to your deployment’s
      ]
    }'
    ```
+
+   Example response:
+
+  ```json
+  {
+    "predictions": [
+      "No"
+    ]
+  }
+  ```
 
   Reference for more info about v1 protocol: [KServe V1 Protocol](https://kserve.github.io/website/docs/concepts/architecture/data-plane/v1-protocol)
 ---
