@@ -205,7 +205,7 @@ This section describes how to prepare the AutoGluon serving image and **Serving 
 
 Use the OpenShift Builds flow to build the image on the cluster, then a Serving Runtime that points to the internal image registry. Use the same project/namespace for the build and for the Serving Runtime (e.g. `automl-project`).
 
-**. Create ImageStream**
+**Create ImageStream**
 
 | Step | Action |
 |------|--------|
@@ -219,7 +219,7 @@ metadata:
   name: autogluonkserveimagev1
 ```
 
-**. Create BuildConfig**
+**Create BuildConfig**
 
 | Step | Action |
 |------|--------|
