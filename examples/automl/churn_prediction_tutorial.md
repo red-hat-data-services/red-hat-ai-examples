@@ -320,7 +320,7 @@ After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-ks
 | **③** | Create a new connection or use an existing one and fill in the S3 credentials and path to the model. |
 | **④** | Fill in all required fields (bucket, path, etc.). |
 | **⑤** | For **Model type**, choose **Predictive model**, click **Next**. |
-| **⑥** | In **Model deployment name**, enter the model name under which the model should be available for inference. |
+| **⑥** | In **Model deployment name**, enter the model name under which the model should be available for inference. Use only lowercase letters, without spaces or special characters. |
 | **⑦** | Under **Model framework**, select **autogluon - 1**. |
 | **⑧** | Under **Serving runtime**, choose **Select from list…** → **AutoGluon ServingRuntime for KServe**, click **Next**. |
 | **⑨** | You can configure **Advanced settings** to control access and reachability - for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service), click **Next**. |
