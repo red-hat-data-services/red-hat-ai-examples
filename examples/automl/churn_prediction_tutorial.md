@@ -1,23 +1,25 @@
 
-# Tutorial: Predict the Customer Churn
+# 📚 Tutorial: Predict the Customer Churn
 
 **Scenario:** You have (or download) the **Telco Customer Churn** dataset: one row per customer, with features like contract type, tenure, charges, and a **Churn** column (Yes/No). The goal is to train a model that predicts **Churn**, so you can identify at-risk customers and use the best model from the leaderboard for retention or deployment.
 
 This tutorial walks you through that end-to-end: create a project, create S3 connections for results and training data, create a workbench with those connections attached during setup (so you do not need to restart later), add the AutoML pipeline and dataset, run AutoML with the right settings, and view the leaderboard to pick the best model.
 
 ## Table of contents
-  - [Create a new project](#%EF%B8%8F-create-a-new-project)
-  - [Create the S3 connections](#-create-the-s3-connections)
-  - [Create workbench with connections attached](#-create-workbench-with-connections-attached)
-  - [Upload the training dataset to S3](#%EF%B8%8F-upload-the-training-dataset-to-s3)
-  - [Add the AutoML pipeline as a Pipeline Definition](#-add-the-automl-pipeline-as-a-pipeline-definition)
-  - [Run AutoML with the required inputs](#%EF%B8%8F-run-automl-with-the-required-inputs)
-  - [View the leaderboard](#-view-the-leaderboard)
-  - [Predictor Notebook](#-predictor-notebook)
-  - [Model Registry](#-model-registry)
-  - [Prepare the ServingRuntime for AutoGluon with KServe](#%EF%B8%8F-prepare-the-servingruntime-for-autogluon-with-kserve)
-  - [Model Deployment](#-model-deployment)
-  - [Deployment Scoring](#-deployment-scoring)
+
+- [🏗️ Create a new project](#create-a-new-project)
+- [💾 Create the S3 connections](#create-the-s3-connections)
+- [⚙️ Configure the Pipeline Server](#configure-the-pipeline-server)
+- [🔗 Create workbench with connections attached](#create-workbench-with-connections-attached)
+- [⬆️ Upload the training dataset to S3](#upload-the-training-dataset-to-s3)
+- [📋 Add the AutoML pipeline as a Pipeline Definition](#add-the-automl-pipeline-as-a-pipeline-definition)
+- [▶️ Run AutoML with the required inputs](#run-automl-with-the-required-inputs)
+- [📊 View the leaderboard](#view-the-leaderboard)
+- [📓 Predictor Notebook](#predictor-notebook)
+- [📚 Model Registry](#model-registry)
+- [⚙️ Prepare the ServingRuntime for AutoGluon with KServe](#prepare-the-servingruntime-for-autogluon-with-kserve)
+- [🚀 Model Deployment](#model-deployment)
+- [🎯 Deployment Scoring](#deployment-scoring)
 
 ## 🏗️ Create a new project
 
@@ -28,7 +30,7 @@ This tutorial walks you through that end-to-end: create a project, create S3 con
 
 ## 💾 Create the S3 connections
 
-Create two S3-compatible connections in your project: one for pipeline **results** (artifacts, leaderboard) and one for **training data**. Use the results connection when you configure the **Pipeline Server** for the project.
+Create two S3-compatible connections in your project: one for pipeline **results** (artifacts, leaderboard) and one for **training data**. You will use the results connection when you [configure the Pipeline Server](#configure-the-pipeline-server) in the next section.
 
 **Results storage connection**
 
@@ -50,6 +52,20 @@ Use this connection when configuring the Pipeline Server (e.g., in **Pipeline ru
 | **②** | Select **S3 compatible object storage - v1**. |
 | **③** | Enter a unique **Connection name** (for example, `customer-churn-data-s3`) and complete **Endpoint**, **Bucket**, **Region**, **Access key**, **Secret key** for the bucket you will use for training data. |
 | **④** | Click **Create**. Note the **Connection name**; you will use it as `train_data_secret_name` when creating the pipeline run. |
+
+## ⚙️ Configure the Pipeline Server
+
+Configure the **Pipeline Server** for your project so that pipeline runs and artifacts (e.g. leaderboard, trained models) are stored in your **results** S3 bucket. In Red Hat OpenShift AI, you do this from the project via the UI.
+
+| Step | Action |
+|------|--------|
+| **①** | From the OpenShift AI dashboard, go to **Data science projects** and click the name of your project (e.g. `customer-churn-ml`). |
+| **②** | Open the **Pipelines** tab (or the project details page where pipeline configuration is available). Click **Configure pipeline server**. |
+| **③** | In the **Configure pipeline server** dialog, in the **Object storage connection** section, enter the same S3-compatible storage details as your **results** connection: **Bucket** (name of the bucket for pipeline artifacts), **Region**, **Endpoint**, **Access key**, and **Secret key**. Use the same values you used when creating the results S3 connection in [Create the S3 connections](#create-the-s3-connections). If the UI offers **Select existing connection**, you can choose your results S3 connection instead of re-entering the fields. |
+| **④** | In the **Database** section, choose **Default database on the cluster** for development or testing, or **External MySQL database** if you have an external MySQL/MariaDB for production. |
+| **⑤** | Click **Create** (or **Save**) to create or update the pipeline server. Wait until the Pipeline Server is ready. |
+
+**Note:** For more details, see [Working with data science pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_ai_pipelines/working_with_ai_pipelines) in the Red Hat OpenShift AI documentation.
 
 ## 🔗 Create workbench with connections attached
 
@@ -93,7 +109,7 @@ Use this connection when configuring the Pipeline Server (e.g., in **Pipeline ru
 |------|--------|
 | **①** | From **Pipelines**, create a new pipeline run using **Pipeline definitions → ⋮ → Create run** for the AutoML pipeline you added. |
 | **②** | Set the **Name** of the pipeline run and run parameters (see section **What you need to provide** for what each means): **train_data_secret_name** (connection name from **Create the S3 connections** — training data connection), **train_data_bucket_name** (bucket from that same connection), **train_data_file_key** (e.g. `data/WA_FnUseC_TelcoCustomerChurn.csv`), **label_column** `Churn`, **task_type** `binary`, **top_n** `3` (or another positive integer). If the UI asks for an experiment or run name, set them as run metadata. |
-| **③** | Ensure the Pipeline Server is configured with the results S3 connection from **Create the S3 connections**, so artifacts are stored in the expected bucket. |
+| **③** | Ensure the Pipeline Server is configured (see [Configure the Pipeline Server](#configure-the-pipeline-server)) with the results S3 connection, so artifacts are stored in the expected bucket. |
 | **④** | Start the run via **Create run** and wait for it to complete. |
 
 **Step ② — Set the pipeline run details**
@@ -133,7 +149,7 @@ The notebook is saved under `model_artifact.path/model_name_FULL/notebooks`, whe
 
 For the notebook path and artifact layout per refitted model, see the [autogluon_models_full_refit component](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_automl/components/training/automl/autogluon_models_full_refit). For the overall pipeline, see the [pipeline reference](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_automl/pipelines/training/automl/autogluon_tabular_training_pipeline). For creating and importing notebooks in the workbench, see [Creating and importing notebooks](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_in_your_data_science_ide/working_in_jupyterlab#creating-and-importing-jupyter-notebooks_ide) in the Red Hat OpenShift AI documentation.
 
-**Preview of the predictor notebook in Workbench**
+**Step ④ — Preview of the predictor notebook in Workbench**
 
 ![Predictor notebook preview](images/predictor_notebook_preview.png)
 
@@ -150,7 +166,7 @@ If your cluster does not yet have a model registry, an OpenShift AI administrato
 | **①** | From the OpenShift AI dashboard, go to **Settings** → **Model resources and operations** → **AI registry settings**. |
 | **②** | Click **Create model registry**. In the dialog, enter a **Name** (and optionally a **Description**). Optionally edit the **Resource name** (must be lowercase alphanumeric with hyphens, max 253 characters). |
 | **③** | In **Connect to external MySQL database**, enter **Host**, **Port**, **Username**, **Password**, and **Database**. Add a CA certificate if the database uses TLS. |
-| **④** | Click **Create**. The new model registry appears on the **AI registry settings** page. |
+| **④** | Click **Create**. The new model registry appears on the AI registry settings page. |
 
 **Step ② — Create model registry settings**
 
@@ -183,14 +199,13 @@ This section describes how to prepare the AutoGluon serving image and **Serving 
 |------|--------|
 | **①** | **Build the image** on the cluster using OpenShift ImageStream and BuildConfig. *(Steps described below.)* |
 | **②** | **Prepare ServingRuntime YAML** and **create the Serving Runtime** on the cluster. The image is in the internal registry, so you do not need to add image-pull credentials. After this, the runtime is ready for [Model Deployment](#-model-deployment). |
-
 ---
 
 ### Build image directly on Red Hat OpenShift AI
 
 Use the OpenShift Builds flow to build the image on the cluster, then a Serving Runtime that points to the internal image registry. Use the same project/namespace for the build and for the Serving Runtime (e.g. `automl-project`).
 
-**Create ImageStream**
+**. Create ImageStream**
 
 | Step | Action |
 |------|--------|
@@ -204,12 +219,13 @@ metadata:
   name: autogluonkserveimagev1
 ```
 
-**Create BuildConfig**
+**. Create BuildConfig**
 
 | Step | Action |
 |------|--------|
 | **①** | In the console, left side: **Builds** → **BuildConfigs** → **Create BuildConfig** → **YAML View**. |
 | **②** | Paste the following and click **Create**: |
+
 
 ```yaml
 apiVersion: build.openshift.io/v1
@@ -378,15 +394,15 @@ Example request (replace the placeholders and send a POST to your deployment’s
    }'
    ```
 
-Example response:
+   Example response:
 
-```json
-{
-  "predictions": [
-    "No"
-  ]
-}
-```
+  ```json
+  {
+    "predictions": [
+      "No"
+    ]
+  }
+  ```
 
   Reference for more info about v1 protocol: [KServe V1 Protocol](https://kserve.github.io/website/docs/concepts/architecture/data-plane/v1-protocol)
 ---
