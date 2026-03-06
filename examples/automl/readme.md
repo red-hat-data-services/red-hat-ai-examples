@@ -10,7 +10,7 @@
 
 - [About AutoML](#about-automl)
   - [What AutoML gives you](#what-automl-gives-you)
-  - [What AutoML supports (Technology Preview)](#what-automl-supports-technology-preview)
+  - [What AutoML supports (Developer Preview)](#what-automl-supports-developer-preview)
   - [How it works under the hood](#how-it-works-under-the-hood)
 - [What you need to provide](#what-you-need-to-provide)
   - [Required input parameters](#required-input-parameters)
@@ -29,6 +29,7 @@
 ### What AutoML gives you
 
 AutoML takes care of the full workflow so you can focus on your use case:
+
 - **Automated data preprocessing** — Your tabular data (CSV in S3) is loaded, sampled and split into train and test sets.
 - **Automated feature engineering and training** — AutoML trains many model types (neural networks, tree-based, linear) using [AutoGluon](https://github.com/autogluon/autogluon)’s ensembling (stacking and bagging), then selects the top performers and refits them on the full dataset for production-ready predictors.
 - **Leaderboard** — You get an HTML leaderboard ranking all top models by the right metric for your task (e.g., accuracy or ROC-AUC for classification, R² for regression), so you can compare and pick the best model.
@@ -36,6 +37,7 @@ AutoML takes care of the full workflow so you can focus on your use case:
 
 You can run AutoML programmatically via the pipelines API or using AI Pipelines UI; no custom training code is required.
 
+<a id="what-automl-supports-developer-preview"></a>
 ### What AutoML supports (Developer Preview)
 
 In this preview, AutoML supports **classification** (binary and multiclass) and **regression** for tabular data. You can specify the task type and the label column; AutoML handles the rest.
@@ -52,7 +54,6 @@ In this preview, AutoML supports **classification** (binary and multiclass) and 
 You can register and serve the models AutoML produces using RHOAI Model Registry and KServe separately.
 
 **Not in scope:** Non-tabular data (e.g., images, text), traditional hyperparameter tuning as the primary method, unsupervised learning.
-
 
 ### How it works under the hood
 
@@ -100,8 +101,6 @@ To run AutoML, you need to provide where your data is and what to predict.
 |-----------|--------|-------------|
 | **top_n** | `3` | How many top models to refit on the full dataset (and appear on the leaderboard). |
 
----
-
 ## What you get from a run
 
 When an AutoML run completes, you get:
@@ -111,8 +110,6 @@ When an AutoML run completes, you get:
 - **Notebooks** — Generated notebook to load and use the best predictor (predictions, evaluation, etc.).
 
 Artifacts are stored in the artifact store configured for your run (e.g., S3 via your Pipeline Server).
-
----
 
 ## Example scenarios
 
@@ -135,9 +132,6 @@ To try this yourself, follow the [Tutorial: Predict the Customer Churn](#tutoria
 - Red Hat OpenShift AI (RHOAI) installed and accessible, with Kubeflow Pipelines available (see [References](#references) for version).
 - **Project** in RHAOI and **Pipeline Server** configured with object storage for runs and artifacts.
 - **S3 connection** (RHOAI Connections) for your training data, so AutoML can read your CSV file.
-
-
----
 
 ## Running AutoML
 

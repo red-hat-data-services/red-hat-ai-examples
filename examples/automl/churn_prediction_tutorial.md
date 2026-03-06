@@ -21,6 +21,7 @@ This tutorial walks you through that end-to-end: create a project, create S3 con
 - [🚀 Model Deployment](#model-deployment)
 - [🎯 Deployment Scoring](#deployment-scoring)
 
+<a id="create-a-new-project"></a>
 ## 🏗️ Create a new project
 
 | Step | Action |
@@ -28,6 +29,7 @@ This tutorial walks you through that end-to-end: create a project, create S3 con
 | **①** | Log in to Red Hat OpenShift AI. |
 | **②** | From the OpenShift AI dashboard, go to **Projects** and create a new project (for example, `customer-churn-ml`). |
 
+<a id="create-the-s3-connections"></a>
 ## 💾 Create the S3 connections
 
 Create two S3-compatible connections in your project: one for pipeline **results** (artifacts, leaderboard) and one for **training data**. You will use the results connection when you [configure the Pipeline Server](#configure-the-pipeline-server) in the next section.
@@ -53,6 +55,7 @@ Use this connection when configuring the Pipeline Server (e.g., in **Pipeline ru
 | **③** | Enter a unique **Connection name** (for example, `customer-churn-data-s3`) and complete **Endpoint**, **Bucket**, **Region**, **Access key**, **Secret key** for the bucket you will use for training data. |
 | **④** | Click **Create**. Note the **Connection name**; you will use it as `train_data_secret_name` when creating the pipeline run. |
 
+<a id="configure-the-pipeline-server"></a>
 ## ⚙️ Configure the Pipeline Server
 
 Configure the **Pipeline Server** for your project so that pipeline runs and artifacts (e.g. leaderboard, trained models) are stored in your **results** S3 bucket. In Red Hat OpenShift AI, you do this from the project via the UI.
@@ -67,6 +70,7 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 
 **Note:** For more details, see [Working with data science pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_ai_pipelines/working_with_ai_pipelines) in the Red Hat OpenShift AI documentation.
 
+<a id="create-workbench-with-connections-attached"></a>
 ## 🔗 Create workbench with connections attached
 
 | Step | Action |
@@ -83,6 +87,7 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 
 ![Workbench connections](images/workbench_connection.png)
 
+<a id="upload-the-training-dataset-to-s3"></a>
 ## ⬆️ Upload the training dataset to S3
 
 | Step | Action |
@@ -91,6 +96,7 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 | **②** | Upload the file to the S3 bucket configured in the **training data** connection. Place it in a path you will use as the object key (for example, `data/WA_FnUseC_TelcoCustomerChurn.csv` or just `WA_FnUseC_TelcoCustomerChurn.csv`). |
 | **③** | Note the **bucket name** and the **object key** (path) of the file; you will need them for `train_data_bucket_name` and `train_data_file_key` in the pipeline run. |
 
+<a id="add-the-automl-pipeline-as-a-pipeline-definition"></a>
 ## 📋 Add the AutoML pipeline as a Pipeline Definition
 
 | Step | Action |
@@ -103,6 +109,7 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 
 ![Pipeline configuration](images/pipeline_configuration_1.png)
 
+<a id="run-automl-with-the-required-inputs"></a>
 ## ▶️ Run AutoML with the required inputs
 
 | Step | Action |
@@ -117,6 +124,7 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 ![Pipeline run configuration details 1](images/pipeline_configuration_details_1.png)
 ![Pipeline run configuration details 2](images/pipeline_configuration_details_2.png)
 
+<a id="view-the-leaderboard"></a>
 ## 📊 View the leaderboard
 
 After the run has completed successfully:
@@ -133,6 +141,7 @@ After the run has completed successfully:
 
 For exact artifact paths and layout, see the pipeline reference below.
 
+<a id="predictor-notebook"></a>
 ## 📓 Predictor Notebook
 
 The AutoML pipeline generates a **predictor notebook** (e.g. `automl_predictor_notebook.ipynb`) that loads and uses the selected AutoGluon predictor for predictions, evaluation, and exploration. You can download this notebook from the run artifacts, upload it to your workbench, run it, and customize it as needed.
@@ -153,6 +162,7 @@ For the notebook path and artifact layout per refitted model, see the [autogluon
 
 ![Predictor notebook preview](images/predictor_notebook_preview.png)
 
+<a id="model-registry"></a>
 ## 📚 Model Registry
 
 The [autogluon-tabular-training-pipeline](https://github.com/LukaszCmielowski/pipelines-components/blob/rhoai_automl/pipelines/training/automl/autogluon_tabular_training_pipeline/pipeline.py) loads data from S3, splits it, runs **model selection** (top N on sampled data), then **refits** each top model on the full dataset via `autogluon_models_full_refit`. Each refitted model is written as a **model artifact** with a `_FULL` suffix (e.g. `LightGBM_BAG_L1_FULL`, `WeightedEnsemble_L3_FULL`). The pipeline does **not** register models in Model Registry; it only produces the leaderboard and model artifacts in your pipeline artifact store (S3). To version and deploy a chosen model, you register it manually in **Red Hat OpenShift AI Model Registry** as described below.
@@ -188,8 +198,8 @@ The refit stage writes each top-N model to the pipeline workspace/artifact store
 
 For the pipeline definition and artifact layout, see the [autogluon_tabular_training_pipeline](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_automl/pipelines/training/automl/autogluon_tabular_training_pipeline) (pipeline name: `autogluon-tabular-training-pipeline`). For more on working with model registries, see [Working with model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.22/html/working_with_model_registries/working-with-model-registries_model-registry).
 
-
-## ⚙️ Prepare the ServingRuntime for AutoGluon with KServe 
+<a id="prepare-the-servingruntime-for-autogluon-with-kserve"></a>
+## ⚙️ Prepare the ServingRuntime for AutoGluon with KServe
 
 This section describes how to prepare the AutoGluon serving image and **Serving Runtime** on the cluster using KServe. Build the serving image directly on the cluster using OpenShift ImageStream and BuildConfig, then create the Serving Runtime so it is available when you deploy a model.
 
@@ -198,7 +208,8 @@ This section describes how to prepare the AutoGluon serving image and **Serving 
 | Step | Action |
 |------|--------|
 | **①** | **Build the image** on the cluster using OpenShift ImageStream and BuildConfig. *(Steps described below.)* |
-| **②** | **Prepare ServingRuntime YAML** and **create the Serving Runtime** on the cluster. The image is in the internal registry, so you do not need to add image-pull credentials. After this, the runtime is ready for [Model Deployment](#-model-deployment). |
+| **②** | **Prepare ServingRuntime YAML** and **create the Serving Runtime** on the cluster. The image is in the internal registry, so you do not need to add image-pull credentials. After this, the runtime is ready for [Model Deployment](#model-deployment). |
+
 ---
 
 ### Build image directly on Red Hat OpenShift AI
@@ -225,7 +236,6 @@ metadata:
 |------|--------|
 | **①** | In the console, left side: **Builds** → **BuildConfigs** → **Create BuildConfig** → **YAML View**. |
 | **②** | Paste the following and click **Create**: |
-
 
 ```yaml
 apiVersion: build.openshift.io/v1
@@ -256,6 +266,7 @@ OpenShift will start a build. Wait for the build to complete (e.g. in **Builds**
 ### Prepare ServingRuntime YAML
 
 Create a YAML file for the KServe Serving Runtime. Set:
+
 - `metadata.namespace` to your project name (e.g. `automl-project`),
 - `spec.containers[0].image` to the cluster-built image: `image-registry.openshift-image-registry.svc:5000/<namespace>/autogluonkserveimagev1:latest` (use the same namespace as where you built the image, e.g. `automl-project`).
 You can also change:
@@ -321,13 +332,12 @@ Replace `{SERVING_IMAGE}` with the image URL above and `{NAMESPACE}` with your p
 
 ![Serving Runtime configuration](images/serving_runtime_example_config.png)
 
-
-
 ![Serving Runtime configuration - continued](images/serving_runtime_example_config_2.png)
 
+<a id="model-deployment"></a>
 ## 🚀 Model Deployment
 
-After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-kserve-preparation) is created, deploy your AutoGluon model (e.g. from an AutoML run) so it is available for inference. This assumes the model is stored in S3.
+After the [AutoGluon ServingRuntime](#prepare-the-servingruntime-for-autogluon-with-kserve) is created, deploy your AutoGluon model (e.g. from an AutoML run) so it is available for inference. This assumes the model is stored in S3.
 
 | Step | Action |
 |------|--------|
@@ -340,8 +350,7 @@ After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-ks
 | **⑦** | Under **Serving runtime**, choose **Select from list…** → **AutoGluon ServingRuntime for KServe**, click **Next**. |
 | **⑧** | You can configure **Advanced settings** to control access and reachability - for example, **Require token authentication** for secured access, or **Make model deployment available through an external route**, so you can call the model from outside the cluster (e.g. for scoring from your laptop or another service), click **Next**. |
 | **⑨** | Review configuration and click **Deploy model**. |
-| **⑩** | After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#-deployment-scoring) for an example request. |
-
+| **⑩** | After the deployment is running, use the inference endpoint URL from the deployment details. See [Deployment Scoring](#deployment-scoring) for an example request. |
 
 **Steps ②-④ — Model details**
 
@@ -353,6 +362,7 @@ After the [AutoGluon ServingRuntime](#%EF%B8%8F-autogluon-servingruntime-with-ks
 
 For more on serving and APIs, see [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user).
 
+<a id="deployment-scoring"></a>
 ## 🎯 Deployment Scoring
 
 To score the deployed model from outside the cluster, use the **External** inference URL (ensure **Make model deployment available through an external route** is enabled in the deployment’s Advanced settings). In the deployment details, under **Inference endpoint**, copy the external URL and use it in your requests.
@@ -362,7 +372,8 @@ Example request (replace the placeholders and send a POST to your deployment’s
 - **`DEPLOYMENT_URL`** — The inference URL from the deployment details (base URL only; the path `/v1/models/<MODEL_NAME>:predict` is appended in the sample).
 - **`MODEL_NAME`** — The resource name of the deployment (used in Kubernetes). Find it in **Deployment details** → **Model deployment** → **Resource name**.
 - **`YOUR_TOKEN`** — The service account token, only if you enabled **Require token authentication** in Advanced settings. You can retrieve it, by going to **Projects** → ***Your Project*** → **Deployments**, then expanding your deployment and getting value of `Token secret` for available token. If you did not enable authentication, remove the `-H "Authorization: Bearer <YOUR_TOKEN>"` line from the command.
-   ```bash
+
+  ```bash
    curl -X POST \
    "<DEPLOYMENT_URL>/v1/models/<MODEL_NAME>:predict" \
    -H "Content-Type: application/json" \
@@ -404,5 +415,4 @@ Example request (replace the placeholders and send a POST to your deployment’s
   }
   ```
 
-  Reference for more info about v1 protocol: [KServe V1 Protocol](https://kserve.github.io/website/docs/concepts/architecture/data-plane/v1-protocol)
----
+Reference for more info about v1 protocol: [KServe V1 Protocol](https://kserve.github.io/website/docs/concepts/architecture/data-plane/v1-protocol)
