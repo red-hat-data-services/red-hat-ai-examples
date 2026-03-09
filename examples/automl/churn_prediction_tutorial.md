@@ -298,8 +298,6 @@ spec:
   supportedModelFormats:
     - name: autogluon
       version: "1"
-      autoSelect: true
-      priority: 2
   protocolVersions:
     - v1
     - v2
