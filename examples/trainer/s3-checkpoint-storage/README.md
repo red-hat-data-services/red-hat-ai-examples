@@ -125,6 +125,7 @@ Configure your S3 credentials:
 ![](./images/create_connections1.png)
 
 **Required Fields:**
+
 * **Connection name**: A unique name for this connection (e.g., `s3-storage-connection`)
 * **Access key**: Your S3 access key ID
 * **Secret key**: Your S3 secret access key (will be hidden)
@@ -133,6 +134,7 @@ Configure your S3 credentials:
   * MinIO: `http://minio.example.com:9000`
 
 **Optional Fields:**
+
 * **Connection description**: Optional description for this connection
 * **Region**: S3 region (e.g., `us-east-1`)
 * **Bucket**: Default S3 bucket name (can be overridden in code)
@@ -228,16 +230,18 @@ When `output_dir="s3://..."` is configured:
 
 The `output_dir` parameter uses S3 URI format:
 
-```
+```text
 s3://<bucket-name>/<prefix-path>
 ```
 
 **Example:**
+
 ```python
 output_dir="s3://kubeflow-checkpoints/experiments/qwen-alpaca"
 ```
 
 This configuration means:
+
 * **Bucket:** `kubeflow-checkpoints` (must exist in your S3 storage)
 * **Prefix:** `experiments/qwen-alpaca/` (created automatically if it doesn't exist)
 * **Checkpoint locations:**
@@ -252,6 +256,7 @@ During training, checkpoints are automatically uploaded to S3:
 ![](./images/checkpoint_upload_s3.png)
 
 The SDK handles:
+
 * Asynchronous S3 upload (doesn't block training)
 * Retry logic for failed uploads
 * Validation of uploaded checkpoints
@@ -413,6 +418,7 @@ oc logs <pod-name> -c node | grep -i "s3\|upload\|checkpoint"
 ```
 
 Common issues:
+
 * Invalid S3 credentials
 * Bucket doesn't exist
 * Network connectivity issues
