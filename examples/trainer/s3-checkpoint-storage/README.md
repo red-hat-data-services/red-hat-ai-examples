@@ -41,7 +41,7 @@ S3-compatible object storage offers several advantages for distributed training:
 
 ### OpenShift AI cluster
 
-* Red Hat OpenShift AI (RHOAI) 3.2+ with:
+* Red Hat OpenShift AI (RHOAI) 3.4 EA2+ with:
   * `trainer` component enabled
   * `workbenches` component enabled
 
@@ -49,7 +49,7 @@ S3-compatible object storage offers several advantages for distributed training:
 
 * AWS S3, MinIO, or any S3-compatible object storage
 * S3 bucket created and accessible
-* S3 credentials (Access Key ID and Secret Access Key)
+* S3 credentials (Access Key ID and Secret Access Key) with **read and write permissions** to the bucket or specific path where checkpoints will be stored
 
 ### Hardware requirements
 
@@ -72,10 +72,18 @@ S3-compatible object storage offers several advantages for distributed training:
 
 | Purpose | Size | Access mode | Notes |
 | --- | --- | --- | --- |
-| Shared PVC (for model/data) | 20Gi+ | ReadWriteMany (RWX) | Used for pre-downloading model and dataset, NOT for checkpoints |
+| Shared PVC (for model/data) | 20Gi+ | ReadWriteMany (RWX) or ReadWriteOnce (RWO) | Used for pre-downloading model and dataset, NOT for checkpoints |
 | S3 Bucket | Unlimited | N/A | Checkpoints are saved to S3, not PVC |
+| Node ephemeral storage | Sufficient for model + checkpoints | N/A | Each training node needs enough local storage for temporary checkpoint files before S3 upload |
 
 > **Note:** Unlike PVC checkpointing, this example stores checkpoints in S3 object storage. The shared PVC is only used for caching the model and dataset so training pods can access them offline.
+
+**Important - Node Storage:** Training pods require sufficient node ephemeral storage for:
+
+* Temporary checkpoint files (before upload to S3)
+* Model loading and intermediate computation
+
+For this example (Qwen 2.5 1.5B), default node storage is sufficient. If you modify the notebook to use larger models or datasets, ensure your cluster nodes have adequate ephemeral storage capacity. A good rule of thumb is 2-3x the model size for safe operation.
 
 ## Environment variables
 
@@ -158,13 +166,20 @@ Once the project is created, click on **Create a workbench** and configure with 
 > [!NOTE]
 > Adding an accelerator is optional - only needed to test fine-tuned models from within the workbench.
 
-### 5. Create Shared Storage (Optional)
+### 5. Create Shared Storage (Optional but Recommended)
 
-Create a storage with RWX access for caching model and dataset (checkpoints go to S3, not PVC):
+Create a storage with RWX or RWO access for caching model and dataset (checkpoints go to S3, not PVC):
 
 ![](./images/create_storage.png)
 
 > **Note:** This PVC is only used for pre-downloading the model and dataset. Checkpoints are saved to S3.
+
+**Why create a PVC for model caching?**
+
+* **Saves GPU time**: Without a PVC, the model and dataset must be re-downloaded every time training starts or resumes, wasting valuable GPU time waiting for downloads to complete.
+* **Especially important in shared clusters**: In environments where preemptions are common (e.g., when using Kueue or spot instances), having the model pre-cached on a PVC means training can resume immediately after interruption without re-downloading.
+* **Right-sized storage**: The PVC only needs to be large enough to store the model and dataset (not checkpoints), typically the size of your model (e.g., 3-5GB for a 1.5B parameter model).
+* **Temporary storage**: This PVC can be created just for the duration of training and deleted afterward if storage is limited.
 
 ### 6. Start the Workbench
 
@@ -263,18 +278,18 @@ The SDK handles:
 
 ### JIT Checkpointing with S3
 
-Enable JIT checkpointing to automatically save training state to S3 on SIGTERM:
+JIT (Just-In-Time) checkpointing is **enabled by default** and automatically saves training state to S3 when the pod receives SIGTERM:
 
 ```python
 trainer = TransformersTrainer(
     func=train_func,
-    enable_jit_checkpoint=True,  # Save checkpoint to S3 on SIGTERM
+    enable_jit_checkpoint=True,  # Enabled by default - save checkpoint to S3 on SIGTERM
     output_dir="s3://kubeflow-checkpoints/checkpoints",
     data_connection_name="s3-storage-connection",
 )
 ```
 
-When `enable_jit_checkpoint=True`:
+When `enable_jit_checkpoint=True` (default):
 
 1. **SIGTERM Handler Registered** — TransformersTrainer registers a signal handler
 2. **Safe Checkpoint** — Training pauses after the current optimizer step
@@ -292,7 +307,7 @@ from kubeflow.trainer.rhai.transformers import PeriodicCheckpointConfig
 checkpoint_config = PeriodicCheckpointConfig(
     save_strategy="steps",    # or "epoch"
     save_steps=20,            # Save every 20 steps
-    save_total_limit=2,       # Keep only 2 most recent checkpoints
+    save_total_limit=2,       # Note: this parameter does NOT limit checkpoints in S3
 )
 
 trainer = TransformersTrainer(
@@ -303,6 +318,8 @@ trainer = TransformersTrainer(
 )
 ```
 
+> **Important:** The `save_total_limit` parameter does **not** clean up old checkpoints in S3. It only controls local checkpoint retention when using PVC storage. With S3 storage, checkpoints are immediately uploaded and all checkpoints remain in S3 regardless of this setting. You must manually delete old checkpoints from S3 if storage cleanup is needed.
+>
 > **Note:** Checkpoint saves involve uploading to S3, which can take time depending on checkpoint size and network speed. Avoid checkpointing too frequently (e.g., every step) as this can significantly increase total training time.
 
 ### SSL Verification
@@ -353,15 +370,58 @@ When the job resumes, the SDK automatically downloads the latest checkpoint from
 
 ### Checkpoint Structure in S3
 
-The training function saves checkpoints with this structure in S3:
+The S3 storage replicates the exact local filesystem structure from your training function. Any files and directories created locally during training are automatically uploaded to S3 with the same structure.
+
+**Example structure** (based on this notebook's training function):
 
 ```text
 s3://kubeflow-checkpoints/checkpoints/
 ├── checkpoint-20/      # Intermediate checkpoint at step 20
 ├── checkpoint-40/      # Intermediate checkpoint at step 40
 ├── checkpoint-<N>/     # Checkpoint at final step (N = last step number)
-└── final/              # Final merged model ready for inference
+└── final/              # Final model directory (structure depends on your save_model() call)
 ```
+
+The final model structure depends on how you call `trainer.save_model(path)` in your training function.
+
+## Distributed Training Best Practices
+
+When configuring multi-GPU training, **prefer using a single node with multiple GPUs** instead of multiple nodes with one GPU each (if your cluster has sufficient resources).
+
+**Recommended configuration for 4-GPU training:**
+
+```python
+trainer = TransformersTrainer(
+    func=train_func,
+    num_nodes=1,                                          # Single node
+    resources_per_node={"nvidia.com/gpu": 4, ...},        # 4 GPUs on one node
+    output_dir="s3://kubeflow-checkpoints/checkpoints",
+    data_connection_name="s3-storage-connection",
+)
+```
+
+**Instead of:**
+
+```python
+trainer = TransformersTrainer(
+    func=train_func,
+    num_nodes=4,                                          # 4 nodes
+    resources_per_node={"nvidia.com/gpu": 1, ...},        # 1 GPU per node
+    output_dir="s3://kubeflow-checkpoints/checkpoints",
+    data_connection_name="s3-storage-connection",
+)
+```
+
+### Benefits
+
+| Benefit | Description |
+| --- | --- |
+| **Faster initial startup** | Model and dataset are downloaded once per job instead of once per node |
+| **Faster resume from checkpoints** | Checkpoint is downloaded once instead of duplicated across all nodes |
+| **Reduced network traffic** | Eliminates redundant downloads across multiple nodes |
+| **Lower S3 egress costs** | Single download vs multiple downloads from S3 |
+
+> **Note:** This recommendation assumes your cluster has nodes with multiple GPUs available. If your cluster only has single-GPU nodes, use `num_nodes > 1` with `resources_per_node["nvidia.com/gpu"] = 1`.
 
 ## Customization
 
@@ -465,6 +525,57 @@ aws s3 ls s3://kubeflow-checkpoints/checkpoints/ --recursive
 ```
 
 If you see files named `checkpoint-is-incomplete.txt`, those checkpoints are invalid and will be cleaned up automatically on resume.
+
+### Model loading errors in multi-node training
+
+**Symptom:** In multi-node training scenarios, especially under heavy cluster load or limited node bandwidth, one or more ranks may fail with an error like:
+
+```text
+OSError: meta-llama/Meta-Llama-3-8B-Instruct does not appear to have a file named
+pytorch_model.bin, model.safetensors, tf_model.h5, model.ckpt or flax_model.msgpack.
+```
+
+**Cause:** Model cache download takes longer on some nodes compared to others. When a node tries to load the model before the download completes, it fails because the model files are incomplete.
+
+**Solutions:**
+
+1. **Add retry logic in training function** (recommended for robustness):
+
+   ```python
+   def train_func():
+       import time
+       import os
+       from transformers import AutoModelForCausalLM, Trainer
+
+       local_rank = int(os.environ.get("LOCAL_RANK", 0))
+       model_path = "/mnt/shared/models/qwen2.5-1.5b-instruct"
+
+       # Retry logic for model loading
+       max_retries = 6
+       for attempt in range(max_retries):
+           try:
+               model = AutoModelForCausalLM.from_pretrained(
+                   model_path,
+                   torch_dtype=torch.bfloat16,
+                   device_map={"": local_rank},
+                   local_files_only=True,
+               )
+               break
+           except OSError as e:
+               if attempt < max_retries - 1:
+                   print(f"[Rank {local_rank}] Model cache incomplete, retrying in 10s ({attempt+1}/{max_retries})...", flush=True)
+                   time.sleep(10)
+               else:
+                   raise
+
+       # Continue with training...
+       trainer = Trainer(model=model, ...)
+   ```
+
+2. **Use a shared PVC for model cache** (already implemented in this example):
+   * This example pre-downloads the model to a PVC mounted to all training pods
+   * Ensures all nodes access the same cached model files
+   * See [Step 5: Create Shared Storage](#5-create-shared-storage-optional-but-recommended)
 
 ## Additional Resources
 
