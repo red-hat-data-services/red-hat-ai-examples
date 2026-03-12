@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Python dependencies - examples folder
+  - package-ecosystem: "pip"
+    directory: "/examples"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "python"
