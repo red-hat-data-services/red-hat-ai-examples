@@ -227,8 +227,8 @@ trainer = TransformersTrainer(
     data_connection_name="s3-storage-connection",
     # Enable JIT checkpointing (save on SIGTERM)
     enable_jit_checkpoint=True,
-    # Disable SSL verification for self-signed certs (MinIO)
-    verify_cloud_storage_ssl=False,
+    # Enable SSL verification for S3 (set to False only for self-signed certs like MinIO)
+    verify_cloud_storage_ssl=True,
     # Pre-validate S3 access before job starts
     verify_cloud_storage_access=True,
 )
