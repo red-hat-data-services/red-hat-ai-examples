@@ -386,15 +386,16 @@ The final model structure depends on how you call `trainer.save_model(path)` in 
 
 ## Distributed Training Best Practices
 
-When configuring multi-GPU training, **prefer using a single node with multiple GPUs** instead of multiple nodes with one GPU each (if your cluster has sufficient resources).
+When configuring multi-GPU training, **prefer using a small number of nodes with multiple GPUs each** instead of multiple nodes with one GPU each (if your cluster has sufficient resources).
 
-**Recommended configuration for 4-GPU training:**
+**Recommended configuration for 8-GPU training:**
 
 ```python
+# Better: 2 nodes × 4 GPUs each
 trainer = TransformersTrainer(
     func=train_func,
-    num_nodes=1,                                          # Single node
-    resources_per_node={"nvidia.com/gpu": 4, ...},        # 4 GPUs on one node
+    num_nodes=2,                                          # 2 nodes
+    resources_per_node={"nvidia.com/gpu": 4, ...},        # 4 GPUs per node
     output_dir="s3://kubeflow-checkpoints/checkpoints",
     data_connection_name="s3-storage-connection",
 )
@@ -403,9 +404,10 @@ trainer = TransformersTrainer(
 **Instead of:**
 
 ```python
+# Less efficient: 8 nodes × 1 GPU each
 trainer = TransformersTrainer(
     func=train_func,
-    num_nodes=4,                                          # 4 nodes
+    num_nodes=8,                                          # 8 nodes
     resources_per_node={"nvidia.com/gpu": 1, ...},        # 1 GPU per node
     output_dir="s3://kubeflow-checkpoints/checkpoints",
     data_connection_name="s3-storage-connection",
@@ -416,12 +418,12 @@ trainer = TransformersTrainer(
 
 | Benefit | Description |
 | --- | --- |
-| **Faster initial startup** | Model and dataset are downloaded once per job instead of once per node |
-| **Faster resume from checkpoints** | Checkpoint is downloaded once instead of duplicated across all nodes |
-| **Reduced network traffic** | Eliminates redundant downloads across multiple nodes |
-| **Lower S3 egress costs** | Single download vs multiple downloads from S3 |
+| **Faster initial startup** | Model and dataset are downloaded fewer times (once per node) |
+| **Faster resume from checkpoints** | Fewer checkpoint downloads across nodes |
+| **Reduced network traffic** | Less redundant downloads when fewer nodes are used |
+| **Lower S3 egress costs** | Fewer downloads from S3 reduce data transfer costs |
 
-> **Note:** This recommendation assumes your cluster has nodes with multiple GPUs available. If your cluster only has single-GPU nodes, use `num_nodes > 1` with `resources_per_node["nvidia.com/gpu"] = 1`.
+> **Note:** The key principle is to maximize GPUs per node rather than nodes. For example, 2 nodes × 4 GPUs is better than 8 nodes × 1 GPU. If your cluster only has single-GPU nodes, you'll need to use multiple nodes, but this is less efficient for S3 checkpoint downloads.
 
 ## Customization
 
@@ -545,6 +547,7 @@ pytorch_model.bin, model.safetensors, tf_model.h5, model.ckpt or flax_model.msgp
    def train_func():
        import time
        import os
+       import torch
        from transformers import AutoModelForCausalLM, Trainer
 
        local_rank = int(os.environ.get("LOCAL_RANK", 0))
