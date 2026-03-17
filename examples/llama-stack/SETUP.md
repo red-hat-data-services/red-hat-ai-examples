@@ -3,7 +3,7 @@
 ## Introduction
 This document shows how to set up LLama Stack on Red Hat Openshift cluster with Red Hat Openshift AI, specifically for use with AutoRAG feature. It assumes the following set-up will be done:
 - single dedicated foundation model
-- ingle dedicated embedding model
+- single dedicated embedding model
 - Keycloak for authN/authZ and underlying PostgreSQL database
 - Llama Stack Server with configuration allowing to run minimal secure AutoRAG scenario (with one foundation and embedding model, using inline Milvus Lite as vector DB, with enabled authN)
 

@@ -3,7 +3,7 @@ apiVersion: v1
 metadata:
   name: llama-stack-config
 data:
-  run.yaml: |-
+  config.yaml: |-
     version: 2
     image_name: rh
     apis:
