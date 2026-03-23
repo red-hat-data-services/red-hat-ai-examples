@@ -157,6 +157,8 @@ After creating the connection, you can copy the connection name to use in your t
 
 You'll use this connection name in the `data_connection_name` parameter of `TransformersTrainer`.
 
+> **Important:** If you edit the connection name, it does not update the secret name that was created initially. For example, if you initially create a connection named "s3-storage-connection" and later change it to "s3-storage-connection-old", the secret name created initially in your namespace will remain "s3-storage-connection" and will not change to "s3-storage-connection-old".
+
 ### 4. Create a Workbench
 
 Once the project is created, click on **Create a workbench** and configure with the following settings:
