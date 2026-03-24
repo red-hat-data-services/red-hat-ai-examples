@@ -178,3 +178,6 @@ cython_debug/
 # Code quality and security tools
 .ruff_cache/
 .talisman_reports/
+
+# Local venv under Ray examples (pollutes notebook discovery / pytest)
+**/.rag-venv/
