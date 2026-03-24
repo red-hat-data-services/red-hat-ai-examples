@@ -1,0 +1,120 @@
+# Optimized RayCluster for RAG ingestion workloads
+#
+# Key settings:
+# - Image has Docling + Ray pre-installed (no runtime pip install needed).
+# - Workers: 4 CPU, 16Gi memory (matches CPUS_PER_ACTOR=4 in notebook)
+# - Head: object-store-memory set for Ray Data throughput
+# - Fixed replica count (no autoscaling) for predictable benchmarks
+#
+# Apply:
+#   oc apply -f raycluster-rag-optimized.yaml -n rag-example
+#
+# Or patch existing cluster:
+#   oc patch raycluster raytest -n rag-example --type=merge -p "$(cat raycluster-rag-optimized.yaml)"
+---
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: raytest
+  namespace: rag-example
+  labels:
+    app: raytest
+spec:
+  rayVersion: "2.53.0"
+
+  # Disable Ray's internal autoscaler - we use fixed replica counts
+  enableInTreeAutoscaling: false
+
+  headGroupSpec:
+    rayStartParams:
+      dashboard-host: "0.0.0.0"
+      # Head node should not run tasks (reserve for driver/GCS)
+      num-cpus: "0"
+      # Object store: 50% of head memory for Ray Data performance
+      # With 10Gi head memory, this gives ~5Gi object store
+      object-store-memory: "5368709120"  # 5Gi in bytes
+      # Disable the autoscaler monitor process
+      disable-usage-stats: "true"
+      no-monitor: "true"
+    template:
+      metadata:
+        labels:
+          app: raytest
+          ray.io/cluster: raytest
+          ray.io/group: head
+      spec:
+        containers:
+          - name: ray-head
+            image: quay.io/cathaloconnor/docling-ray:latest
+            imagePullPolicy: Always
+            ports:
+              - containerPort: 6379
+                name: gcs
+              - containerPort: 8265
+                name: dashboard
+              - containerPort: 10001
+                name: client
+            env:
+              - name: RAY_USE_TLS
+                value: "0"
+              - name: RAY_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
+                value: "0.5"
+            resources:
+              limits:
+                cpu: "2"
+                memory: 10Gi
+              requests:
+                cpu: "1"
+                memory: 6Gi
+            volumeMounts:
+              - mountPath: /mnt/data
+                name: shared-data
+        volumes:
+          - name: shared-data
+            persistentVolumeClaim:
+              claimName: rag-data-pvc
+
+  workerGroupSpecs:
+    - groupName: workers
+      # Fixed replica count for benchmarking (no autoscaling)
+      # 8 workers x 4 CPUs = 32 CPUs total (plenty for 3-stage pipeline)
+      replicas: 8
+      minReplicas: 8
+      maxReplicas: 8
+      rayStartParams:
+        # Workers report actual CPU limit to Ray scheduler
+        num-cpus: "4"
+        # Object store on workers: 50% of memory
+        object-store-memory: "8589934592"  # 8Gi in bytes
+      template:
+        metadata:
+          labels:
+            app: raytest
+            ray.io/cluster: raytest
+            ray.io/group: workers
+        spec:
+          containers:
+            - name: ray-worker
+              image: quay.io/cathaloconnor/docling-ray:latest
+              imagePullPolicy: Always
+              env:
+                - name: RAY_USE_TLS
+                  value: "0"
+                - name: RAY_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
+                  value: "0.5"
+              resources:
+                # IMPORTANT: limits.cpu must match num-cpus in rayStartParams
+                # and CPUS_PER_ACTOR in the notebook
+                limits:
+                  cpu: "4"
+                  memory: 16Gi
+                requests:
+                  cpu: "4"
+                  memory: 16Gi
+              volumeMounts:
+                - mountPath: /mnt/data
+                  name: shared-data
+          volumes:
+            - name: shared-data
+              persistentVolumeClaim:
+                claimName: rag-data-pvc

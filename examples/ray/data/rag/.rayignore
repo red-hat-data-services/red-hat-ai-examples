@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+.logfire/
+.env
+*.egg-info/
+uv.lock
+manifests/
+experiment_results.*
