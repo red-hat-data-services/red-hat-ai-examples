@@ -100,7 +100,8 @@ def sample_doc_qa(
 def _clean_response_text(df: pl.DataFrame) -> pl.DataFrame:
     """Clean response text by removing markers and whitespace."""
     return df.with_columns(
-        pl.col("response")
+        pl
+        .col("response")
         .str.replace_all(r"\[END\]", "")
         .str.replace_all(r"\[ANSWER\]", "")
         .str.strip_chars()
@@ -111,7 +112,8 @@ def _clean_response_text(df: pl.DataFrame) -> pl.DataFrame:
 def _create_metadata(df: pl.DataFrame) -> pl.Expr:
     """Create metadata JSON structure."""
     return (
-        pl.struct([
+        pl
+        .struct([
             pl.col("document").alias("sdg_document"),
             pl.lit("document_knowledge_qa").alias("dataset"),
             pl.col("raw_document"),
@@ -232,7 +234,8 @@ def generate_knowledge_qa_dataset(
             "reasoning",
         ]
         messages_expr = (
-            pl.struct(message_columns)
+            pl
+            .struct(message_columns)
             .map_elements(_create_messages_with_reasoning_no_document)
             .alias("messages")
         )
@@ -245,21 +248,24 @@ def generate_knowledge_qa_dataset(
             "reasoning",
         ]
         messages_expr = (
-            pl.struct(message_columns)
+            pl
+            .struct(message_columns)
             .map_elements(_create_messages_with_reasoning)
             .alias("messages")
         )
     elif keep_document_in_context:
         message_columns = ["question", "response", "document", "document_outline"]
         messages_expr = (
-            pl.struct(message_columns)
+            pl
+            .struct(message_columns)
             .map_elements(_create_messages_without_reasoning)
             .alias("messages")
         )
     else:
         message_columns = ["question", "response", "document", "document_outline"]
         messages_expr = (
-            pl.struct(message_columns)
+            pl
+            .struct(message_columns)
             .map_elements(_create_messages_without_reasoning_no_document)
             .alias("messages")
         )
@@ -307,7 +313,8 @@ def count_len_in_tokens(
         return len(tokenizer.encode(text))
 
     return df.with_columns(
-        pl.col(column_name)
+        pl
+        .col(column_name)
         .map_elements(apply_chat_template, return_dtype=pl.String)
         .map_elements(count_tokens, return_dtype=pl.Int32)
         .alias("token_length")

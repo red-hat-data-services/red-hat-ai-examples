@@ -133,17 +133,5 @@
     "correct_answer_document_ids": [
       "ibm-1q25-earnings-press-release.pdf"
     ]
-  },
-  { "question": "How much is the IBM expected year-over-year increase in free cash flow for the full-year 2026?",
-    "correct_answer": "The company expects full-year free cash flow to increase by about $1 billion year-over-year. This expectation is stated directly in the 'Full-Year 2026 Expectations' section of the provided text.", 
-    "correct_answer_document_ids": [
-      "4q25-press-release.pdf"
-    ] 
-  },
-  { "question": "What is the expected constant currency revenue growth rate for the full-year 2026 based on the information provided?",
-    "correct_answer": "The company expects full-year constant currency revenue growth of more than 5 percent for the year 2026. This expectation is explicitly mentioned in the 'Full-Year 2026 Expectations' section of the provided text.",
-    "correct_answer_document_ids": [
-      "4q25-press-release.pdf"
-    ]
   }
 ]

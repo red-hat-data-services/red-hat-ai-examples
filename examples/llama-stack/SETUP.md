@@ -153,7 +153,7 @@ curl -k -d client_id=${KEYCLOAK_CLIENT} -d client_secret=${KEYCLOAK_CLIENT_SECRE
 
 Activate Llama Stack Operator by patching existing DataScienceCluster resource from RHOAI.
 ```
-oc patch datasciencecluster <name> --type=merge -p {"spec":{"components":{"llamastackoperator":{"managementState":"Managed"}}}}
+oc patch datasciencecluster <name> --type=merge -p '{"spec":{"components":{"llamastackoperator":{"managementState":"Managed"}}}}'
 ```
 Replace `<name>` with your DataScienceCluster name, for example, `default-dsc`.
 
