@@ -131,11 +131,11 @@ Training is orchestrated as a **RHOAI pipeline** (based on Kubeflow Pipelines), 
 
 These examples target specific versions of **Red Hat OpenShift AI**. To avoid confusion:
 
-- **Root examples (this folder)**
+- **Root examples (this folder)**  
   - Reflect the **latest supported RHOAI version** for this repository.
   - Use current recommended runtimes, APIs, and best practices.
 
-- **Version-specific subfolders** (for example, `rhoai-3.2/`)
+- **Version-specific subfolders** (for example, `rhoai-3.2/`)  
   - Contain **pinned versions** of the same examples adapted for that RHOAI release.
   - Capture differences in:
     - Runtime images
