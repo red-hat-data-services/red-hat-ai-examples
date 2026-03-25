@@ -467,10 +467,10 @@ deploymentSpec:
           \n"
         image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
         resources:
-          cpuRequest: 4.0
-          memoryRequest: 4.294967296
-          resourceCpuRequest: '4'
-          resourceMemoryRequest: 4Gi
+          cpuRequest: 2.0
+          memoryRequest: 8.589934592
+          resourceCpuRequest: '2'
+          resourceMemoryRequest: 8Gi
     exec-automl-data-loader:
       container:
         args:
@@ -951,10 +951,10 @@ deploymentSpec:
           \ \"time_limit\": DEFAULT_TIME_LIMIT},\n    )\n\n"
         image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
         resources:
-          cpuRequest: 4.0
-          memoryRequest: 4.294967296
-          resourceCpuRequest: '4'
-          resourceMemoryRequest: 4Gi
+          cpuRequest: 2.0
+          memoryRequest: 8.589934592
+          resourceCpuRequest: '2'
+          resourceMemoryRequest: 8Gi
 pipelineInfo:
   description: 'End-to-end AutoGluon tabular training pipeline implementing a two-stage
     approach: first builds and selects top-performing models on sampled data, then
