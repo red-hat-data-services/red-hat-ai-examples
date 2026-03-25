@@ -1,8 +1,0 @@
-boto3==1.42.69
-pandas==2.2.3
-lightgbm==4.6.0
-torch==2.10.0
-xgboost==3.2.0
-scikit-learn==1.7.2
-autogluon.tabular==1.5.0
-fastai==2.8.7

@@ -97,7 +97,7 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 
 | Step | Action |
 |------|--------|
-| **①** | Download the Customer Churn dataset: [WA_FnUseC_TelcoCustomerChurn.csv](data/WA_FnUseC_TelcoCustomerChurn.csv) (in the `data` folder in this repository). |
+| **①** | Download the Customer Churn dataset: [WA_FnUseC_TelcoCustomerChurn.csv](data/churn/input_data/benchmark_data.csv) (in the `data` folder in this repository). |
 | **②** | Upload the file to the S3 bucket configured in the **training data** connection. Place it in a path you will use as the object key (for example, `data/WA_FnUseC_TelcoCustomerChurn.csv` or just `WA_FnUseC_TelcoCustomerChurn.csv`). |
 | **③** | Note the **bucket name** and the **object key** (path) of the file; you will need them for `train_data_bucket_name` and `train_data_file_key` in the pipeline run. |
 
@@ -107,7 +107,7 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 
 | Step | Action |
 |------|--------|
-| **①** | Get the compiled AutoML pipeline from the repository: [pipeline.yaml](pipelines/autogluon_tabular_training_pipeline/pipeline.yaml).
+| **①** | Get the compiled AutoML pipeline from the repository: [pipeline.yaml](pipelines/pipeline.yaml).
 | **②** | In Red Hat OpenShift AI, go to **Pipelines** (or **Develop & Train** → **Pipelines**) for your project. |
 | **③** | Upload the compiled pipeline as a new **Pipeline Definition** (or create a pipeline from the YAML), following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines). |
 
@@ -157,15 +157,15 @@ The AutoML pipeline generates a **predictor notebook** (e.g. `automl_predictor_n
 
 The notebook is saved under `model_artifact.path/model_name_FULL/notebooks`, where `model_artifact.path` is a path like `autogluon-tabular-training-pipeline/<run_id>/autogluon-models-full-refit/<task_id>/model_artifact/` (one such path per refitted model). For example: `...<run_id>/autogluon-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb`.
 
-| Step | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-|------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **①** | Once the AutoML run completes, check the [leaderboard](#view-the-leaderboard) to find the S3 storage path for each model's generated notebook in column "Notebook".                                                                                                                                                                                                                                                                                                         |
-| **②** | **Download** the notebook to your local machine from the artifact store (S3) if you have access (e.g. via the workbench S3 connection from **Create workbench with connections attached**). The notebook is under a path like `...<run_id>/autogluon-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb` (see the [autogluon_models_full_refit component](pipelines/autogluon_models_full_refit) for the exact layout). |
-| **③** | Open your **workbench** (the notebook environment you created in **Create workbench with connections attached**). In JupyterLab, click the **Upload** button (upload icon) in the File Browser sidebar, select the downloaded `.ipynb` file, and upload it. The notebook appears in your workbench file tree.                                                                                                                                                               |
-| **④** | Open the notebook and **run** it cell by cell. Ensure the workbench has access to the same S3 bucket (or the path configured in the notebook) so it can load the AutoGluon predictor and any data the notebook expects. If you attached the connections when creating the workbench (see **Create workbench with connections attached**), the bucket is already available.                                                                                                  |
-| **⑤** | **Customize** if required: edit the model path or artifact location to point to a specific refitted model (e.g. `LightGBM_BAG_L1_FULL`), add cells for extra visualizations or metrics, change sample data, or adapt the notebook for your own workflows. Save the notebook in the workbench when done.                                                                                                                                                                     |
+| Step | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+|------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **①** | Once the AutoML run completes, check the [leaderboard](#view-the-leaderboard) to find the S3 storage path for each model's generated notebook in column "Notebook".                                                                                                                                                                                                                                                                                     |
+| **②** | **Download** the notebook to your local machine from the artifact store (S3) if you have access (e.g. via the workbench S3 connection from **Create workbench with connections attached**). The notebook is under a path like `...<run_id>/autogluon-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb` (see the [autogluon_models_full_refit component](https://github.com/red-hat-data-services/pipelines-components/tree/main/components/training/automl/autogluon_models_full_refit) for the exact layout). |
+| **③** | Open your **workbench** (the notebook environment you created in **Create workbench with connections attached**). In JupyterLab, click the **Upload** button (upload icon) in the File Browser sidebar, select the downloaded `.ipynb` file, and upload it. The notebook appears in your workbench file tree.                                                                                                                                           |
+| **④** | Open the notebook and **run** it cell by cell. Ensure the workbench has access to the same S3 bucket (or the path configured in the notebook) so it can load the AutoGluon predictor and any data the notebook expects. If you attached the connections when creating the workbench (see **Create workbench with connections attached**), the bucket is already available.                                                                              |
+| **⑤** | **Customize** if required: edit the model path or artifact location to point to a specific refitted model (e.g. `LightGBM_BAG_L1_FULL`), add cells for extra visualizations or metrics, change sample data, or adapt the notebook for your own workflows. Save the notebook in the workbench when done.                                                                                                                                                 |
 
-For the notebook path and artifact layout per refitted model, see the [autogluon_models_full_refit component](pipelines/autogluon_models_full_refit). For the overall pipeline, see the [pipeline reference](pipelines/autogluon_tabular_training_pipeline). For creating and importing notebooks in the workbench, see [Creating and importing notebooks](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_in_your_data_science_ide/working_in_jupyterlab#creating-and-importing-jupyter-notebooks_ide) in the Red Hat OpenShift AI documentation.
+For the notebook path and artifact layout per refitted model, see the [autogluon_models_full_refit component](https://github.com/red-hat-data-services/pipelines-components/tree/main/components/training/automl/autogluon_models_full_refit). For the overall pipeline, see the [pipeline reference](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/automl/autogluon_tabular_training_pipeline). For creating and importing notebooks in the workbench, see [Creating and importing notebooks](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_in_your_data_science_ide/working_in_jupyterlab#creating-and-importing-jupyter-notebooks_ide) in the Red Hat OpenShift AI documentation.
 
 **Step ④ — Preview of the predictor notebook in Workbench**
 
@@ -175,7 +175,7 @@ For the notebook path and artifact layout per refitted model, see the [autogluon
 
 ## 📚 Model Registry
 
-The [autogluon-tabular-training-pipeline](pipelines/autogluon_tabular_training_pipeline/pipeline.py) loads data from S3, splits it, runs **model selection** (top N on sampled data), then **refits** each top model on the full dataset via `autogluon_models_full_refit`. Each refitted model is written as a **model artifact** with a `_FULL` suffix (e.g. `LightGBM_BAG_L1_FULL`, `WeightedEnsemble_L3_FULL`). The pipeline does **not** register models in Model Registry; it only produces the leaderboard and model artifacts in your pipeline artifact store (S3). To version and deploy a chosen model, you register it manually in **Red Hat OpenShift AI Model Registry** as described below.
+The [autogluon-tabular-training-pipeline](https://github.com/red-hat-data-services/pipelines-components/blob/main/pipelines/training/automl/autogluon_tabular_training_pipeline/pipeline.py) loads data from S3, splits it, runs **model selection** (top N on sampled data), then **refits** each top model on the full dataset via `autogluon_models_full_refit`. Each refitted model is written as a **model artifact** with a `_FULL` suffix (e.g. `LightGBM_BAG_L1_FULL`, `WeightedEnsemble_L3_FULL`). The pipeline does **not** register models in Model Registry; it only produces the leaderboard and model artifacts in your pipeline artifact store (S3). To version and deploy a chosen model, you register it manually in **Red Hat OpenShift AI Model Registry** as described below.
 
 **Creating a model registry (one-time, typically by an administrator)**
 
@@ -206,7 +206,7 @@ The refit stage writes each top-N model to the pipeline workspace/artifact store
 | **④** | Enter **Model name** and optional **Description**. Enter **Version name** and set **Source model format** (e.g. custom or the format your registry uses for AutoGluon).                                                                                                                                                                                                                                                                                                                                                                          |
 | **⑤** | Click **Register**. The model appears in the Model registry and can be used for versioning, promotion, and deployment (e.g. via the single-model serving platform).                                                                                                                                                                                                                                                                                                                                                                              |
 
-For the pipeline definition and artifact layout, see the [autogluon_tabular_training_pipeline](pipelines/autogluon_tabular_training_pipeline) (pipeline name: `autogluon-tabular-training-pipeline`). For more on working with model registries, see [Working with model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.22/html/working_with_model_registries/working-with-model-registries_model-registry).
+For the pipeline definition and artifact layout, see the [autogluon_tabular_training_pipeline](https://github.com/LukaszCmielowski/pipelines-components/blob/rhoai_automl/pipelines/training/automl/autogluon_tabular_training_pipeline/pipeline.py) (pipeline name: `autogluon-tabular-training-pipeline`). For more on working with model registries, see [Working with model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.22/html/working_with_model_registries/working-with-model-registries_model-registry).
 
 <a id="prepare-the-servingruntime-for-autogluon-with-kserve"></a>
 
@@ -227,7 +227,7 @@ This section describes how to prepare the AutoGluon serving image and **Serving 
 
 Use the OpenShift Builds flow to build the image on the cluster, then a Serving Runtime that points to the internal image registry. Use the same project/namespace for the build and for the Serving Runtime (e.g. `automl-project`).
 
-**Create ImageStream**
+**Create [ImageStream](serving/image_stream.yaml)**
 
 | Step | Action |
 |------|--------|
@@ -241,7 +241,7 @@ metadata:
   name: autogluonkserveimagev1
 ```
 
-**Create BuildConfig**
+**Create [BuildConfig](serving/build_config.yaml)**
 
 | Step | Action |
 |------|--------|
@@ -274,7 +274,7 @@ spec:
 
 OpenShift will start a build. Wait for the build to complete (e.g. in **Builds** → **Builds**). The image will be available in the internal registry as `image-registry.openshift-image-registry.svc:5000/<namespace>/autogluonkserveimagev1:latest` (use your project namespace, e.g. `automl-project`).
 
-### Prepare ServingRuntime YAML
+### Prepare [ServingRuntime YAML](serving/serving_runtime.yaml)
 
 Create a YAML file for the KServe Serving Runtime. Set:
 

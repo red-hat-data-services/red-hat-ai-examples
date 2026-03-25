@@ -1,0 +1,21 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: autogluonkserveimagev1
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/LukaszCmielowski/kserve
+      ref: dev-autogluon-server-rhoai
+    contextDir: python
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: autogluon.Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: autogluonkserveimagev1:latest
+  triggers:
+    - type: ConfigChange
