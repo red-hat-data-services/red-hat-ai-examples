@@ -1096,7 +1096,7 @@ root:
           model types.'
         parameterType: STRING
       top_n:
-        defaultValue: 3.0
+        defaultValue: 3
         description: 'Number of top models to select and refit (default: 3); positive
           integer.'
         isOptional: true
