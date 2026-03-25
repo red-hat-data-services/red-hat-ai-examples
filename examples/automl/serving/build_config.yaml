@@ -6,8 +6,8 @@ spec:
   source:
     type: Git
     git:
-      uri: https://github.com/LukaszCmielowski/kserve
-      ref: dev-autogluon-server-rhoai
+      uri: https://github.com/red-hat-data-services/kserve-autogluon-server
+      ref: dev-preview-rhoai
     contextDir: python
   strategy:
     type: Docker
