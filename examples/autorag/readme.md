@@ -54,7 +54,6 @@ In this preview, AutoRAG is exposed as the **Documents RAG Optimization Pipeline
 
 The **Documents RAG Optimization Pipeline** runs on **Kubeflow Pipelines** and uses **RHOAI Connections** (S3 secrets) to read documents and test data from S3. It calls the **Llama-stack RAG server** (deployed as a prerequisite in your project; see [Llama stack setup](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md)) for embeddings, retrieval, and LLM responses. The pipeline stages: load test data and input documents, sample and extract text (e.g. Docling), prepare the search space, run RAG templates optimization (ai4rag), evaluate patterns, and produce the leaderboard and RAG pattern artifacts.
 
-
 **RAG interaction pattern** — User question → retrieve context from grounding documents → LLM generates answer with that context.
 
 ```mermaid
