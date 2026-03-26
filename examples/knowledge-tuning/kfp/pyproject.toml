@@ -1,0 +1,11 @@
+[project]
+name = "kfp-knowledge-tuning"
+version = "0.1.0"
+description = "Kubeflow pipeline for the instruct lab knowledge tuning workflow"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "kfp-kubernetes>=2.15.2",
+    "kfp==2.15.2",
+    "kfp-components @ git+https://github.com/red-hat-data-services/pipelines-components@main",
+]

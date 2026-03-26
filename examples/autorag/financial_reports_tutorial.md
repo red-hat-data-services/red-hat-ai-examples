@@ -2,7 +2,7 @@
 
 **Scenario:** You use the **sample data** provided in this repository under `data/financial_reports/`: **input documents** (IBM financial reports, e.g. quarterly PDFs) in `input_data/` and **benchmark_data.json** (questions and expected answers) in the same folder. These documents are sourced from [IBM Financial Reporting](https://www.ibm.com/investor/financial-reporting) (for context and to obtain additional reports if needed). The goal is to run the **Documents RAG Optimization Pipeline** on Red Hat OpenShift AI: upload the provided data to S3, run the pipeline against a **Llama-stack RAG server**, and get a **leaderboard** of RAG patterns plus artifacts (e.g. pattern configs, evaluation results, indexing and inference notebooks) for production RAG.
 
-This tutorial walks you through: creating a project, creating S3 connections for pipeline results and for test/data, ensuring the [Llama stack is set up](../llama-stack/SETUP.md) and the RAG stack is deployed, adding the `documents_rag_optimization_pipeline` as a Pipeline Definition, running the pipeline with the required parameters, and viewing the leaderboard and RAG pattern artifacts.
+This tutorial walks you through: creating a project, creating S3 connections for pipeline results and for test/data, ensuring the [Llama stack is set up](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md) and the RAG stack is deployed, adding the `documents_rag_optimization_pipeline` as a Pipeline Definition, running the pipeline with the required parameters, and viewing the leaderboard and RAG pattern artifacts.
 
 ## Table of contents
 
@@ -29,7 +29,7 @@ This tutorial walks you through: creating a project, creating S3 connections for
 
 | Step | Action |
 |------|--------|
-| **①** | In the project, deploy a **Llama-stack server** with the **RAG stack** enabled (chat model, embedding model, vector store such as Milvus). Follow [Llama stack setup](../llama-stack/SETUP.md) for installation and configuration; see also [Deploying a RAG stack in a project](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.0/html/working_with_llama_stack/deploying-a-rag-stack-in-a-project_rag). |
+| **①** | In the project, deploy a **Llama-stack server** with the **RAG stack** enabled (chat model, embedding model, vector store such as Milvus). Follow [Llama stack setup](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md) for installation and configuration; see also [Deploying a RAG stack in a project](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.0/html/working_with_llama_stack/deploying-a-rag-stack-in-a-project_rag). |
 
 **Note:** You will need the **RAG/API base URL** and any **API key** for the Llama-stack connection (secret) used by the pipeline (see next section).
 
