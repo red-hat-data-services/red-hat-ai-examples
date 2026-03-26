@@ -107,7 +107,7 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 
 | Step | Action |
 |------|--------|
-| **①** | Get the compiled AutoML pipeline from the repository: [pipeline.yaml](pipelines/pipeline.yaml).
+| **①** | Get the compiled AutoML pipeline from the repository: [pipeline.yaml](pipelines/pipeline.yaml). |
 | **②** | In Red Hat OpenShift AI, go to **Pipelines** (or **Develop & Train** → **Pipelines**) for your project. |
 | **③** | Upload the compiled pipeline as a new **Pipeline Definition** (or create a pipeline from the YAML), following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines). |
 
