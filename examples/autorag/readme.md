@@ -174,7 +174,7 @@ To run the Documents RAG Optimization Pipeline, you provide:
 When the Documents RAG Optimization Pipeline run completes, you get:
 
 - **Leaderboard** — HTML file ranking RAG patterns by the optimization metric (e.g. faithfulness, answer_correctness, context_correctness). Use it to compare and choose the best RAG configuration.
-- **RAG pattern artifacts** — For each top-N pattern: **pattern.json** (settings and scores), **evaluation_results.json** (per-question evaluation), **indexing_notebook.ipynb** (to build/populate the vector index), and **inference_notebook.ipynb** (for retrieval and generation). Use these to deploy or refine your RAG application.
+- **RAG pattern artifacts** — For each top-N pattern: **pattern.json** (settings and scores), **evaluation_results.json** (per-question evaluation), **indexing.ipynb** (to build/populate the vector index), and **inference.ipynb** (for retrieval and generation). Use these to deploy or refine your RAG application.
 - **Other artifacts** — Sampled documents metadata and extracted text (markdown) from the pipeline stages.
 
 Artifacts are stored in the artifact store configured for your run (e.g. S3 via your Pipeline Server). Open the run's **Artifacts** in the Pipelines UI to download the leaderboard and RAG pattern outputs.
