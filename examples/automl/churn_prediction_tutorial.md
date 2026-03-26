@@ -97,7 +97,7 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 
 | Step | Action |
 |------|--------|
-| **①** | Download the Customer Churn dataset: [WA_FnUseC_TelcoCustomerChurn.csv](data/churn/input_data/WA_FnUseC_TelcoCustomerChurn.csv.csv) (in the `data` folder in this repository). |
+| **①** | Download the Customer Churn dataset: [WA_FnUseC_TelcoCustomerChurn.csv](data/churn/input_data/WA_FnUseC_TelcoCustomerChurn.csv) (in the `data` folder in this repository). |
 | **②** | Upload the file to the S3 bucket configured in the **training data** connection. Place it in a path you will use as the object key (for example, `data/WA_FnUseC_TelcoCustomerChurn.csv` or just `WA_FnUseC_TelcoCustomerChurn.csv`). |
 | **③** | Note the **bucket name** and the **object key** (path) of the file; you will need them for `train_data_bucket_name` and `train_data_file_key` in the pipeline run. |
 
