@@ -139,6 +139,26 @@ Pipeline stages (summary): load data from S3 → **per-series temporal splits** 
 | `prediction_length` | `7` or `14` (forecast horizon; integer ≥ 1) |
 | `top_n` | `3` |
 
+**Example: multi-series data with `known_covariates_names`**
+
+Use [timeseries_sales.csv](data/timeseries/input_data/timeseries_sales.csv) if you want a run that includes a **known covariate** (`promo`). Upload it under an object key such as `timeseries/input_data/timeseries_sales.csv`, then set:
+
+| Parameter | Example |
+|-----------|---------|
+| `train_data_secret_name` | Your **training data** connection name |
+| `train_data_bucket_name` | Bucket from that connection |
+| `train_data_file_key` | `timeseries/input_data/timeseries_sales.csv` |
+| `target` | `target` |
+| `id_column` | `item_id` |
+| `timestamp_column` | `timestamp` |
+| `known_covariates_names` | `["promo"]` |
+| `prediction_length` | `6` (or another horizon; you must be able to provide known covariates for all forecast steps) |
+| `top_n` | `3` |
+
+In the Pipelines UI, list parameters are often entered as a **JSON array** (e.g. the text `["promo"]`). From Python, match the upstream [pipeline README](https://github.com/red-hat-data-services/pipelines-components/blob/main/pipelines/training/automl/autogluon_timeseries_training_pipeline/README.md) example: `known_covariates_names=["promo"]`.
+
+**Prediction when covariates were used:** If the model was trained with `known_covariates_names`, each forecast needs **future values** of those columns for every `item_id` over `prediction_length`. Provide them in the structure AutoGluon expects—usually via the refit artifact **time series notebook** or `TimeSeriesPredictor.predict` with a `TimeSeriesDataFrame` that includes those covariate columns for future timestamps. See [AutoGluon TimeSeries — forecasting quickstart](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html).
+
 The pipeline uses a **12Gi** workspace PVC by default in the upstream `pipeline.py`; ensure your cluster can provision that volume for the run.
 
 <a id="view-the-leaderboard"></a>
@@ -163,7 +183,9 @@ For layout and component behavior, see the component [README](https://github.com
 
 ## 📚 Optional: Model Registry and deployment
 
-The time series pipeline writes **model artifacts** (predictors, metrics, notebooks) to your pipeline artifact store; it does **not** register models automatically. To register a refitted time-series predictor in **Model Registry** or deploy with **KServe**, follow [Working with model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_model_registries/working-with-model-registries_model-registry) and [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user) in the Red Hat OpenShift AI documentation. Use the predictor paths and related files from your **`autogluon-timeseries-training-pipeline`** refit task outputs as the model source when registering or deploying. Serving time-series models may require a **TimeSeriesPredictor**-compatible runtime; validate against your cluster and [AutoGluon-TimeSeries](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) expectations.
+The time series pipeline writes **model artifacts** (predictors, metrics, notebooks) to your pipeline artifact store; it does **not** register models automatically. To register a refitted time-series predictor in **Model Registry** or deploy with **KServe**, follow [Working with model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_model_registries/working-with-model-registries_model-registry) and [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user) in the Red Hat OpenShift AI documentation. Use the predictor paths and related files from your **`autogluon-timeseries-training-pipeline`** refit task outputs as the model source when registering or deploying.
+
+**Serving runtime:** Use the **same AutoGluon KServe Serving Runtime** as for tabular AutoML (same container image and cluster setup). Build the image and create the Serving Runtime as in [Prepare the ServingRuntime for AutoGluon with KServe](churn_prediction_tutorial.md#prepare-the-servingruntime-for-autogluon-with-kserve) in the tabular churn tutorial, then pick that runtime when you **Deploy model**. The difference for time series is the **predictor type** and often the **inference request shape** (for example payloads or flows that match `TimeSeriesPredictor` rather than tabular AutoGluon). Prefer the refit task’s **time series notebook** and [AutoGluon TimeSeries](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) to validate predictions end to end, including **known covariates** at prediction time when the model was trained with `known_covariates_names`.
 
 ---
 
