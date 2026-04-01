@@ -48,6 +48,11 @@ The pipeline expects a Kubernetes secret containing the Llama-stack client URL a
 | **①** | **Create a new connection type.** Go to **Settings** → **Environment Setup** → **Connection types** and click **Create connection type**. Define the required properties for Llama-stack: **LLAMA_STACK_CLIENT_BASE_URL** and **LLAMA_STACK_CLIENT_API_KEY**. This one-time setup is typically done by an administrator (or by you, if you have permissions). Once created, the Llama-stack connection type is available when creating connections in projects. |
 | **②** | **Create a connection of that type in the project.** In your project, open **Connections** and create a new connection. Select the **Llama-stack** connection type you defined in step ①. Enter **LLAMA_STACK_CLIENT_BASE_URL** (the base URL of your Llama-stack RAG server) and **LLAMA_STACK_CLIENT_API_KEY** (if your deployment requires it). The pipeline references this connection’s secret by name as `llama_stack_secret_name`. |
 
+**① Create new `LLAMA_STACK_CONNECTION` connection type for Llama Stack server**
+![Llama Stack connection type](images/llama_stack_new_connection_type.png)
+
+**② Create new connection of type `LLAMA_STACK_CONNECTION` inside your project**
+![Llama Stack connection creation](images/llama_stack_connection_creation.png)
 **Note:** Use the connection’s **resource name** (or secret name) as `llama_stack_secret_name` when creating the pipeline run. For exact key names and options, see the [documents_rag_optimization_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/autorag/documents_rag_optimization_pipeline) README.
 
 <a id="create-s3-connections"></a>
@@ -85,10 +90,10 @@ Create S3-compatible connections so the pipeline can read test data and input do
 ![workbench_resources](images/workbench_resources.png)
 
 **Step ② — Attach Llama Stack Server API key and base URL as env variables:**
-![workbench_resources](images/workbench_env_vars.png)
+![workbench_resources](images/workbench_llama_stack_and_s3_conn.png)
 
-**Step ③ — Attach connection pointing to tutorial data (benchmark_data.json and documents) and create the workbench:**
-![workbench_resources](images/workbench_connections.png)
+**Step ③ — Start the workbench**
+![workbench_resources](images/start_workbench.png)
 
 <a id="upload-documents-and-test-data-to-s3"></a>
 
