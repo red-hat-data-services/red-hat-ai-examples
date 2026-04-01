@@ -5,7 +5,7 @@
 
 Each row of the training file must include a **series identifier** (`item_id`), a **timestamp**, and a numeric **target** to forecast. Optional columns can be **known covariates** (known in advance for the forecast horizon). This tutorial’s primary dataset is a **single series** (one `item_id` for all rows).
 
-This tutorial follows the same platform steps as the [tabular churn tutorial](churn_prediction_tutorial.md): project, S3 connections, Pipeline Server, workbench, upload data, add a pipeline definition, run the pipeline, and view artifacts. It uses the **time series** pipeline and parameters from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/autox) (branch **`autox`**).
+This walkthrough covers: creating a project, S3 connections for results and training data, configuring the Pipeline Server, attaching connections to a workbench, uploading your time series file, adding the pipeline definition, running it with time-series parameters, and viewing leaderboard and notebook artifacts. **Time series** pipeline source and parameters: [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/autox) (branch **`autox`**).
 
 ## Table of contents
 
@@ -163,7 +163,7 @@ For layout and component behavior, see the component [README](https://github.com
 
 ## 📚 Optional: Model Registry and deployment
 
-The time series pipeline writes **model artifacts** (predictors, metrics, notebooks) to your pipeline artifact store; it does **not** register models automatically. To register a refitted time-series predictor in **Model Registry** or deploy with **KServe**, follow the same OpenShift AI steps as in the [churn prediction tutorial](churn_prediction_tutorial.md) (**Model Registry** through **Deployment Scoring**), substituting artifact paths and pipeline names for **`autogluon-timeseries-training-pipeline`** and your time-series refit task outputs. Serving time-series models may require a **TimeSeriesPredictor**-compatible runtime; validate against your cluster and [AutoGluon-TimeSeries](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) expectations.
+The time series pipeline writes **model artifacts** (predictors, metrics, notebooks) to your pipeline artifact store; it does **not** register models automatically. To register a refitted time-series predictor in **Model Registry** or deploy with **KServe**, follow [Working with model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_model_registries/working-with-model-registries_model-registry) and [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user) in the Red Hat OpenShift AI documentation. Use the predictor paths and related files from your **`autogluon-timeseries-training-pipeline`** refit task outputs as the model source when registering or deploying. Serving time-series models may require a **TimeSeriesPredictor**-compatible runtime; validate against your cluster and [AutoGluon-TimeSeries](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) expectations.
 
 ---
 
