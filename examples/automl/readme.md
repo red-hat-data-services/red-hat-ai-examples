@@ -1,6 +1,6 @@
 # AutoML
 
-**AutoML** on Red Hat OpenShift AI automates building and comparing machine learning models for **tabular data**. You can provide a dataset and the target you want to predict; AutoML trains many model types, ranks them, and gives you a leaderboard so you can choose a model and optionally register or deploy it without writing training code. See [Example scenarios](#example-scenarios) for typical use cases and a step-by-step tutorial.
+**AutoML** on Red Hat OpenShift AI automates building and comparing machine learning models for **tabular** tasks (classification and regression) and for **time series forecasting**. You provide data in S3 and pipeline parameters; AutoGluon-backed pipelines train and compare models, rank them on a leaderboard, and produce artifacts (including notebooks). See [Example scenarios](#example-scenarios) and the tutorials linked below.
 
 **Status:** [Developer Preview](https://access.redhat.com/support/offerings/devpreview) — This feature is not yet supported with Red Hat production service level agreements (SLAs) and may change. It provides early access for testing and feedback.
 
@@ -20,6 +20,7 @@
 - [Prerequisites](#prerequisites)
 - [Running AutoML](#running-automl)
 - [Tutorial: Predict the Customer Churn](churn_prediction_tutorial.md)
+- [Tutorial: Forecast with AutoML time series](time_series_forecasting_tutorial.md)
 - [References](#references)
 
 ---
@@ -41,20 +42,20 @@ You can run AutoML programmatically via the pipelines API or using AI Pipelines 
 
 ### What AutoML supports (Developer Preview)
 
-In this preview, AutoML supports **classification** (binary and multiclass) and **regression** for tabular data. You can specify the task type and the label column; AutoML handles the rest.
+In this preview, AutoML supports **classification** (binary and multiclass) and **regression** for tabular data, and **time series forecasting** via a dedicated pipeline ([AutoGluon TimeSeries](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) on a separate pipeline definition). Tabular runs use a label column and task type; time series runs use series id, timestamp, target, and forecast horizon (`prediction_length`).
 
 | Area | Support |
 |------|--------|
-| **Data format** | CSV (tabular) |
+| **Data format** | CSV (tabular); CSV or Parquet for time series (columns for series id, timestamp, target) |
 | **Data source** | S3-compatible object storage (via RHOAI Connections) |
-| **Task types** | Classification (binary, multiclass), regression |
-| **Training** | AutoGluon (ensembling: stacking, bagging); automatic model selection and refit on full data |
-| **What you get** | Trained model artifacts, HTML leaderboard, generated notebook |
+| **Task types** | Tabular: classification (binary, multiclass), regression. Time series: forecasting with optional known covariates. |
+| **Training** | AutoGluon (tabular ensembling; time series model selection and refit per pipeline README) |
+| **What you get** | Trained model artifacts, HTML leaderboard, generated notebook(s) |
 | **How you run it** | AI Pipelines UI, API (programmatic) |
 
-You can register and serve the models AutoML produces using RHOAI Model Registry and KServe separately.
+You can register and serve the models AutoML produces using RHOAI Model Registry and KServe separately (tabular and time-series serving paths may differ; see tutorials).
 
-**Not in scope:** Non-tabular data (e.g., images, text), traditional hyperparameter tuning as the primary method, unsupervised learning.
+**Not in scope:** Images, raw text as the primary modality, traditional hyperparameter tuning as the primary method, unsupervised learning.
 
 ### How it works under the hood
 
@@ -122,8 +123,9 @@ A typical scenario is **predicting customer churn**: you have a table of custome
 | **Customer churn** | Customer attributes, tenure, charges | Will the customer churn? (Yes/No) | Leaderboard + best model; use it to target retention. |
 | **Fraud or risk** | Transaction or account features | Is it fraudulent / high risk? | Ranked models; deploy the best for real-time scoring. |
 | **Regression** | Property or product features | Price, demand, or other numeric target | Best regression model and metrics (e.g. R²). |
+| **Demand or capacity forecasting** | Time-indexed usage or demand (e.g. electricity by industry, or metrics per SKU/region: `item_id`, `timestamp`, `target`) | Future values over a horizon (`prediction_length`) | Leaderboard of time series models; predictor notebook; see [Tutorial: Forecast with AutoML time series](time_series_forecasting_tutorial.md). |
 
-To try this yourself, follow the [Tutorial: Predict the Customer Churn](#tutorial-predict-the-customer-churn) - step-by-step with the Telco Customer Churn dataset on Red Hat OpenShift AI.
+To try **tabular** AutoML yourself, follow the [Tutorial: Predict the Customer Churn](#tutorial-predict-the-customer-churn) with the Telco Customer Churn dataset. For **time series**, follow [Tutorial: Forecast with AutoML time series](time_series_forecasting_tutorial.md) using **`electricity_industry_a_forecasting.csv`** (derived from [IBM watsonx-ai-samples `cloud/data/electricity`](https://github.com/IBM/watsonx-ai-samples/tree/master/cloud/data/electricity)) under `data/timeseries/input_data/`, and the pipeline on branch [`autox`](https://github.com/red-hat-data-services/pipelines-components/tree/autox) in [pipelines-components](https://github.com/red-hat-data-services/pipelines-components).
 
 ---
 
@@ -147,10 +149,19 @@ When the run finishes, open the run’s artifacts to get the leaderboard, traine
 
 **Step-by-step guide:** The full tutorial walks you through creating a project, S3 connections for results and training data, a workbench with connections attached, adding the AutoML pipeline and dataset, running AutoML with the right settings, viewing the leaderboard, and optionally registering and deploying the best model. Follow the tutorial here: **[Churn prediction tutorial](churn_prediction_tutorial.md)**.
 
+<a id="tutorial-forecast-with-automl-time-series"></a>
+
+## Tutorial: Forecast with AutoML time series
+
+**Scenario:** You forecast **industrial electricity demand** using public sample data from [IBM watsonx-ai-samples](https://github.com/IBM/watsonx-ai-samples/tree/master/cloud/data) (prepared as `item_id`, `timestamp`, `target` in S3) and want **AutoGluon TimeSeries** models trained and compared on Red Hat OpenShift AI via the **autogluon-timeseries-training-pipeline** from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/autox) (branch **`autox`**).
+
+**Step-by-step guide:** The tutorial covers project setup, S3 and Pipeline Server configuration, uploading the electricity CSV, compiling and importing the pipeline YAML, running with parameters such as `prediction_length` (and optional `known_covariates_names` if you switch to the multi-series sample), and viewing the leaderboard and time series notebook artifacts. Follow it here: **[Time series forecasting tutorial](time_series_forecasting_tutorial.md)**.
+
 ## References
 
 - [KServe (LukaszCmielowski/kserve)](https://github.com/LukaszCmielowski/kserve) — repository containing the Dockerfile (`python/autogluon.Dockerfile`) and directories (`kserve`, `storage`, `autogluonserver`, `third_party`) required to build the AutoGluon serving image for Model Deployment
 - [AutoGluon](https://github.com/autogluon/autogluon) — AutoML engine used for training and ensembling
 - [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user) — register and serve models after AutoML
 - [AutoGluon tabular training pipeline (pipelines-components, branch rhoai_automl)](https://github.com/LukaszCmielowski/pipelines-components/tree/rhoai_automl/pipelines/training/automl/autogluon_tabular_training_pipeline) — implementation reference (pipeline source, parameters, KFP version)
+- [AutoGluon time series training pipeline (pipelines-components, branch autox)](https://github.com/red-hat-data-services/pipelines-components/tree/autox/pipelines/training/automl/autogluon_timeseries_training_pipeline) — time series forecasting pipeline (`autogluon-timeseries-training-pipeline`, alpha)
 - [KServe V1 Protocol](https://kserve.github.io/website/docs/concepts/architecture/data-plane/v1-protocol) — request/response format and endpoints for `/v1/models/{model_name}:predict`
