@@ -2,15 +2,18 @@
 
 **AutoML** on Red Hat OpenShift AI automates building and comparing machine learning models for **tabular** tasks (classification and regression) and for **time series forecasting**. You provide data in S3 and pipeline parameters; AutoGluon-backed pipelines train and compare models, rank them on a leaderboard, and produce artifacts (including notebooks). See [Example scenarios](#example-scenarios) and the tutorials linked below.
 
-**Status:** [Developer Preview](https://access.redhat.com/support/offerings/devpreview) — This feature is not yet supported with Red Hat production service level agreements (SLAs) and may change. It provides early access for testing and feedback.
+## Status
+
+**[Developer Preview](https://access.redhat.com/support/offerings/devpreview)** — This feature is not yet supported with Red Hat production service level agreements (SLAs) and may change. It provides early access for testing and feedback.
 
 ---
 
 ## Table of contents
 
+- [Status](#status)
 - [About AutoML](#about-automl)
   - [What AutoML gives you](#what-automl-gives-you)
-  - [What AutoML supports (Developer Preview)](#what-automl-supports-developer-preview)
+  - [What AutoML supports](#what-automl-supports)
   - [How it works under the hood](#how-it-works-under-the-hood)
 - [What you need to provide](#what-you-need-to-provide)
   - [Required input parameters](#required-input-parameters)
@@ -38,11 +41,11 @@ AutoML takes care of the full workflow so you can focus on your use case:
 
 You can run AutoML programmatically via the pipelines API or using AI Pipelines UI; no custom training code is required.
 
-<a id="what-automl-supports-developer-preview"></a>
+<a id="what-automl-supports"></a>
 
-### What AutoML supports (Developer Preview)
+### What AutoML supports
 
-In this preview, AutoML supports **classification** (binary and multiclass) and **regression** for tabular data, and **time series forecasting** via a dedicated pipeline ([AutoGluon TimeSeries](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) on a separate pipeline definition). Tabular runs use a label column and task type; time series runs use series id, timestamp, target, and forecast horizon (`prediction_length`).
+AutoML supports **classification** (binary and multiclass) and **regression** for tabular data, and **time series forecasting** via a dedicated pipeline ([AutoGluon TimeSeries](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) on a separate pipeline definition). Tabular runs use a label column and task type; time series runs use series id, timestamp, target, and forecast horizon (`prediction_length`).
 
 | Area | Support |
 |------|--------|
