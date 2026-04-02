@@ -5,7 +5,7 @@
 
 Each row of the training file must include a **series identifier** (`item_id`), a **timestamp**, and a numeric **target** to forecast. Optional columns can be **known covariates** (known in advance for the forecast horizon). This tutorial’s primary dataset is a **single series** (one `item_id` for all rows).
 
-This walkthrough covers: creating a project, S3 connections for results and training data, configuring the Pipeline Server, attaching connections to a workbench, uploading your time series file, adding the pipeline definition, running it with time-series parameters, and viewing leaderboard and notebook artifacts. **Time series** pipeline source and parameters: [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/autox) (branch **`autox`**).
+This walkthrough covers: creating a project, S3 connections for results and training data, configuring the Pipeline Server, attaching connections to a workbench, uploading your time series file, adding the pipeline definition, running it with time-series parameters, and viewing leaderboard and notebook artifacts. **Time series** pipeline source and parameters: [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/main) (branch **`main`**).
 
 ## Table of contents
 
@@ -27,7 +27,7 @@ This walkthrough covers: creating a project, S3 connections for results and trai
 
 - **Use case:** **Industrial electricity demand forecasting** — predict future **industry A** usage from historical daily (or regular) readings, supporting planning and analytics workflows.
 - **Public data:** [IBM watsonx-ai-samples](https://github.com/IBM/watsonx-ai-samples/tree/master/cloud/data) hosts sample datasets for watsonx tutorials. Under [`cloud/data/electricity/`](https://github.com/IBM/watsonx-ai-samples/tree/master/cloud/data/electricity), [`electricity_usage.csv`](https://github.com/IBM/watsonx-ai-samples/blob/master/cloud/data/electricity/electricity_usage.csv) provides **`date`** and **`industry_a_usage`**.
-- **Pipeline shape:** The [autogluon timeseries training pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/autox/pipelines/training/automl/autogluon_timeseries_training_pipeline) expects **`id_column`**, **`timestamp_column`**, and **`target`** (and optional known covariates). The raw IBM file is **two columns only** (one implicit series).
+- **Pipeline shape:** The [autogluon timeseries training pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/automl/autogluon_timeseries_training_pipeline) expects **`id_column`**, **`timestamp_column`**, and **`target`** (and optional known covariates). The raw IBM file is **two columns only** (one implicit series).
 - **File in this repo:** **[electricity_industry_a_forecasting.csv](data/timeseries/input_data/electricity_industry_a_forecasting.csv)** — preprocessed from the IBM file above: constant **`item_id`** = `industry_a`, **`timestamp`** (from `date`), **`target`** (from `industry_a_usage`). Upload this to S3 for the tutorial, or reproduce the same layout from the [raw CSV](https://raw.githubusercontent.com/IBM/watsonx-ai-samples/master/cloud/data/electricity/electricity_usage.csv) by adding an `item_id` column and renaming columns to match your `id_column` / `timestamp_column` / `target` parameters.
 
 See also [data/timeseries/README.md](data/timeseries/README.md) for provenance and an optional **multi-series** sample ([timeseries_sales.csv](data/timeseries/input_data/timeseries_sales.csv)) with a `promo` covariate.
@@ -100,7 +100,7 @@ See [Working with data science pipelines](https://docs.redhat.com/en/documentati
 
 **Optional — multi-series sample:** [timeseries_sales.csv](data/timeseries/input_data/timeseries_sales.csv) includes **`promo`** as a candidate **known covariate**; map `known_covariates_names` to `["promo"]` if you use that file (see [data/timeseries/README.md](data/timeseries/README.md)).
 
-**Your own data:** CSV or Parquet must include columns for series id, timestamp, and target; map them with `id_column`, `timestamp_column`, and `target`. Optional **known covariates** go in `known_covariates_names`. See the pipeline [README](https://github.com/red-hat-data-services/pipelines-components/blob/autox/pipelines/training/automl/autogluon_timeseries_training_pipeline/README.md) on branch `autox`.
+**Your own data:** CSV or Parquet must include columns for series id, timestamp, and target; map them with `id_column`, `timestamp_column`, and `target`. Optional **known covariates** go in `known_covariates_names`. See the pipeline [README](https://github.com/red-hat-data-services/pipelines-components/blob/main/pipelines/training/automl/autogluon_timeseries_training_pipeline/README.md) on branch `main`.
 
 <a id="add-the-time-series-automl-pipeline-as-a-pipeline-definition"></a>
 
@@ -108,11 +108,11 @@ See [Working with data science pipelines](https://docs.redhat.com/en/documentati
 
 | Step | Action |
 |------|--------|
-| **①** | Obtain a **compiled** pipeline YAML for `autogluon-timeseries-training-pipeline`. Source: [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/autox/pipelines/training/automl/autogluon_timeseries_training_pipeline) on branch **`autox`**. From a Python environment with the repository’s dependencies (see that repo’s [README](https://github.com/red-hat-data-services/pipelines-components/blob/autox/README.md)), run `python pipeline.py` in that folder to generate `pipeline.yaml` next to `pipeline.py` (see the `__main__` block in `pipeline.py`). |
+| **①** | Obtain a **compiled** pipeline YAML for `autogluon-timeseries-training-pipeline`. Source: [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/automl/autogluon_timeseries_training_pipeline) on branch **`main`**. From a Python environment with the repository’s dependencies (see that repo’s [README](https://github.com/red-hat-data-services/pipelines-components/blob/main/README.md)), run `python pipeline.py` in that folder to generate `pipeline.yaml` next to `pipeline.py` (see the `__main__` block in `pipeline.py`). |
 | **②** | In Red Hat OpenShift AI, open **Pipelines** for your project. |
 | **③** | Upload the YAML as a new **Pipeline Definition**, following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines). |
 
-Pipeline stages (summary): load data from S3 → **per-series temporal splits** → **model selection** on a selection split → **parallel refit** of top-N models → **leaderboard** HTML. Details: [autogluon_timeseries_training_pipeline README](https://github.com/red-hat-data-services/pipelines-components/blob/autox/pipelines/training/automl/autogluon_timeseries_training_pipeline/README.md).
+Pipeline stages (summary): load data from S3 → **per-series temporal splits** → **model selection** on a selection split → **parallel refit** of top-N models → **leaderboard** HTML. Details: [autogluon_timeseries_training_pipeline README](https://github.com/red-hat-data-services/pipelines-components/blob/main/pipelines/training/automl/autogluon_timeseries_training_pipeline/README.md).
 
 <a id="run-the-pipeline-with-required-inputs"></a>
 
@@ -175,9 +175,9 @@ The pipeline uses a **12Gi** workspace PVC by default in the upstream `pipeline.
 
 ## 📓 Time series predictor notebook
 
-Each refitted top model can emit a **time series notebook** (template: `timeseries_notebook.ipynb` in the [autogluon_timeseries_models_full_refit](https://github.com/red-hat-data-services/pipelines-components/tree/autox/components/training/automl/autogluon_timeseries_models_full_refit) component on branch `autox`). Download it from the run artifacts under the refit task output for the model you care about, upload it to your workbench, and run it against the predictor path stored with that artifact.
+Each refitted top model can emit a **time series notebook** (template: `timeseries_notebook.ipynb` in the [autogluon_timeseries_models_full_refit](https://github.com/red-hat-data-services/pipelines-components/tree/main/components/training/automl/autogluon_timeseries_models_full_refit) component on branch `main`). Download it from the run artifacts under the refit task output for the model you care about, upload it to your workbench, and run it against the predictor path stored with that artifact.
 
-For layout and component behavior, see the component [README](https://github.com/red-hat-data-services/pipelines-components/blob/autox/components/training/automl/autogluon_timeseries_models_full_refit/README.md) on branch `autox`.
+For layout and component behavior, see the component [README](https://github.com/red-hat-data-services/pipelines-components/blob/main/components/training/automl/autogluon_timeseries_models_full_refit/README.md) on branch `main`.
 
 <a id="optional-model-registry-and-deployment"></a>
 
@@ -191,6 +191,6 @@ The time series pipeline writes **model artifacts** (predictors, metrics, notebo
 
 ## Pipeline reference
 
-- **Branch:** [`autox`](https://github.com/red-hat-data-services/pipelines-components/tree/autox) — [pipelines-components](https://github.com/red-hat-data-services/pipelines-components)
-- **Pipeline:** [autogluon_timeseries_training_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/autox/pipelines/training/automl/autogluon_timeseries_training_pipeline) (name: `autogluon-timeseries-training-pipeline`)
+- **Branch:** [`main`](https://github.com/red-hat-data-services/pipelines-components/tree/main) — [pipelines-components](https://github.com/red-hat-data-services/pipelines-components)
+- **Pipeline:** [autogluon_timeseries_training_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/automl/autogluon_timeseries_training_pipeline) (name: `autogluon-timeseries-training-pipeline`)
 - **Stability:** alpha (see upstream README)
