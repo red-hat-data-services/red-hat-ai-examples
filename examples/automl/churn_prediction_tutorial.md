@@ -212,74 +212,22 @@ For the pipeline definition and artifact layout, see the [autogluon_tabular_trai
 
 ## ⚙️ Prepare the ServingRuntime for AutoGluon with KServe
 
-This section describes how to prepare the AutoGluon serving image and **Serving Runtime** on the cluster using KServe. Build the serving image directly on the cluster using OpenShift ImageStream and BuildConfig, then create the Serving Runtime so it is available when you deploy a model.
+This section describes how to prepare a **Serving Runtime** on the cluster using KServe.
 
 **Flow overview**
 
 | Step | Action |
 |------|--------|
-| **①** | **Build the image** on the cluster using OpenShift ImageStream and BuildConfig. *(Steps described below.)* |
-| **②** | **Prepare ServingRuntime YAML** and **create the Serving Runtime** on the cluster. The image is in the internal registry, so you do not need to add image-pull credentials. After this, the runtime is ready for [Model Deployment](#model-deployment). |
+| **①** | **Prepare ServingRuntime YAML**. |
+| **②** | **Create the Serving Runtime** on the cluster. After this, the runtime is ready for [Model Deployment](#model-deployment). |
 
 ---
-
-### Build image directly on Red Hat OpenShift AI
-
-Use the OpenShift Builds flow to build the image on the cluster, then a Serving Runtime that points to the internal image registry. Use the same project/namespace for the build and for the Serving Runtime (e.g. `automl-project`).
-
-**Create [ImageStream](serving/image_stream.yaml)**
-
-| Step | Action |
-|------|--------|
-| **①** | In the OpenShift console, left side: **Builds** → **ImageStreams** → **Create ImageStream**. |
-| **②** | Paste the following YAML and click **Create**: |
-
-```yaml
-apiVersion: image.openshift.io/v1
-kind: ImageStream
-metadata:
-  name: autogluonkserveimagev1
-```
-
-**Create [BuildConfig](serving/build_config.yaml)**
-
-| Step | Action |
-|------|--------|
-| **①** | In the console, left side: **Builds** → **BuildConfigs** → **Create BuildConfig** → **YAML View**. |
-| **②** | Paste the following and click **Create**: |
-
-```yaml
-apiVersion: build.openshift.io/v1
-kind: BuildConfig
-metadata:
-  name: autogluonkserveimagev1
-spec:
-  source:
-    type: Git
-    git:
-      uri: https://github.com/red-hat-data-services/kserve-autogluon-server
-      ref: dev-preview-rhoai
-    contextDir: python
-  strategy:
-    type: Docker
-    dockerStrategy:
-      dockerfilePath: autogluon.Dockerfile
-  output:
-    to:
-      kind: ImageStreamTag
-      name: autogluonkserveimagev1:latest
-  triggers:
-    - type: ConfigChange
-```
-
-OpenShift will start a build. Wait for the build to complete (e.g. in **Builds** → **Builds**). The image will be available in the internal registry as `image-registry.openshift-image-registry.svc:5000/<namespace>/autogluonkserveimagev1:latest` (use your project namespace, e.g. `automl-project`).
 
 ### Prepare [ServingRuntime YAML](serving/serving_runtime.yaml)
 
 Create a YAML file for the KServe Serving Runtime. Set:
 
-- `metadata.namespace` to your project name (e.g. `automl-project`),
-- `spec.containers[0].image` to the cluster-built image: `image-registry.openshift-image-registry.svc:5000/<namespace>/autogluonkserveimagev1:latest` (use the same namespace as where you built the image, e.g. `automl-project`).
+- `metadata.namespace` to your project name (e.g. `automl-project`).
 You can also change:
 - `metadata.annotations.openshift.io/display-name` to make name on UI more distinguishable
 
@@ -303,7 +251,7 @@ spec:
     - v2
   containers:
     - name: kserve-container
-      image: {SERVING_IMAGE}
+      image: quay.io/opendatahub/odh-kserve-autogluon-server:odh-stable
       args:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models
@@ -324,7 +272,7 @@ spec:
           memory: 2Gi
 ```
 
-Replace `{SERVING_IMAGE}` with the image URL above and `{NAMESPACE}` with your project namespace.
+Replace `{NAMESPACE}` with your project namespace.
 
 ### Create the Serving Runtime on OpenShift
 
@@ -332,7 +280,7 @@ Replace `{SERVING_IMAGE}` with the image URL above and `{NAMESPACE}` with your p
 |------|--------|
 | **①** | Log in to the Red Hat OpenShift AI cluster. |
 | **②** | In the left menu: **Settings** → **Model resources and operations** → **Serving runtimes** → **Add serving runtime** → **Upload files**. |
-| **③** | Upload the ServingRuntime YAML you prepared (with `image` and `namespace` set for your scenario). |
+| **③** | Upload the ServingRuntime YAML you prepared (with `namespace` set for your scenario). |
 | **④** | In **Select the API protocol this runtime supports**, choose **REST**. |
 | **⑤** | In **Select the model types this runtime supports**, select **Predictive model**. |
 | **⑥** | Click **Create**. |

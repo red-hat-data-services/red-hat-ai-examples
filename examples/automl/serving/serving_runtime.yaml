@@ -17,7 +17,7 @@ spec:
     - v2
   containers:
     - name: kserve-container
-      image: {SERVING_IMAGE}
+      image: quay.io/opendatahub/odh-kserve-autogluon-server:odh-stable
       args:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models
