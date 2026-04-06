@@ -1,0 +1,12 @@
+[project]
+name = "ray-data-rag"
+version = "0.1.0"
+description = "RAG document ingestion with Ray Data, Docling, and Milvus"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "codeflare-sdk>=0.28.0,<1.0",
+    "pymilvus>=2.4.0,<3.0",
+    "numpy>=1.26,<2",
+    "sentence-transformers>=2.2.0,<4.0",
+    "ray[data]>=2.53.0,<3.0",
+]
