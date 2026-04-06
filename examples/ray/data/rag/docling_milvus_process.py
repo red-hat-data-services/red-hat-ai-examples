@@ -22,7 +22,14 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List
 
+import logfire
 import ray
+
+# Configure logfire for the driver process
+logfire.configure(
+    service_name="rag-driver",
+    send_to_logfire=True,
+)
 
 # ---------------------------------------------------------------------------
 # Parameters (all from environment variables)
@@ -99,6 +106,12 @@ class DoclingChunkActor:
     def __init__(self):
         import socket
 
+        # Configure logfire in the worker process with distinct service name
+        logfire.configure(
+            service_name="rag-docling",
+            send_to_logfire=True,
+        )
+
         from docling.chunking import HybridChunker
         from docling.datamodel.base_models import InputFormat
         from docling.datamodel.pipeline_options import (
@@ -111,6 +124,9 @@ class DoclingChunkActor:
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
         self.hostname = socket.gethostname()
+        self.actor_id = f"docling-{self.hostname[-8:]}"
+        self.docs_processed = 0
+        self.chunks_created = 0
 
         pipeline_options = PdfPipelineOptions()
         pipeline_options.do_ocr = False
@@ -127,54 +143,102 @@ class DoclingChunkActor:
         self.chunker = HybridChunker(
             tokenizer=EMBEDDING_MODEL, max_tokens=CHUNK_MAX_TOKENS
         )
+        logfire.info(
+            "Actor initialized",
+            actor_id=self.actor_id,
+            actor_type="DoclingChunkActor",
+            hostname=self.hostname,
+            cpus=CPUS_PER_ACTOR,
+        )
         print(f"[{self.hostname}] DoclingChunkActor ready")
 
     def __call__(self, batch: Dict[str, List]) -> Dict[str, List]:
         from docling.datamodel.base_models import DocumentStream
 
-        out: Dict[str, List[Any]] = {
-            "text": [],
-            "source_file": [],
-            "chunk_index": [],
-            "chunk_size_chars": [],
-            "num_pages": [],
-        }
+        batch_size = len(batch["path"])
+        with logfire.span(
+            "docling-batch",
+            actor_id=self.actor_id,
+            batch_size=batch_size,
+        ) as batch_span:
+            out: Dict[str, List[Any]] = {
+                "text": [],
+                "source_file": [],
+                "chunk_index": [],
+                "chunk_size_chars": [],
+                "num_pages": [],
+            }
 
-        for file_path in batch["path"]:
-            fname = os.path.basename(file_path)
-            try:
-                if not os.path.isfile(file_path):
-                    print(f"[{self.hostname}] WARN skipped-file {fname}: not found")
-                    continue
+            for file_path in batch["path"]:
+                fname = os.path.basename(file_path)
+                with logfire.span(
+                    "parse-pdf {fname}",
+                    fname=fname,
+                    actor_id=self.actor_id,
+                ) as pdf_span:
+                    try:
+                        if not os.path.isfile(file_path):
+                            logfire.warn("File not found", fname=fname, actor_id=self.actor_id)
+                            pdf_span.set_attribute("status", "skipped-not-found")
+                            continue
 
-                file_size = os.path.getsize(file_path)
-                if file_size < 100:
-                    print(f"[{self.hostname}] WARN skipped-file {fname}: empty")
-                    continue
+                        file_size = os.path.getsize(file_path)
+                        if file_size < 100:
+                            logfire.warn("File empty", fname=fname, actor_id=self.actor_id)
+                            pdf_span.set_attribute("status", "skipped-empty")
+                            continue
 
-                t0 = time.time()
-                with open(file_path, "rb") as f:
-                    file_bytes = f.read()
-                stream = DocumentStream(name=fname, stream=io.BytesIO(file_bytes))
-                doc = self.converter.convert(stream).document
-                doc_pages = doc.num_pages() if hasattr(doc, "num_pages") else 0
+                        pdf_span.set_attribute("file_size_bytes", file_size)
 
-                for idx, chunk in enumerate(self.chunker.chunk(doc)):
-                    if chunk.text.strip():
-                        out["text"].append(chunk.text)
-                        out["source_file"].append(fname)
-                        out["chunk_index"].append(idx)
-                        out["chunk_size_chars"].append(len(chunk.text))
-                        out["num_pages"].append(doc_pages)
+                        t0 = time.time()
+                        with open(file_path, "rb") as f:
+                            file_bytes = f.read()
+                        stream = DocumentStream(name=fname, stream=io.BytesIO(file_bytes))
+                        
+                        with logfire.span("docling-convert", fname=fname, actor_id=self.actor_id):
+                            doc = self.converter.convert(stream).document
+                        
+                        doc_pages = doc.num_pages() if hasattr(doc, "num_pages") else 0
+                        pdf_span.set_attribute("num_pages", doc_pages)
 
-            except Exception as e:
-                print(f"[{self.hostname}] WARN parse-error {fname}: {str(e)[:200]}")
+                        chunk_count = 0
+                        with logfire.span("chunking", fname=fname, actor_id=self.actor_id):
+                            for idx, chunk in enumerate(self.chunker.chunk(doc)):
+                                if chunk.text.strip():
+                                    out["text"].append(chunk.text)
+                                    out["source_file"].append(fname)
+                                    out["chunk_index"].append(idx)
+                                    out["chunk_size_chars"].append(len(chunk.text))
+                                    out["num_pages"].append(doc_pages)
+                                    chunk_count += 1
 
-        print(
-            f"[{self.hostname}] DoclingChunkActor batch={len(batch['path'])} "
-            f"chunks={len(out['text'])}"
-        )
-        return out
+                        elapsed = time.time() - t0
+                        pdf_span.set_attribute("chunks_created", chunk_count)
+                        pdf_span.set_attribute("elapsed_sec", round(elapsed, 2))
+                        pdf_span.set_attribute("status", "success")
+                        
+                        self.docs_processed += 1
+                        self.chunks_created += chunk_count
+
+                    except Exception as e:
+                        logfire.error(
+                            "Parse error",
+                            fname=fname,
+                            actor_id=self.actor_id,
+                            error=str(e)[:200],
+                        )
+                        pdf_span.set_attribute("status", "error")
+                        pdf_span.set_attribute("error", str(e)[:200])
+
+            batch_span.set_attribute("chunks_output", len(out["text"]))
+            batch_span.set_attribute("total_docs_processed", self.docs_processed)
+            batch_span.set_attribute("total_chunks_created", self.chunks_created)
+
+            print(
+                f"[{self.hostname}] DoclingChunkActor batch={batch_size} "
+                f"chunks={len(out['text'])}"
+            )
+            return out
 
 
 # ---------------------------------------------------------------------------
@@ -188,40 +252,76 @@ class SentenceTransformersEmbeddingActor:
     def __init__(self):
         import socket
 
+        # Configure logfire in the worker process with distinct service name
+        logfire.configure(
+            service_name="rag-embedding",
+            send_to_logfire=True,
+        )
+
         import numpy as np
         from sentence_transformers import SentenceTransformer
 
         self.hostname = socket.gethostname()
+        self.actor_id = f"embed-{self.hostname[-8:]}"
+        self.batches_processed = 0
+        self.chunks_embedded = 0
 
         self.model = SentenceTransformer(EMBEDDING_MODEL)
         self.np = np
+        logfire.info(
+            "Actor initialized",
+            actor_id=self.actor_id,
+            actor_type="SentenceTransformersEmbeddingActor",
+            hostname=self.hostname,
+            model=EMBEDDING_MODEL,
+        )
         print(f"[{self.hostname}] EmbeddingActor ready")
 
     def __call__(self, batch: Dict[str, List]) -> Dict[str, List]:
         texts = list(batch["text"])
+        batch_size = len(texts)
+        
+        with logfire.span(
+            "embedding-batch",
+            actor_id=self.actor_id,
+            batch_size=batch_size,
+        ) as span:
+            t0 = time.time()
+            
+            with logfire.span(
+                "encode-texts",
+                actor_id=self.actor_id,
+                num_texts=batch_size,
+            ):
+                arr = self.np.asarray(
+                    self.model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+                )
+            
+            if arr.ndim == 1:
+                arr = arr.reshape(1, -1)
+            embeddings = arr.tolist()
 
-        t0 = time.time()
-        arr = self.np.asarray(
-            self.model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
-        )
-        if arr.ndim == 1:
-            arr = arr.reshape(1, -1)
-        embeddings = arr.tolist()
+            elapsed = time.time() - t0
+            self.batches_processed += 1
+            self.chunks_embedded += batch_size
+            
+            span.set_attribute("elapsed_sec", round(elapsed, 2))
+            span.set_attribute("chunks_per_sec", round(batch_size / elapsed, 2) if elapsed > 0 else 0)
+            span.set_attribute("total_batches_processed", self.batches_processed)
+            span.set_attribute("total_chunks_embedded", self.chunks_embedded)
 
-        elapsed = time.time() - t0
+            print(
+                f"[{self.hostname}] EmbeddingActor batch={batch_size} time={elapsed:.2f}s"
+            )
 
-        print(
-            f"[{self.hostname}] EmbeddingActor batch={len(texts)} time={elapsed:.2f}s"
-        )
-
-        return {
-            "text": texts,
-            "source_file": list(batch["source_file"]),
-            "chunk_index": list(batch["chunk_index"]),
-            "chunk_size_chars": list(batch["chunk_size_chars"]),
-            "num_pages": list(batch.get("num_pages", [0] * len(texts))),
-            "embedding": embeddings,
-        }
+            return {
+                "text": texts,
+                "source_file": list(batch["source_file"]),
+                "chunk_index": list(batch["chunk_index"]),
+                "chunk_size_chars": list(batch["chunk_size_chars"]),
+                "num_pages": list(batch.get("num_pages", [0] * len(texts))),
+                "embedding": embeddings,
+            }
 
 
 # ---------------------------------------------------------------------------
@@ -235,12 +335,29 @@ class MilvusWriteActor:
     def __init__(self):
         import socket
 
+        # Configure logfire in the worker process with distinct service name
+        logfire.configure(
+            service_name="rag-milvus",
+            send_to_logfire=True,
+        )
+
         from pymilvus import MilvusClient
 
         self.hostname = socket.gethostname()
+        self.actor_id = f"milvus-{self.hostname[-8:]}"
+        self.batches_processed = 0
+        self.total_inserted = 0
 
         self.milvus = MilvusClient(
             uri=f"http://{MILVUS_HOST}:{MILVUS_PORT}", db_name=MILVUS_DB
+        )
+        logfire.info(
+            "Actor initialized",
+            actor_id=self.actor_id,
+            actor_type="MilvusWriteActor",
+            hostname=self.hostname,
+            milvus_host=MILVUS_HOST,
+            collection=COLLECTION_NAME,
         )
         print(f"[{self.hostname}] MilvusWriteActor ready")
 
@@ -250,38 +367,64 @@ class MilvusWriteActor:
         chunk_indices = list(batch["chunk_index"])
         chunk_sizes = list(batch.get("chunk_size_chars", [0] * len(texts)))
         embeddings = list(batch["embedding"])
+        batch_size = len(texts)
 
-        t0 = time.time()
-        inserted = 0
-        for i in range(0, len(texts), MILVUS_BATCH_SIZE):
-            end = min(i + MILVUS_BATCH_SIZE, len(texts))
-            data = []
-            for j in range(i, end):
-                tx = str(texts[j])
-                if len(tx) > MILVUS_TEXT_MAX_CHARS:
-                    tx = tx[:MILVUS_TEXT_MAX_CHARS]
-                data.append({
-                    "source_file": str(source_files[j]),
-                    "chunk_index": int(chunk_indices[j]),
-                    "text": tx,
-                    "embedding": list(embeddings[j]),
-                })
-            self.milvus.insert(collection_name=COLLECTION_NAME, data=data)
-            inserted += len(data)
+        with logfire.span(
+            "milvus-batch",
+            actor_id=self.actor_id,
+            batch_size=batch_size,
+        ) as span:
+            t0 = time.time()
+            inserted = 0
+            insert_batches = 0
+            
+            for i in range(0, len(texts), MILVUS_BATCH_SIZE):
+                end = min(i + MILVUS_BATCH_SIZE, len(texts))
+                data = []
+                for j in range(i, end):
+                    tx = str(texts[j])
+                    if len(tx) > MILVUS_TEXT_MAX_CHARS:
+                        tx = tx[:MILVUS_TEXT_MAX_CHARS]
+                    data.append({
+                        "source_file": str(source_files[j]),
+                        "chunk_index": int(chunk_indices[j]),
+                        "text": tx,
+                        "embedding": list(embeddings[j]),
+                    })
+                
+                with logfire.span(
+                    "milvus-insert",
+                    actor_id=self.actor_id,
+                    insert_batch=insert_batches,
+                    rows=len(data),
+                ):
+                    self.milvus.insert(collection_name=COLLECTION_NAME, data=data)
+                
+                inserted += len(data)
+                insert_batches += 1
 
-        elapsed = time.time() - t0
+            elapsed = time.time() - t0
+            self.batches_processed += 1
+            self.total_inserted += inserted
+            
+            span.set_attribute("rows_inserted", inserted)
+            span.set_attribute("insert_batches", insert_batches)
+            span.set_attribute("elapsed_sec", round(elapsed, 2))
+            span.set_attribute("rows_per_sec", round(inserted / elapsed, 2) if elapsed > 0 else 0)
+            span.set_attribute("total_batches_processed", self.batches_processed)
+            span.set_attribute("total_rows_inserted", self.total_inserted)
 
-        print(
-            f"[{self.hostname}] MilvusWriteActor batch={len(texts)} "
-            f"inserted={inserted} time={elapsed:.2f}s"
-        )
+            print(
+                f"[{self.hostname}] MilvusWriteActor batch={batch_size} "
+                f"inserted={inserted} time={elapsed:.2f}s"
+            )
 
-        return {
-            "chunks_inserted": [1] * len(texts),
-            "source_file": source_files,
-            "chunk_size_chars": chunk_sizes,
-            "num_pages": list(batch.get("num_pages", [0] * len(texts))),
-        }
+            return {
+                "chunks_inserted": [1] * len(texts),
+                "source_file": source_files,
+                "chunk_size_chars": chunk_sizes,
+                "num_pages": list(batch.get("num_pages", [0] * len(texts))),
+            }
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +439,7 @@ def setup_milvus_collection():
     client = MilvusClient(uri=f"http://{MILVUS_HOST}:{MILVUS_PORT}", db_name=MILVUS_DB)
 
     if client.has_collection(COLLECTION_NAME):
+        logfire.info("Dropping existing collection", collection=COLLECTION_NAME)
         print(f"Dropping existing collection '{COLLECTION_NAME}'")
         client.drop_collection(COLLECTION_NAME)
 
@@ -313,14 +457,22 @@ def setup_milvus_collection():
     )
     client.create_collection(collection_name=COLLECTION_NAME, schema=schema)
 
-    index_params = client.prepare_index_params()
-    index_params.add_index(
-        field_name="embedding",
-        index_type="IVF_FLAT",
-        metric_type="COSINE",
-        params={"nlist": 128},
+    with logfire.span("create-vector-index", index_type="IVF_FLAT", metric_type="COSINE"):
+        index_params = client.prepare_index_params()
+        index_params.add_index(
+            field_name="embedding",
+            index_type="IVF_FLAT",
+            metric_type="COSINE",
+            params={"nlist": 128},
+        )
+        client.create_index(collection_name=COLLECTION_NAME, index_params=index_params)
+
+    logfire.info(
+        "Collection ready",
+        collection=COLLECTION_NAME,
+        embedding_dim=EMBEDDING_DIM,
+        milvus_host=MILVUS_HOST,
     )
-    client.create_index(collection_name=COLLECTION_NAME, index_params=index_params)
     print(f"Collection '{COLLECTION_NAME}' created (dim={EMBEDDING_DIM})")
 
 
@@ -341,6 +493,19 @@ def _run_pipeline(ds) -> Dict[str, Any]:
     """
 
     total_cpus = (NUM_ACTORS * CPUS_PER_ACTOR) + NUM_EMBED_ACTORS + NUM_MILVUS_ACTORS
+    
+    logfire.info(
+        "Pipeline configuration",
+        docling_actors=NUM_ACTORS,
+        docling_cpus_per_actor=CPUS_PER_ACTOR,
+        embed_actors=NUM_EMBED_ACTORS,
+        milvus_actors=NUM_MILVUS_ACTORS,
+        total_cpus=total_cpus,
+        batch_size=BATCH_SIZE,
+        embed_batch_size=EMBED_MAP_BATCH_SIZE,
+        milvus_batch_size=MILVUS_BATCH_SIZE,
+    )
+    
     print(
         f"Pipeline: docling={NUM_ACTORS}x{CPUS_PER_ACTOR}CPU, "
         f"embed={NUM_EMBED_ACTORS}x1CPU, milvus={NUM_MILVUS_ACTORS}x1CPU "
@@ -348,56 +513,90 @@ def _run_pipeline(ds) -> Dict[str, Any]:
     )
 
     # Stage 1: Parse + chunk (CPU-heavy, bottleneck — gets most resources)
-    ds = ds.map_batches(
-        DoclingChunkActor,
-        concurrency=NUM_ACTORS,
-        batch_size=BATCH_SIZE,
-        num_cpus=CPUS_PER_ACTOR,
-    )
+    with logfire.span(
+        "stage-1-docling-setup",
+        actors=NUM_ACTORS,
+        cpus_per_actor=CPUS_PER_ACTOR,
+    ):
+        ds = ds.map_batches(
+            DoclingChunkActor,
+            concurrency=NUM_ACTORS,
+            batch_size=BATCH_SIZE,
+            num_cpus=CPUS_PER_ACTOR,
+        )
 
     # Stage 2: Embed with sentence-transformers (CPU, parallel)
-    ds = ds.map_batches(
-        SentenceTransformersEmbeddingActor,
-        concurrency=NUM_EMBED_ACTORS,
-        batch_size=EMBED_MAP_BATCH_SIZE,
-        num_cpus=1,
-    )
+    with logfire.span(
+        "stage-2-embedding-setup",
+        actors=NUM_EMBED_ACTORS,
+        model=EMBEDDING_MODEL,
+    ):
+        ds = ds.map_batches(
+            SentenceTransformersEmbeddingActor,
+            concurrency=NUM_EMBED_ACTORS,
+            batch_size=EMBED_MAP_BATCH_SIZE,
+            num_cpus=1,
+        )
 
     # Stage 3: Write to Milvus (I/O-bound — fewer actors, server is the limit)
-    results = ds.map_batches(
-        MilvusWriteActor,
-        concurrency=NUM_MILVUS_ACTORS,
-        batch_size=MILVUS_BATCH_SIZE,
-        num_cpus=1,
-    )
+    with logfire.span(
+        "stage-3-milvus-setup",
+        actors=NUM_MILVUS_ACTORS,
+        collection=COLLECTION_NAME,
+    ):
+        results = ds.map_batches(
+            MilvusWriteActor,
+            concurrency=NUM_MILVUS_ACTORS,
+            batch_size=MILVUS_BATCH_SIZE,
+            num_cpus=1,
+        )
 
     # Consume results and collect metrics
-    start = time.time()
-    total_chunks = 0
-    source_files: set = set()
-    all_chunk_sizes: List[int] = []
-    file_pages: Dict[str, int] = {}
+    with logfire.span("consume-results") as consume_span:
+        start = time.time()
+        total_chunks = 0
+        source_files: set = set()
+        all_chunk_sizes: List[int] = []
+        file_pages: Dict[str, int] = {}
+        batch_count = 0
 
-    for batch in results.iter_batches(batch_size=100, prefetch_batches=2):
-        for inserted, fname, size, pages in zip(
-            batch["chunks_inserted"],
-            batch["source_file"],
-            batch["chunk_size_chars"],
-            batch["num_pages"],
-        ):
-            total_chunks += int(inserted)
-            fname = fname if isinstance(fname, str) else fname[0]
-            if fname not in file_pages:
-                file_pages[fname] = int(pages)
-            source_files.add(fname)
-            if isinstance(size, list):
-                all_chunk_sizes.extend(size)
-            else:
-                all_chunk_sizes.append(size)
+        for batch in results.iter_batches(batch_size=100, prefetch_batches=2):
+            batch_count += 1
+            for inserted, fname, size, pages in zip(
+                batch["chunks_inserted"],
+                batch["source_file"],
+                batch["chunk_size_chars"],
+                batch["num_pages"],
+            ):
+                total_chunks += int(inserted)
+                fname = fname if isinstance(fname, str) else fname[0]
+                if fname not in file_pages:
+                    file_pages[fname] = int(pages)
+                source_files.add(fname)
+                if isinstance(size, list):
+                    all_chunk_sizes.extend(size)
+                else:
+                    all_chunk_sizes.append(size)
+            
+            # Log progress every 10 batches
+            if batch_count % 10 == 0:
+                logfire.info(
+                    "Pipeline progress",
+                    batches_consumed=batch_count,
+                    docs_so_far=len(source_files),
+                    chunks_so_far=total_chunks,
+                )
 
-    total_pages = sum(file_pages.values())
-    wall_clock = time.time() - start
-    total_docs = len(source_files)
+        total_pages = sum(file_pages.values())
+        wall_clock = time.time() - start
+        total_docs = len(source_files)
+        
+        consume_span.set_attribute("total_docs", total_docs)
+        consume_span.set_attribute("total_chunks", total_chunks)
+        consume_span.set_attribute("total_pages", total_pages)
+        consume_span.set_attribute("wall_clock_sec", round(wall_clock, 2))
+        consume_span.set_attribute("batches_consumed", batch_count)
+        
     return _build_metrics(
         total_docs, total_chunks, wall_clock, all_chunk_sizes, total_pages=total_pages
     )
@@ -456,18 +655,28 @@ def _print_report(metrics: Dict[str, Any]):
     """Print human-readable report and machine-readable JSON footer."""
     from pymilvus import MilvusClient
 
-    client = MilvusClient(uri=f"http://{MILVUS_HOST}:{MILVUS_PORT}", db_name=MILVUS_DB)
-    client.load_collection(COLLECTION_NAME)
-    _flush = getattr(client, "flush", None)
-    if callable(_flush):
-        try:
-            _flush(collection_name=COLLECTION_NAME)
-        except Exception:
-            pass
+    with logfire.span("finalize-report") as report_span:
+        client = MilvusClient(uri=f"http://{MILVUS_HOST}:{MILVUS_PORT}", db_name=MILVUS_DB)
+        client.load_collection(COLLECTION_NAME)
+        _flush = getattr(client, "flush", None)
+        if callable(_flush):
+            try:
+                _flush(collection_name=COLLECTION_NAME)
+            except Exception:
+                pass
 
-    stats = client.get_collection_stats(COLLECTION_NAME)
-    row_count = stats.get("row_count") if isinstance(stats, dict) else None
-    metrics["milvus_row_count"] = int(row_count) if row_count is not None else None
+        stats = client.get_collection_stats(COLLECTION_NAME)
+        row_count = stats.get("row_count") if isinstance(stats, dict) else None
+        metrics["milvus_row_count"] = int(row_count) if row_count is not None else None
+
+        report_span.set_attribute("milvus_row_count", metrics["milvus_row_count"])
+        report_span.set_attribute("total_documents", metrics["total_documents"])
+        report_span.set_attribute("total_chunks", metrics["total_chunks"])
+        report_span.set_attribute("total_pages", metrics["total_pages"])
+        report_span.set_attribute("wall_clock_s", metrics["wall_clock_s"])
+        report_span.set_attribute("docs_per_sec", metrics["docs_per_sec"])
+        report_span.set_attribute("pages_per_sec", metrics["pages_per_sec"])
+        report_span.set_attribute("chunks_per_sec", metrics["chunks_per_sec"])
 
     print("\n" + "=" * 60)
     print("PERFORMANCE REPORT")
@@ -508,25 +717,49 @@ def _print_report(metrics: Dict[str, Any]):
 
 
 def run():
-    _configure_ray_context()
+    with logfire.span("rag-ingestion-pipeline"):
+        _configure_ray_context()
 
-    input_full_path = os.path.join(PVC_MOUNT_PATH, INPUT_PATH)
-    target_blocks = max(1, NUM_ACTORS * REPARTITION_FACTOR)
+        input_full_path = os.path.join(PVC_MOUNT_PATH, INPUT_PATH)
+        target_blocks = max(1, NUM_ACTORS * REPARTITION_FACTOR)
 
-    # Pass paths only -- actors read from the PVC directly, avoiding
-    # loading all PDF bytes into Ray's object store.
-    paths = _collect_pdf_paths(input_full_path, NUM_FILES)
-    if not paths:
-        print(f"No PDFs found under {input_full_path}")
-        return
-    print(f"Processing {len(paths)} PDFs")
-    ds = ray.data.from_items([{"path": p} for p in paths])
-    ds = ds.repartition(num_blocks=target_blocks, shuffle=False)
+        # Pass paths only -- actors read from the PVC directly, avoiding
+        # loading all PDF bytes into Ray's object store.
+        with logfire.span("collect-pdf-paths", input_path=input_full_path, limit=NUM_FILES):
+            paths = _collect_pdf_paths(input_full_path, NUM_FILES)
 
-    setup_milvus_collection()
+        if not paths:
+            logfire.warn("No PDFs found", path=input_full_path)
+            print(f"No PDFs found under {input_full_path}")
+            return
+        
+        logfire.info(
+            "Starting ingestion",
+            num_pdfs=len(paths),
+            input_path=INPUT_PATH,
+            target_blocks=target_blocks,
+            embedding_model=EMBEDDING_MODEL,
+        )
+        print(f"Processing {len(paths)} PDFs")
+        ds = ray.data.from_items([{"path": p} for p in paths])
+        ds = ds.repartition(num_blocks=target_blocks, shuffle=False)
 
-    metrics = _run_pipeline(ds)
-    _print_report(metrics)
+        with logfire.span("setup-milvus"):
+            setup_milvus_collection()
+
+        metrics = _run_pipeline(ds)
+        
+        logfire.info(
+            "Pipeline complete",
+            total_documents=metrics.get("total_documents", 0),
+            total_chunks=metrics.get("total_chunks", 0),
+            total_pages=metrics.get("total_pages", 0),
+            wall_clock_s=metrics.get("wall_clock_s", 0),
+            docs_per_sec=metrics.get("docs_per_sec", 0),
+            pages_per_sec=metrics.get("pages_per_sec", 0),
+            chunks_per_sec=metrics.get("chunks_per_sec", 0),
+        )
+        _print_report(metrics)
 
 
 if __name__ == "__main__":
