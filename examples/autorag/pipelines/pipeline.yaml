@@ -8,7 +8,7 @@
 #    input_data_key: str
 #    input_data_secret_name: str
 #    llama_stack_secret_name: str
-#    llama_stack_vector_database_id: str
+#    llama_stack_vector_io_provider_id: str
 #    optimization_max_rag_patterns: int [Default: 8.0]
 #    optimization_metric: str [Default: 'faithfulness']
 #    test_data_bucket_name: str
@@ -127,9 +127,8 @@ components:
             AI4RAG experiment.
           isOptional: true
           parameterType: STRING
-        llama_stack_vector_database_id:
-          description: Vector database identifier as registered in llama-stack.
-          isOptional: true
+        llama_stack_vector_io_provider_id:
+          description: Vector IO provider identifier as registered in llama-stack.
           parameterType: STRING
         optimization_settings:
           description: Additional settings customising the experiment.
@@ -668,8 +667,8 @@ deploymentSpec:
           \    autorag_run_artifact: dsl.Output[dsl.Artifact],\n    embedded_artifact:\
           \ dsl.EmbeddedInput[dsl.Dataset],\n    chat_model_url: Optional[str] = None,\n\
           \    chat_model_token: Optional[str] = None,\n    embedding_model_url: Optional[str]\
-          \ = None,\n    embedding_model_token: Optional[str] = None,\n    llama_stack_vector_database_id:\
-          \ Optional[str] = None,\n    optimization_settings: Optional[dict] = None,\n\
+          \ = None,\n    embedding_model_token: Optional[str] = None,\n    llama_stack_vector_io_provider_id:\
+          \ str = \"\",\n    optimization_settings: Optional[dict] = None,\n\
           \    input_data_key: Optional[str] = None,\n    test_data_key: Optional[str]\
           \ = None,\n):\n    \"\"\"RAG Templates Optimization component.\n\n    Carries\
           \ out the iterative RAG optimization process.\n\n    Args:\n        extracted_text:\
@@ -689,8 +688,8 @@ deploymentSpec:
           \ endpoint URL for the embedding model. Required for in-memory scenario.\n\
           \n        embedding_model_token: Optional API token for the embedding model\
           \ endpoint. Omit if no auth.\n\n        vector_database: An identificator\
-          \ of the vector store used in the experiment.\n\n        llama_stack_vector_database_id:\
-          \ Vector database identifier as registered in llama-stack.\n\n        optimization_settings:\
+          \ of the vector store used in the experiment.\n\n        llama_stack_vector_io_provider_id:\
+          \ Vector IO provider identifier as registered in llama-stack.\n\n        optimization_settings:\
           \ Additional settings customising the experiment.\n\n        input_data_key:\
           \ A path to documents dir within a bucket used as an input to AI4RAG experiment.\n\
           \        test_data_key: A path to test data file within a bucket used as\
@@ -958,13 +957,13 @@ deploymentSpec:
           \ = TmpEventHandler()\n    max_rag_patterns = optimization_settings.get(\"\
           max_number_of_rag_patterns\", MAX_NUMBER_OF_RAG_PATTERNS)\n    optimizer_settings\
           \ = GAMOptSettings(max_evals=int(max_rag_patterns))\n\n    benchmark_data\
-          \ = pd.read_json(Path(test_data))\n\n    if not llama_stack_vector_database_id\
-          \ and in_memory_vector_store_scenario:\n        llama_stack_vector_database_id\
-          \ = \"chroma\"\n    elif not llama_stack_vector_database_id:\n        llama_stack_vector_database_id\
+          \ = pd.read_json(Path(test_data))\n\n    if not llama_stack_vector_io_provider_id\
+          \ and in_memory_vector_store_scenario:\n        llama_stack_vector_io_provider_id\
+          \ = \"chroma\"\n    elif not llama_stack_vector_io_provider_id:\n        llama_stack_vector_io_provider_id\
           \ = \"ls_milvus\"\n\n    rag_exp = AI4RAGExperiment(\n        client=None\
           \ if in_memory_vector_store_scenario else client.llama_stack,\n        event_handler=event_handler,\n\
           \        optimizer_settings=optimizer_settings,\n        search_space=search_space,\n\
-          \        benchmark_data=benchmark_data,\n        vector_store_type=llama_stack_vector_database_id,\n\
+          \        benchmark_data=benchmark_data,\n        vector_store_type=llama_stack_vector_io_provider_id,\n\
           \        documents=documents,\n        optimization_metric=optimization_metric,\n\
           \        # TODO some necessary kwargs (if any at all)\n    )\n\n    # retrieve\
           \ documents && run optimisation loop\n    rag_exp.search()\n\n    def _evaluation_result_fallback(eval_data_list,\
@@ -1073,7 +1072,7 @@ deploymentSpec:
           metadata\"] = {\"patterns\": []}\n    for i, eval in enumerate(evaluations_list):\n\
           \        patt_dir = rag_patterns_dir / eval.pattern_name\n        patt_dir.mkdir(parents=True,\
           \ exist_ok=True)\n\n        pattern_data = _build_pattern_json(eval, iteration=i,\
-          \ max_combinations=max_combinations)\n        if llama_stack_vector_database_id\
+          \ max_combinations=max_combinations)\n        if llama_stack_vector_io_provider_id\
           \ == \"chroma\":\n            generate_notebook_from_templates(\n      \
           \          \"chroma\",\n                pattern_data,\n                Path(patt_dir,\
           \ \"indexing_and_inference.ipynb\"),\n                input_data_key=input_data_key,\n\
@@ -1546,8 +1545,8 @@ root:
           parameters:
             input_data_key:
               componentInputParameter: input_data_key
-            llama_stack_vector_database_id:
-              componentInputParameter: llama_stack_vector_database_id
+            llama_stack_vector_io_provider_id:
+              componentInputParameter: llama_stack_vector_io_provider_id
             optimization_settings:
               runtimeValue:
                 constant:
@@ -1647,12 +1646,9 @@ root:
 
           The secret must define: LLAMA_STACK_CLIENT_API_KEY, LLAMA_STACK_CLIENT_BASE_URL.'
         parameterType: STRING
-      llama_stack_vector_database_id:
-        description: 'Optional vector database id (e.g., registered in llama-stack
-          Milvus).
-
-          If not provided, an in-memory database may be used.'
-        isOptional: true
+      llama_stack_vector_io_provider_id:
+        description: 'Vector IO provider identifier as registered in llama-stack (e.g.
+          ls_milvus).'
         parameterType: STRING
       optimization_max_rag_patterns:
         defaultValue: 8.0
