@@ -1,41 +1,23 @@
-# LoRA/QLoRA Fine-Tuning with Training Hub
+# SFT Fine-Tuning with Training Hub
 
-This example provides an overview of Training Hub's [LoRA (Low-Rank Adaptation)](https://github.com/Red-Hat-AI-Innovation-Team/training_hub?tab=readme-ov-file#lora) capabilities and demonstrates how to use them with Red Hat OpenShift AI.
+This example provides an overview of the [SFT algorithm from Training Hub](https://github.com/Red-Hat-AI-Innovation-Team/training_hub?tab=readme-ov-file#supervised-fine-tuning-sft) and demonstrates how to use it with Red Hat OpenShift AI.
 
-## What is LoRA?
+## What is SFT?
 
-LoRA (Low-Rank Adaptation) is a parameter-efficient fine-tuning technique that:
+Supervised Fine-Tuning (SFT) is the standard approach for adapting a pre-trained language model to follow instructions or perform specific tasks. During SFT the model learns from labeled examples of input-output pairs:
 
-- Freezes the pre-trained model weights
-- Injects trainable low-rank matrices into each layer
-- Reduces trainable parameters by ~10,000x compared to full fine-tuning
-- Enables fine-tuning large models on consumer GPUs
+- Updates **all model weights** using instruction/response training data
+- Directly optimizes the model to produce desired outputs for given inputs
+- Supports multi-turn conversation formats with system, user, and assistant roles
 
-**QLoRA** extends LoRA by adding 4-bit quantization, further reducing memory requirements while maintaining quality.
-
-### Training Task: Natural Language to SQL
-
-The example trains the model to understand database schemas and generate SQL queries from natural language questions. For example:
-
-**Input:**
-
-```text
-Table: employees (id, name, department, salary)
-Question: What is the average salary in the engineering department?
-```
-
-**Output:**
-
-```sql
-SELECT AVG(salary) FROM employees WHERE department = 'engineering'
-```
+SFT is the most straightforward fine-tuning method and serves as the foundation that other techniques (LoRA, OSFT) build upon or optimize around.
 
 ## Execution modes
 
-LoRA/QLoRA supports two execution modes:
+SFT supports two execution modes:
 
-- **Interactive Notebooks (Single Node Fine Tuning)**: training runs directly in a workbench on a single pod, demonstrated by `lora_sft-interactive-notebook.ipynb`.
-- **Training Jobs (Distributed Fine Tuning with Kubeflow Trainer)**: training runs as distributed jobs across multiple nodes/pods via Kubeflow Trainer, demonstrated by `lora_sft-distributed.ipynb`.
+- **Interactive Notebooks (Single Node Fine Tuning)**: training runs directly in a workbench on a single pod, demonstrated by `sft-interactive-notebook.ipynb`.
+- **Training Jobs (Distributed Fine Tuning with Kubeflow Trainer)**: training runs as distributed jobs across multiple nodes/pods via Kubeflow Trainer, demonstrated by `sft-distributed.ipynb`.
 
 While workbench setup is similar for both, we highlight specific configuration differences below.
 
@@ -43,7 +25,12 @@ To learn more about these execution modes, see the [fine-tuning execution modes 
 
 ## RHOAI compatibility
 
-This example is compatible with RHOAI version 3.4. For a version compatible with RHOAI 3.3 see [this README](../rhoai-3.3/lora/README.md).
+This example is compatible with RHOAI version 3.4. For a version compatible with RHOAI 3.3 see [this README](../rhoai-3.3/training-hub/sft/README.md).
+
+> [!IMPORTANT]
+> This example has been tested with the configurations listed in the hardware requirements below.
+> If you have a different hardware configuration you can check [training-hub memory estimator](https://github.com/Red-Hat-AI-Innovation-Team/training_hub/tree/main/examples#memory-estimation-experimental--in-development) to validate your
+> hardware configuration will be sufficient to run this example.
 
 ## Requirements
 
@@ -158,12 +145,12 @@ to seamlessly run fine-tuning jobs.
 > - By default:
 >   - The distributed example goes through training on two nodes (2×L40/L40S) with two GPUs each (2×48GB). However, it can be tweaked to run on smaller configurations.
 >   - If you want to do model evaluation as part of the distributed example, ideally an accelerator is attached to the workbench.
->   - For the interactive example an accelerator is required for the workbench to execute the fine tuning with LoRA.
+>   - For the interactive example an accelerator is required for the workbench to execute the fine tuning with SFT.
 
 ### Running the example notebooks
 
 - From the workbench, clone this repository: `https://github.com/red-hat-data-services/red-hat-ai-examples.git`
-- Navigate to the `examples/fine-tuning/lora` directory and open the [`lora_sft-interactive-notebook.ipynb`](./lora_sft-interactive-notebook.ipynb) notebook or [`lora_sft-distributed.ipynb`](./lora_sft-distributed.ipynb) as required.
+- Navigate to the `examples/fine-tuning/sft` directory and open the [`sft-interactive-notebook.ipynb`](./sft-interactive-notebook.ipynb) notebook or [`sft-distributed.ipynb`](./sft-distributed.ipynb) as required.
 
 > [!NOTE]
 >

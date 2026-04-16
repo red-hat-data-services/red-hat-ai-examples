@@ -49,9 +49,9 @@ Training runs directly inside a **single Workbench pod** (your notebook environm
 
 **Learn more**
 
-- [SFT fine-tuning example](training-hub/sft/README.md)
+- [SFT fine-tuning example](sft/README.md)
 - [OSFT fine-tuning example](osft/README.md)
-- [LORA fine-tuning example](lora/README.md)
+- [LoRA fine-tuning example](lora/README.md)
 
 ---
 
@@ -90,8 +90,9 @@ Training is offloaded to **dedicated training pods** managed by **Kubeflow Train
 
 **Learn more**
 
-- [SFT fine-tuning example](training-hub/sft/README.md)
+- [SFT fine-tuning example](sft/README.md)
 - [OSFT fine-tuning example](osft/README.md)
+- [LoRA fine-tuning example](lora/README.md)
 
 ---
 
