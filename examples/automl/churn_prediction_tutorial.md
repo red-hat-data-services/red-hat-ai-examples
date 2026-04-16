@@ -295,8 +295,6 @@ Replace `{NAMESPACE}` with your project namespace.
 
 ![Serving Runtime configuration](images/serving_runtime_example_config.png)
 
-![Serving Runtime configuration - continued](images/serving_runtime_example_config_2.png)
-
 <a id="model-deployment"></a>
 
 ## 🚀 Model Deployment
