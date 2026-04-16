@@ -157,7 +157,7 @@ The AutoML pipeline generates a **predictor notebook** (e.g. `automl_predictor_n
 
 The notebook is saved under `models_artifact.path/model_name_FULL/notebooks`, where `models_artifact.path` is a path like `autogluon-tabular-training-pipeline/<run_id>/autogluon-models-training/<task_id>/models_artifact/` (one such path per refitted model). For example: `...<run_id>/autogluon-models-training/<task_id>/models_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb`.
 
-> [!tip] 
+> [!tip]
 > `run_id` can be found in **Develop & train** > **Pipelines** > **Runs** > **your_name_run** > **Details Tab**
 
 | Step | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -191,7 +191,7 @@ If your cluster does not yet have a model registry, an OpenShift AI administrato
 | **③** | In **Connect to external MySQL database**, enter **Host**, **Port**, **Username**, **Password**, and **Database**. Add a CA certificate if the database uses TLS. |
 | **④** | Click **Create**. The new model registry appears on the AI registry settings page. |
 
-> [!tip] 
+> [!tip]
 > You can also deploy a model from here; while doing so, the fields will already be filled.
 
 **Step ② — Create model registry settings**
