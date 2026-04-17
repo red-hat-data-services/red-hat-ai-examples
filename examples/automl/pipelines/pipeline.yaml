@@ -370,7 +370,7 @@ deploymentSpec:
           \    \"label_column\": predictor.label,\n        \"model_config\": model_config,\n\
           \        \"models\": models_metadata,\n    }\n\n    return NamedTuple(\"\
           outputs\", eval_metric=str)(eval_metric=str(predictor.eval_metric))\n\n"
-        image: quay.io/opendatahub/odh-automl@sha256:8ff7fa66d95e3fbb1e4e2cc52f5849465d4efa8c5d92edb4e7ceda0e05793192
+        image: registry.redhat.io/rhoai/odh-automl-rhel9:rhoai@sha256:d943beee403c071e18b939206aa6f6284135644070181bb8d350baf056cc0564
         resources:
           cpuRequest: 4.0
           memoryRequest: 17.179869184
@@ -625,7 +625,7 @@ deploymentSpec:
           \ stratify_effective,\n        },\n        sample_row=sample_row,\n    \
           \    models_selection_train_data_path=models_selection_train_data_path,\n\
           \        extra_train_data_path=extra_train_data_path,\n    )\n\n"
-        image: quay.io/opendatahub/odh-automl@sha256:8ff7fa66d95e3fbb1e4e2cc52f5849465d4efa8c5d92edb4e7ceda0e05793192
+        image: registry.redhat.io/rhoai/odh-automl-rhel9:rhoai@sha256:d943beee403c071e18b939206aa6f6284135644070181bb8d350baf056cc0564
         resources:
           cpuRequest: 2.0
           memoryRequest: 8.589934592
@@ -743,7 +743,7 @@ deploymentSpec:
           ] = leaderboard_df.to_dict()\n    html_artifact.metadata[\"display_name\"\
           ] = \"automl_leaderboard\"\n    return NamedTuple(\"outputs\", best_model=str)(best_model=best_model_name)\n\
           \n"
-        image: quay.io/opendatahub/odh-automl@sha256:8ff7fa66d95e3fbb1e4e2cc52f5849465d4efa8c5d92edb4e7ceda0e05793192
+        image: registry.redhat.io/rhoai/odh-automl-rhel9:rhoai@sha256:d943beee403c071e18b939206aa6f6284135644070181bb8d350baf056cc0564
         resources:
           cpuRequest: 1.0
           memoryRequest: 4.294967296
