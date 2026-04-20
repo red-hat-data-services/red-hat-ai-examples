@@ -4,7 +4,7 @@
 
 Each row of the training file must include a **series identifier** (`item_id`), a **timestamp**, and a numeric **target** to forecast. Optional columns can be **known covariates** (known in advance for the forecast horizon). This tutorial’s primary dataset is a **single series** (one `item_id` for all rows).
 
-This walkthrough covers: creating a project, S3 connections for results and training data, configuring the Pipeline Server, attaching connections to a workbench, uploading your time series file, adding the pipeline definition, running it with time-series parameters, and viewing leaderboard and notebook artifacts. **Time series** pipeline source and parameters: [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4) (branch `rhoai-3.4`).
+This walkthrough covers: creating a project, S3 connections for results and training data, configuring the Pipeline Server, creating a workbench with the **results** connection attached during setup (so you can reach pipeline artifacts without a restart), uploading your time series file, adding the pipeline definition, running it with time-series parameters, and viewing leaderboard and notebook artifacts. **Time series** pipeline source and parameters: [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4) (branch `rhoai-3.4`).
 
 ## Table of contents
 
@@ -70,32 +70,33 @@ Create two S3-compatible connections: one for pipeline **results** (artifacts, l
 | **②** | Note the **Connection name**; you will use it as `train_data_secret_name` in the pipeline run.                             |
 
 
-For connection details, see [Using connections](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_on_projects/using-connections_projects) in the Red Hat OpenShift AI documentation.
+For connection details, see [Using connections](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_on_projects/using-connections_projects) in the Red Hat OpenShift AI documentation.
 
 <a id="configure-the-pipeline-server"></a>
 
 ## ⚙️ Configure the Pipeline Server
 
 
-| Step  | Action                                                                                                                                     |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **①** | Open your project → **Pipelines** → **Configure pipeline server**.                                                                         |
-| **②** | In **Object storage connection**, use the same credentials as your **results** S3 connection (or select that connection if the UI allows). |
-| **③** | In **Database**, choose **Default database on the cluster** for development, or **External MySQL** for production-style workloads.         |
-| **④** | Create the Pipeline Server and wait until it is ready.                                                                                     |
+| Step  | Action                                                                                                                                                      |
+| ----- |-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **①** | Open your project → **Pipelines** → **Configure pipeline server**.                                                                                          |
+| **②** | In **Object storage connection**, use the same credentials as your **results** S3 connection (or select that connection if the UI allows).                  |
+| **③** | In **Advanced Settings** → **Database**, choose **Default database on the cluster** for development, or **External MySQL** for production-style workloads. |
+| **④** | Create the Pipeline Server and wait until it is ready.                                                                                                      |
 
 
-See [Working with data science pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_ai_pipelines/working_with_ai_pipelines) for details.
+See [Working with data science pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_ai_pipelines/index) for details.
 
 <a id="create-workbench-with-connections-attached"></a>
 
 ## 🔗 Create workbench with connections attached
 
 
-| Step  | Action                                                                                                                                       |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **①** | Create a **Workbench** in the project.                                                                                                       |
-| **②** | **Attach** both the results and training data connections so you can download artifacts or notebooks later without restarting the workbench. |
+| Step  | Action                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **①** | In the project, go to **Workbenches** and create a **Workbench** (notebook environment). Choose an image and resource size as needed.                                                                                                                                                                                                                                                                                                               |
+| **②** | During workbench setup, use **Attach existing connections** to attach the **results** S3 connection you created above, so the workbench can access the results bucket (e.g. to download the leaderboard or artifacts later) without a restart. Only the **results** connection can be attached during workbench creation; the **training data** connection is used by the pipeline via run parameters when reading data from S3, not attached here. |
+| **③** | Save and launch the workbench. For full steps, see [Creating a project and workbench](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/getting_started_with_red_hat_openshift_ai_self-managed/creating-a-workbench-select-ide_get-started) in the Red Hat OpenShift AI documentation.                                                                                                                            |
 
 <a id="upload-the-time-series-dataset-to-s3"></a>
 
@@ -123,7 +124,7 @@ See [Working with data science pipelines](https://docs.redhat.com/en/documentati
 | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **①** | Obtain a **compiled** pipeline YAML for `autogluon-timeseries-training-pipeline`. Source: [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline). From a Python environment with the repository’s dependencies (see that repo’s [README](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/README.md)), run `python pipeline.py` in that folder to generate `pipeline.yaml` next to `pipeline.py` (see the `__main`__ block in `pipeline.py`). |
 | **②** | In Red Hat OpenShift AI, open **Pipelines** for your project.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| **③** | Upload the YAML as a new **Pipeline Definition**, following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines).                                                                                                                                                                                                                                                                                                                                                   |
+| **③** | Upload the YAML as a new **Pipeline Definition**, following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines).                                                                                                                                                                                                                                                                                                                                                   |
 
 
 Pipeline stages (summary): load data from S3 → **per-series temporal splits** → **model selection** on a selection split → **parallel refit** of top-N models → **leaderboard** HTML. Details: [autogluon_timeseries_training_pipeline README](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline/README.md).
@@ -201,7 +202,7 @@ Each refitted top model can emit a **time series predictor notebook** (e.g. `aut
 
 The notebook is saved under `model_artifact/<model_name_FULL>/notebooks`, where the refit output root is a path like `autogluon-timeseries-training-pipeline/<run_id>/autogluon-timeseries-models-full-refit/<task_id>/model_artifact/` (one such path per refitted model). For example: `...<run_id>/autogluon-timeseries-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb`.
 
-> [!tip]
+> [!tip]  
 > `run_id` can be found in **Develop & train** > **Pipelines** > **Runs** > **your_name_run** > **Details Tab**
 
 
@@ -214,13 +215,13 @@ The notebook is saved under `model_artifact/<model_name_FULL>/notebooks`, where 
 | **⑤** | **Customize** if required: edit the model path or artifact location to point to a specific refitted model (e.g. `WeightedEnsemble_FULL`), add cells for extra visualizations or metrics, change sample data, or adapt the notebook for your own workflows. Save the notebook in the workbench when done.                                                                                                                                                                                                                                                                                                                                                  |
 
 
-For creating and importing notebooks in the workbench, see [Creating and importing notebooks](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_in_your_data_science_ide/working_in_jupyterlab#creating-and-importing-jupyter-notebooks_ide) in the Red Hat OpenShift AI documentation.
+For creating and importing notebooks in the workbench, see [Creating and importing notebooks](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_in_your_data_science_ide/working_in_jupyterlab#creating-and-importing-jupyter-notebooks_ide) in the Red Hat OpenShift AI documentation.
 
 
 
 ## 📚 Optional: Model Registry and deployment
 
-The time series pipeline writes **model artifacts** (predictors, metrics, notebooks) to your pipeline artifact store; it does **not** register models automatically. To register a refitted time-series predictor in **Model Registry** or deploy with **KServe**, follow [Working with model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/working_with_model_registries/working-with-model-registries_model-registry) and [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.2/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user) in the Red Hat OpenShift AI documentation. Use the predictor paths and related files from your `autogluon-timeseries-training-pipeline` refit task outputs as the model source when registering or deploying.
+The time series pipeline writes **model artifacts** (predictors, metrics, notebooks) to your pipeline artifact store; it does **not** register models automatically. To register a refitted time-series predictor in **Model Registry** or deploy with **KServe**, follow [Working with model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_model_registries/working-with-model-registries_model-registry) and [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user) in the Red Hat OpenShift AI documentation. Use the predictor paths and related files from your `autogluon-timeseries-training-pipeline` refit task outputs as the model source when registering or deploying.
 
 **Serving runtime:** Use the **same AutoGluon KServe Serving Runtime** as for tabular AutoML (same container image and cluster setup). Build the image and create the Serving Runtime as in [Prepare the ServingRuntime for AutoGluon with KServe](churn_prediction_tutorial.md#prepare-the-servingruntime-for-autogluon-with-kserve) in the tabular churn tutorial, then pick that runtime when you **Deploy model**. The difference for time series is the **predictor type** and often the **inference request shape** (for example payloads or flows that match `TimeSeriesPredictor` rather than tabular AutoGluon). Prefer the refit task’s **time series notebook** and [AutoGluon TimeSeries](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) to validate predictions end to end, including **known covariates** at prediction time when the model was trained with `known_covariates_names`.
 
