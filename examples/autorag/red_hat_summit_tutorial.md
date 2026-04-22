@@ -53,7 +53,7 @@ The pipeline expects a Kubernetes secret containing the Llama-stack client URL a
 
 **② Create new connection of type `LLAMA_STACK_CONNECTION` inside your project**
 ![Llama Stack connection creation](images/llama_stack_connection_creation.png)
-**Note:** Use the connection’s **resource name** (or secret name) as `llama_stack_secret_name` when creating the pipeline run. For exact key names and options, see the [documents_rag_optimization_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/autorag/documents_rag_optimization_pipeline) README.
+**Note:** Use the connection’s **resource name** (or secret name) as `llama_stack_secret_name` when creating the pipeline run. For exact key names and options, see the [documents_rag_optimization_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline) README.
 
 <a id="create-s3-connections"></a>
 
@@ -128,7 +128,7 @@ Sample data is provided in this repository under **`data/rh_summit_2026/`**: inp
 | Step | Action |
 |------|--------|
 | **①** | From **Pipelines**, create a new pipeline run using **Pipeline definitions → ⋮ → Create run** for the Documents RAG Optimization Pipeline you added. |
-| **②** | Set the **Name** of the run and the following run parameters (see the [pipeline README](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/autorag/documents_rag_optimization_pipeline) for full descriptions): **test_data_secret_name** and **input_data_secret_name** (same connection name from the single S3 data connection), **test_data_bucket_name** and **input_data_bucket_name** (same bucket), **test_data_key** (path to the benchmark file, e.g. `benchmark_data.json`), **input_data_key** (path to documents folder or prefix, e.g. `input_data/`), **llama_stack_secret_name** (secret with `LLAMA_STACK_CLIENT_BASE_URL` and `LLAMA_STACK_CLIENT_API_KEY`), **embeddings_models** (list of embedding model identifiers to try, e.g. `["ibm/slate-125m-english-rtrvr-v2", "intfloat/multilingual-e5-large"]`), **generation_models** (list of foundation/generation model identifiers, e.g. `["mistralai/mixtral-8x7b-instruct-v01", "ibm/granite-13b-instruct-v2"]`), **optimization_metric** (e.g. `faithfulness`, `answer_correctness`, or `context_correctness`; default `faithfulness`). </br> <span style="color:red">**Set `llama_stack_vector_database_id` (e.g. `ls_milvus`; default is `ls_milvus`) and please note that only `inline::milvus` provider type is currently supported**.</span> |
+| **②** | Set the **Name** of the run and the following run parameters (see the [pipeline README](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline) for full descriptions): **test_data_secret_name** and **input_data_secret_name** (same connection name from the single S3 data connection), **test_data_bucket_name** and **input_data_bucket_name** (same bucket), **test_data_key** (path to the benchmark file, e.g. `benchmark_data.json`), **input_data_key** (path to documents folder or prefix, e.g. `input_data/`), **llama_stack_secret_name** (secret with `LLAMA_STACK_CLIENT_BASE_URL` and `LLAMA_STACK_CLIENT_API_KEY`), **embeddings_models** (list of embedding model identifiers to try, e.g. `["ibm/slate-125m-english-rtrvr-v2", "intfloat/multilingual-e5-large"]`), **generation_models** (list of foundation/generation model identifiers, e.g. `["mistralai/mixtral-8x7b-instruct-v01", "ibm/granite-13b-instruct-v2"]`), **optimization_metric** (e.g. `faithfulness`, `answer_correctness`, or `context_correctness`; default `faithfulness`). </br> <span style="color:red">**Set `llama_stack_vector_database_id` (e.g. `ls_milvus`; default is `ls_milvus`) and please note that only `inline::milvus` provider type is currently supported**.</span> |
 | **③** | Ensure the **Pipeline Server** is configured with the results S3 connection from [Create S3 connections](#create-s3-connections), so artifacts are stored in the expected bucket. |
 | **④** | Start the run via **Create run** and wait for it to complete. |
 
@@ -158,7 +158,7 @@ Sample data is provided in this repository under **`data/rh_summit_2026/`**: inp
 **Step ② Review the leaderboard results:**
 ![Pipeline Leaderboard Step](images/leaderboard.png)
 
-For exact artifact paths and layout, see the [documents_rag_optimization_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/autorag/documents_rag_optimization_pipeline) README (Outputs and "Files stored in user storage" sections).
+For exact artifact paths and layout, see the [documents_rag_optimization_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline) README (Outputs and "Files stored in user storage" sections).
 
 **Step 3 Locate best pattern directory inside your S3 storage (pattern 8 in this case) and review the generated files:**
 <a id="generated-files"></a>
@@ -198,4 +198,4 @@ Each RAG pattern in the **rag_patterns_artifact** includes two generated noteboo
 Test your own questions against the generated RAG pattern at the end of the notebook.
 
 ![RAG Query result](images/rag_query_response.png)
-The **inference.ipynb** is the main interface for querying your RAG system; the **indexing.ipynb** is needed when you first deploy a pattern or when you add or update documents in the index. For more detail on the contents of each notebook and the pattern configuration, see the [documents_rag_optimization_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/autorag/documents_rag_optimization_pipeline) README.
+The **inference.ipynb** is the main interface for querying your RAG system; the **indexing.ipynb** is needed when you first deploy a pattern or when you add or update documents in the index. For more detail on the contents of each notebook and the pattern configuration, see the [documents_rag_optimization_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline) README.

@@ -2,15 +2,18 @@
 
 **AutoRAG** on Red Hat OpenShift AI lets you run and evaluate **Retrieval-Augmented Generation (RAG)** over your documents via the **Documents RAG Optimization Pipeline**. You provide documents and test questions in S3; the pipeline (orchestrated by Kubeflow Pipelines, using the [IBM ai4rag](https://github.com/IBM/ai4rag) optimization engine) runs against a **Llama-stack RAG server**, explores RAG configurations, and produces a **leaderboard** of RAG patterns plus artifacts (e.g. pattern configs, evaluation results, indexing and inference notebooks). See [Example scenarios](#example-scenarios) for a typical use case and a step-by-step tutorial.
 
-**Status:** [Developer Preview](https://access.redhat.com/support/offerings/devpreview) — This feature is not yet supported with Red Hat production service level agreements (SLAs) and may change. It provides early access for testing and feedback.
+## Status
+
+**[Developer Preview](https://access.redhat.com/support/offerings/devpreview)** — This feature is not yet supported with Red Hat production service level agreements (SLAs) and may change. It provides early access for testing and feedback.
 
 ---
 
 ## Table of contents
 
+- [Status](#status)
 - [About AutoRAG](#about-autorag)
   - [What AutoRAG gives you](#what-autorag-gives-you)
-  - [What AutoRAG supports (Developer Preview)](#what-autorag-supports-developer-preview)
+  - [What AutoRAG supports](#what-autorag-supports)
   - [How it works under the hood](#how-it-works-under-the-hood)
   - [Pipeline flow](#pipeline-flow)
 - [What you need to provide](#what-you-need-to-provide)
@@ -29,7 +32,7 @@
 
 ### What AutoRAG gives you
 
-AutoRAG in this preview is **pipeline-driven**: you run the **Documents RAG Optimization Pipeline** on Red Hat OpenShift AI. The pipeline loads your documents and test data from S3, runs RAG configuration optimization (ai4rag) against a **Llama-stack RAG server**, and produces a leaderboard and RAG pattern artifacts.
+AutoRAG is **pipeline-driven**: you run the **Documents RAG Optimization Pipeline** on Red Hat OpenShift AI. The pipeline loads your documents and test data from S3, runs RAG configuration optimization (ai4rag) against a **Llama-stack RAG server**, and produces a leaderboard and RAG pattern artifacts.
 
 - **Document-based Q&A** — Your documents (e.g., PDFs, MDs or text) are stored in S3. The pipeline loads them, extracts text, and uses them as the knowledge base for RAG optimization and evaluation.
 - **Test data** — A `benchmark_data.json` file (in S3) defines the questions and expected answers used to evaluate RAG configurations.
@@ -38,9 +41,9 @@ AutoRAG in this preview is **pipeline-driven**: you run the **Documents RAG Opti
 
 You run the pipeline via the AI Pipelines UI or API; no custom training code is required.
 
-### What AutoRAG supports (Developer Preview)
+### What AutoRAG supports
 
-In this preview, AutoRAG is exposed as the **Documents RAG Optimization Pipeline** (Kubeflow Pipelines), which uses the IBM ai4rag optimization engine against Red Hat OpenShift AI's Llama-stack RAG infrastructure.
+AutoRAG is exposed as the **Documents RAG Optimization Pipeline** (Kubeflow Pipelines), which uses the IBM ai4rag optimization engine against Red Hat OpenShift AI's Llama-stack RAG infrastructure.
 
 | Area | Support |
 |------|--------|
@@ -165,7 +168,7 @@ To run the Documents RAG Optimization Pipeline, you provide:
 
 | Item | Description |
 |------|-------------|
-| **Pipeline parameters** | `embeddings_models` (list of embedding model IDs), `generation_models` (list of foundation model IDs), `optimization_metric` (e.g. `faithfulness`, `answer_correctness`, `context_correctness`), `llama_stack_vector_database_id` (e.g. `ls_milvus`). See the [pipeline README](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/autorag/documents_rag_optimization_pipeline) for full input/output descriptions. |
+| **Pipeline parameters** | `embeddings_models` (list of embedding model IDs), `generation_models` (list of foundation model IDs), `optimization_metric` (e.g. `faithfulness`, `answer_correctness`, `context_correctness`), `llama_stack_vector_database_id` (e.g. `ls_milvus`). See the [pipeline README](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline) for full input/output descriptions. |
 
 ---
 
@@ -183,7 +186,7 @@ Artifacts are stored in the artifact store configured for your run (e.g. S3 via 
 
 ## Example scenarios
 
-AutoRAG in this preview is aimed at **document Q&A and evaluation**: you have a set of documents (e.g. policies, manuals, contracts) and a list of questions with expected answers; you run the **Documents RAG Optimization Pipeline** to find the best RAG configuration and then use the generated artifacts (leaderboard, inference notebooks) to power search, chatbots, or internal tools.
+AutoRAG is aimed at **document Q&A and evaluation**: you have a set of documents (e.g. policies, manuals, contracts) and a list of questions with expected answers; you run the **Documents RAG Optimization Pipeline** to find the best RAG configuration and then use the generated artifacts (leaderboard, inference notebooks) to power search, chatbots, or internal tools.
 
 In each scenario you run the same pipeline; only the document set and test data change.
 
@@ -214,7 +217,7 @@ You run AutoRAG by **running the Documents RAG Optimization Pipeline**:
 
 1. Ensure the **Llama-stack RAG stack** is deployed (see [Llama stack setup](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md)) and that you have created a secret (or connection) with `LLAMA_STACK_CLIENT_BASE_URL` and `LLAMA_STACK_CLIENT_API_KEY` for the pipeline to use.
 2. Ensure the **sample documents** from [data/rh_summit_2026/input_data/](data/rh_summit_2026/input_data/) and the **benchmark** file [benchmark_data.json](data/rh_summit_2026/benchmark_data.json) are uploaded to S3 (same bucket, different paths), and that you have an S3 connection for that data plus a Pipeline Server configured with a results connection for artifacts.
-3. Add the **Documents RAG Optimization Pipeline** as a Pipeline Definition (from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/autorag/documents_rag_optimization_pipeline), branch `autox`). You can find it's compiled version [here](pipelines/pipeline.yaml).
+3. Add the **Documents RAG Optimization Pipeline** as a Pipeline Definition (from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline), branch `autox`). You can find it's compiled version [here](pipelines/pipeline.yaml).
 4. Create a pipeline run and set the required parameters: use the same connection and bucket for test data and input documents (different object keys); Llama-stack secret name; embeddings_models and generation_models lists; optimization_metric.
 5. **View the results** in the run's Artifacts: leaderboard HTML and RAG pattern artifacts (pattern.json, evaluation_results.json, indexing and inference notebooks).
 
@@ -230,7 +233,7 @@ For a step-by-step walkthrough, see the [Tutorial: Ask questions against Red Hat
 
 ## References
 
-- [Documents RAG Optimization Pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/autorag/documents_rag_optimization_pipeline) — Pipeline definition, inputs, outputs, and artifact layout (branch `autox`)
+- [Documents RAG Optimization Pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline) — Pipeline definition, inputs, outputs, and artifact layout (branch `autox`)
 - [Llama stack setup](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md) — Installation and configuration for the Llama-stack RAG server (prerequisite for AutoRAG)
 - [IBM ai4rag](https://github.com/IBM/ai4rag) — RAG templates and optimization engine used by the pipeline
 - [Deploying a RAG stack in a project (Red Hat OpenShift AI)](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.0/html/working_with_llama_stack/deploying-a-rag-stack-in-a-project_rag)
