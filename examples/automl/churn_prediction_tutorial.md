@@ -137,13 +137,13 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 
 After the run has completed successfully:
 
-| Step | Action                                                                                                                             |
-|------|------------------------------------------------------------------------------------------------------------------------------------|
-| **①** | Open the run details and go to **Develop & train** > **Pipelines** > **Artifacts** (or the artifact store configured for the run). |
-| **②** | Locate the **leaderboard** artifact (e.g., an HTML file in the leaderboard-evaluation output).                                     |
-| **③** | Download or open the HTML leaderboard to compare the ranked models and their metrics.                                              |
+| Step | Action |
+|------|--------|
+| **①** | Open the **completed run** (for example **Develop & train** > **Pipelines** > **Runs**, then select your run). |
+| **②** | In the **pipeline run graph**, click the last node named **`html_artifact`**. |
+| **③** | In the node panel, preview the leaderboard by clicking **Artifact URI** (opens the HTML leaderboard so you can compare ranked models and metrics). |
 
-**Step ② — Preview of the leaderboard artifact**
+**Step ③ — Leaderboard via Artifact URI**
 
 ![Leaderboard](images/leaderboard.png)
 
@@ -206,7 +206,7 @@ The refit stage writes each top-N model to the pipeline workspace/artifact store
 
 | Step | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 |------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **①** | From the OpenShift AI dashboard, go to **AI Hub** → **Registry** → **Model registry** and select your model registry.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **①** | From the OpenShift AI dashboard, go to **AI Hub** -> **Models** -> **Registry** and select your model registry.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **②** | Click **Register model**. In the **Register model** dialog, under **Model location**, select **Object storage** (S3-compatible).                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **③** | Enter the S3 details for your pipeline artifact store: **Endpoint**, **Bucket**, **Region**, and **Path** to the **model root folder** of one refitted predictor (e.g. the folder `predictor` containing the `_FULL` model files for `LightGBM_BAG_L1_FULL/predictor` or `WeightedEnsemble_L3_FULL/predictor` from your run). You can get the path from the run’s **Artifacts** (inspect the refit task output) or from your artifact store layout. Alternatively, click **Autofill from connection** if you have a connection that can access that bucket and path. |
 | **④** | Enter **Model name** and optional **Description**. Enter **Version name** and set **Source model format** (e.g. custom or the format your registry uses for AutoGluon).                                                                                                                                                                                                                                                                                                                                                                          |
