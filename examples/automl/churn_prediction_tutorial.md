@@ -137,13 +137,13 @@ Configure the **Pipeline Server** for your project so that pipeline runs and art
 
 After the run has completed successfully:
 
-| Step | Action                                                                                                                             |
-|------|------------------------------------------------------------------------------------------------------------------------------------|
-| **①** | Open the run details and go to **Develop & train** > **Pipelines** > **Artifacts** (or the artifact store configured for the run). |
-| **②** | Locate the **leaderboard** artifact (e.g., an HTML file in the leaderboard-evaluation output).                                     |
-| **③** | Download or open the HTML leaderboard to compare the ranked models and their metrics.                                              |
+| Step | Action |
+|------|--------|
+| **①** | Open the **completed run** (for example **Develop & train** > **Pipelines** > **Runs**, then select your run). |
+| **②** | In the **pipeline run graph**, click the last node named **`html_artifact`**. |
+| **③** | In the node panel, preview the leaderboard by clicking **Artifact URI** (opens the HTML leaderboard so you can compare ranked models and metrics). |
 
-**Step ② — Preview of the leaderboard artifact**
+**Step ③ — Leaderboard via Artifact URI**
 
 ![Leaderboard](images/leaderboard.png)
 

@@ -77,17 +77,15 @@ For connection details, see [Using connections](https://docs.redhat.com/en/docum
 ## ⚙️ Configure the Pipeline Server
 
 
-| Step  | Action                                                                                                                                                      |
-| ----- |-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **①** | Open your project → **Pipelines** → **Configure pipeline server**.                                                                                          |
-| **②** | In **Object storage connection**, use the same credentials as your **results** S3 connection (or select that connection if the UI allows).                  |
+| Step  | Action                                                                                                                                                     |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **①** | Open your project → **Pipelines** → **Configure pipeline server**.                                                                                         |
+| **②** | In **Object storage connection**, use the same credentials as your **results** S3 connection (or select that connection if the UI allows).                 |
 | **③** | In **Advanced Settings** → **Database**, choose **Default database on the cluster** for development, or **External MySQL** for production-style workloads. |
-| **④** | Create the Pipeline Server and wait until it is ready.                                                                                                      |
+| **④** | Create the Pipeline Server and wait until it is ready.                                                                                                     |
 
 
 See [Working with data science pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_ai_pipelines/index) for details.
-
-<a id="create-workbench-with-connections-attached"></a>
 
 ## 🔗 Create workbench with connections attached
 
@@ -120,14 +118,11 @@ See [Working with data science pipelines](https://docs.redhat.com/en/documentati
 ## 📋 Add the time series AutoML pipeline as a Pipeline Definition
 
 
-| Step  | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **①** | Obtain a **compiled** pipeline YAML for `autogluon-timeseries-training-pipeline`. Source: [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline). From a Python environment with the repository’s dependencies (see that repo’s [README](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/README.md)), run `python pipeline.py` in that folder to generate `pipeline.yaml` next to `pipeline.py` (see the `__main`__ block in `pipeline.py`). |
-| **②** | In Red Hat OpenShift AI, open **Pipelines** for your project.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| **③** | Upload the YAML as a new **Pipeline Definition**, following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines).                                                                                                                                                                                                                                                                                                                                                   |
-
-
-Pipeline stages (summary): load data from S3 → **per-series temporal splits** → **model selection** on a selection split → **parallel refit** of top-N models → **leaderboard** HTML. Details: [autogluon_timeseries_training_pipeline README](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline/README.md).
+| Step  | Action                                                                                                                                                                                                                                                                     |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **①** | Obtain a **compiled** pipeline YAML for `autogluon-timeseries-training-pipeline` from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline/pipeline.yaml). |
+| **②** | In Red Hat OpenShift AI, open **Develop & train**, then **Pipelines** for your project.                                                                                                                                                                                        |
+| **③** | Upload the YAML as a new **Pipeline Definition**, following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines).                                     |
 
 <a id="run-the-pipeline-with-required-inputs"></a>
 
@@ -136,7 +131,7 @@ Pipeline stages (summary): load data from S3 → **per-series temporal splits** 
 
 | Step  | Action                                                                                                                                                                                                      |
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **①** | From **Pipelines**, create a run for the time series pipeline definition.                                                                                                                                   |
+| **①** | From **Develop & train** -> **Pipelines**, create a run for the time series pipeline definition.                                                                                                                                   |
 | **②** | Set parameters to match your data. See the table below for the **electricity** tutorial file ([electricity_industry_a_forecasting.csv](data/timeseries/input_data/electricity_industry_a_forecasting.csv)). |
 | **③** | Ensure the **Pipeline Server** uses your **results** S3 connection so artifacts are stored correctly.                                                                                                       |
 | **④** | Start the run and wait until it completes.                                                                                                                                                                  |
@@ -187,12 +182,11 @@ In the Pipelines UI, list parameters are often entered as a **JSON array** (e.g.
 
 ## 📊 View the leaderboard
 
-
-| Step  | Action                                                                       |
-| ----- | ---------------------------------------------------------------------------- |
-| **①** | Open the completed run → **Artifacts**.                                      |
-| **②** | Open the **leaderboard** HTML (from the leaderboard evaluation step).        |
-| **③** | Compare top models by the evaluation metric reported by the selection stage. |
+| Step | Action |
+| ---- | ------ |
+| **①** | Open the **completed run** (for example **Develop & train** > **Pipelines** > **Runs**, then select your run). |
+| **②** | In the **pipeline run graph**, click the last node named **`html_artifact`**. |
+| **③** | In the node panel, preview the leaderboard by clicking **Artifact URI** (opens the HTML leaderboard so you can compare top models by the evaluation metric from the selection stage). |
 
 <a id="time-series-predictor-notebook"></a>
 
@@ -201,6 +195,8 @@ In the Pipelines UI, list parameters are often entered as a **JSON array** (e.g.
 Each refitted top model can emit a **time series predictor notebook** (e.g. `automl_predictor_notebook.ipynb`) that loads and uses the selected AutoGluon `TimeSeriesPredictor` for forecasts, evaluation, and exploration. You can download this notebook from the run artifacts, upload it to your workbench, run it, and customize it as needed.
 
 The notebook is saved under `model_artifact/<model_name_FULL>/notebooks`, where the refit output root is a path like `autogluon-timeseries-training-pipeline/<run_id>/autogluon-timeseries-models-full-refit/<task_id>/model_artifact/` (one such path per refitted model). For example: `...<run_id>/autogluon-timeseries-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb`.
+
+**Alternatively:** Open the leaderboard HTML as described in [View the leaderboard](#view-the-leaderboard). The **Notebook** column in the leaderboard table lists the URI (or artifact path) for each model’s `automl_predictor_notebook.ipynb`, so you can copy that location without walking the refit task outputs in the run UI.
 
 > [!tip]  
 > `run_id` can be found in **Develop & train** > **Pipelines** > **Runs** > **your_name_run** > **Details Tab**
@@ -211,7 +207,7 @@ The notebook is saved under `model_artifact/<model_name_FULL>/notebooks`, where 
 | **①** | Once the AutoML run completes, check the [leaderboard](#view-the-leaderboard) to find the S3 storage path for each model's generated notebook in column "Notebook".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **②** | **Download** the notebook to your local machine from the artifact store (S3) if you have access (e.g. via the workbench S3 connection from **[Create workbench with connections attached](#create-workbench-with-connections-attached)**). The notebook is under a path like `...<run_id>/autogluon-timeseries-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb` (see the [autogluon_timeseries_models_full_refit component](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/components/training/automl/autogluon_timeseries_models_full_refit) for the exact layout). |
 | **③** | Open your **workbench** (the notebook environment you created in **[Create workbench with connections attached](#create-workbench-with-connections-attached)**). In JupyterLab, click the **Upload** button (upload icon) in the File Browser sidebar, select the downloaded `.ipynb` file, and upload it. The notebook appears in your workbench file tree.                                                                                                                                                                                                                                                                                              |
-| **④** | Open the notebook and **run** it cell by cell. Ensure the workbench has access to the same S3 bucket (or the path configured in the notebook) so it can load the `TimeSeriesPredictor` and any data the notebook expects. If you attached the connections when creating the workbench (see **[Create workbench with connections attached](#create-workbench-with-connections-attached)**), the bucket is already available.                                                                                                                                                                                                                               |
+| **④** | Open the notebook and **run** it cell by cell. Ensure the workbench has access to the same S3 bucket (or the path configured in the notebook) so it can load the `TimeSeriesPredictor` and any data the notebook expects. If you attached the **results** connection when creating the workbench (see **[Create workbench with connections attached](#create-workbench-with-connections-attached)**), that bucket is already available.                                                                                                                                                                                                                               |
 | **⑤** | **Customize** if required: edit the model path or artifact location to point to a specific refitted model (e.g. `WeightedEnsemble_FULL`), add cells for extra visualizations or metrics, change sample data, or adapt the notebook for your own workflows. Save the notebook in the workbench when done.                                                                                                                                                                                                                                                                                                                                                  |
 
 
