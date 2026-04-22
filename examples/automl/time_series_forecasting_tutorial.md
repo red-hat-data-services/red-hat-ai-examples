@@ -18,7 +18,11 @@ This walkthrough covers: creating a project, S3 connections for results and trai
 - [▶️ Run the pipeline with required inputs](#run-the-pipeline-with-required-inputs)
 - [📊 View the leaderboard](#view-the-leaderboard)
 - [📓 Time series predictor notebook](#time-series-predictor-notebook)
-- [📚 Optional: Model Registry and deployment](#optional-model-registry-and-deployment)
+- [📚 Model Registry](#model-registry)
+- [⚙️ Prepare the ServingRuntime for AutoGluon with KServe](#prepare-the-servingruntime-for-autogluon-with-kserve)
+- [🚀 Model Deployment](#model-deployment)
+- [🎯 Deployment Scoring](#deployment-scoring)
+
 
 <a id="use-case-and-dataset"></a>
 
@@ -121,7 +125,7 @@ See [Working with data science pipelines](https://docs.redhat.com/en/documentati
 | Step  | Action                                                                                                                                                                                                                                                                     |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **①** | Obtain a **compiled** pipeline YAML for `autogluon-timeseries-training-pipeline` from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline/pipeline.yaml). |
-| **②** | In Red Hat OpenShift AI, open **Develop & train**, then **Pipelines** for your project.                                                                                                                                                                                        |
+| **②** | In Red Hat OpenShift AI, open **Develop & train**, then **Pipelines** for your project.                                                                                                                                                                                    |
 | **③** | Upload the YAML as a new **Pipeline Definition**, following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines).                                     |
 
 <a id="run-the-pipeline-with-required-inputs"></a>
@@ -131,7 +135,7 @@ See [Working with data science pipelines](https://docs.redhat.com/en/documentati
 
 | Step  | Action                                                                                                                                                                                                      |
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **①** | From **Develop & train** -> **Pipelines**, create a run for the time series pipeline definition.                                                                                                                                   |
+| **①** | From **Develop & train** -> **Pipelines**, create a run for the time series pipeline definition.                                                                                                            |
 | **②** | Set parameters to match your data. See the table below for the **electricity** tutorial file ([electricity_industry_a_forecasting.csv](data/timeseries/input_data/electricity_industry_a_forecasting.csv)). |
 | **③** | Ensure the **Pipeline Server** uses your **results** S3 connection so artifacts are stored correctly.                                                                                                       |
 | **④** | Start the run and wait until it completes.                                                                                                                                                                  |
@@ -182,10 +186,11 @@ In the Pipelines UI, list parameters are often entered as a **JSON array** (e.g.
 
 ## 📊 View the leaderboard
 
-| Step | Action |
-| ---- | ------ |
-| **①** | Open the **completed run** (for example **Develop & train** > **Pipelines** > **Runs**, then select your run). |
-| **②** | In the **pipeline run graph**, click the last node named **`html_artifact`**. |
+
+| Step  | Action                                                                                                                                                                                |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **①** | Open the **completed run** (for example **Develop & train** > **Pipelines** > **Runs**, then select your run).                                                                        |
+| **②** | In the **pipeline run graph**, click the last node named `**html_artifact`**.                                                                                                         |
 | **③** | In the node panel, preview the leaderboard by clicking **Artifact URI** (opens the HTML leaderboard so you can compare top models by the evaluation metric from the selection stage). |
 
 <a id="time-series-predictor-notebook"></a>
@@ -207,27 +212,224 @@ The notebook is saved under `model_artifact/<model_name_FULL>/notebooks`, where 
 | **①** | Once the AutoML run completes, check the [leaderboard](#view-the-leaderboard) to find the S3 storage path for each model's generated notebook in column "Notebook".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **②** | **Download** the notebook to your local machine from the artifact store (S3) if you have access (e.g. via the workbench S3 connection from **[Create workbench with connections attached](#create-workbench-with-connections-attached)**). The notebook is under a path like `...<run_id>/autogluon-timeseries-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb` (see the [autogluon_timeseries_models_full_refit component](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/components/training/automl/autogluon_timeseries_models_full_refit) for the exact layout). |
 | **③** | Open your **workbench** (the notebook environment you created in **[Create workbench with connections attached](#create-workbench-with-connections-attached)**). In JupyterLab, click the **Upload** button (upload icon) in the File Browser sidebar, select the downloaded `.ipynb` file, and upload it. The notebook appears in your workbench file tree.                                                                                                                                                                                                                                                                                              |
-| **④** | Open the notebook and **run** it cell by cell. Ensure the workbench has access to the same S3 bucket (or the path configured in the notebook) so it can load the `TimeSeriesPredictor` and any data the notebook expects. If you attached the **results** connection when creating the workbench (see **[Create workbench with connections attached](#create-workbench-with-connections-attached)**), that bucket is already available.                                                                                                                                                                                                                               |
+| **④** | Open the notebook and **run** it cell by cell. Ensure the workbench has access to the same S3 bucket (or the path configured in the notebook) so it can load the `TimeSeriesPredictor` and any data the notebook expects. If you attached the **results** connection when creating the workbench (see **[Create workbench with connections attached](#create-workbench-with-connections-attached)**), that bucket is already available.                                                                                                                                                                                                                   |
 | **⑤** | **Customize** if required: edit the model path or artifact location to point to a specific refitted model (e.g. `WeightedEnsemble_FULL`), add cells for extra visualizations or metrics, change sample data, or adapt the notebook for your own workflows. Save the notebook in the workbench when done.                                                                                                                                                                                                                                                                                                                                                  |
 
 
 For creating and importing notebooks in the workbench, see [Creating and importing notebooks](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_in_your_data_science_ide/working_in_jupyterlab#creating-and-importing-jupyter-notebooks_ide) in the Red Hat OpenShift AI documentation.
 
+<a id="model-registry"></a>
+
+## 📚 Model Registry
+
+The [autogluon-timeseries-training-pipeline](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline/pipeline.py) does **model selection** and then **full refit** for top models. The pipeline writes artifacts to S3 but does **not** register models automatically. To version and deploy a chosen model, register it manually in **Red Hat OpenShift AI Model Registry**.
+
+The key difference vs tabular is the predictor artifact path. For time series, use a predictor path like:
+`...<run_id>/autogluon-timeseries-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/predictor`
+
+You can get this path directly from the leaderboard HTML: open [View the leaderboard](#view-the-leaderboard), then copy the value from the **Predictor** column for the model you want to register.
 
 
-## 📚 Optional: Model Registry and deployment
+| Step  | Action                                                                                                                                                                                                                                                                                                                            |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **①** | From the OpenShift AI dashboard, go to **AI Hub** -> **Models** -> **Registry** and select your model registry.                                                                                                                                                                                                                   |
+| **②** | Click **Register model**. In the **Register model** dialog, under **Model location**, select **Object storage** (S3-compatible).                                                                                                                                                                                                  |
+| **③** | Enter **Model name** and optional **Description**. Enter **Version name** and set **Source model format** as used in your environment for AutoGluon models.                                                                                                                                                                       |
+| **④** | Enter **Endpoint**, **Bucket**, **Region**, and **Path** to one refitted time-series predictor root (for example, `.../<model_name_FULL>/predictor`). You can use **Autofill from connection** to fill object-storage credentials from your results connection. You can paste the path from the leaderboard **Predictor** column. |
+| **⑤** | Click **Register**. The model appears in Model Registry and is ready for versioning, promotion, and deployment.                                                                                                                                                                                                                   |
 
-The time series pipeline writes **model artifacts** (predictors, metrics, notebooks) to your pipeline artifact store; it does **not** register models automatically. To register a refitted time-series predictor in **Model Registry** or deploy with **KServe**, follow [Working with model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_model_registries/working-with-model-registries_model-registry) and [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user) in the Red Hat OpenShift AI documentation. Use the predictor paths and related files from your `autogluon-timeseries-training-pipeline` refit task outputs as the model source when registering or deploying.
 
-**Serving runtime:** Use the **same AutoGluon KServe Serving Runtime** as for tabular AutoML (same container image and cluster setup). Build the image and create the Serving Runtime as in [Prepare the ServingRuntime for AutoGluon with KServe](churn_prediction_tutorial.md#prepare-the-servingruntime-for-autogluon-with-kserve) in the tabular churn tutorial, then pick that runtime when you **Deploy model**. The difference for time series is the **predictor type** and often the **inference request shape** (for example payloads or flows that match `TimeSeriesPredictor` rather than tabular AutoGluon). Prefer the refit task’s **time series notebook** and [AutoGluon TimeSeries](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) to validate predictions end to end, including **known covariates** at prediction time when the model was trained with `known_covariates_names`.
+For more on registry setup and prerequisites, see [Working with model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_model_registries/working-with-model-registries_model-registry).
+
+<a id="prepare-the-servingruntime-for-autogluon-with-kserve"></a>
+
+## ⚙️ Prepare the ServingRuntime for AutoGluon with KServe
+
+This part is the same as tabular AutoML. Reuse the same runtime and follow the same steps:
+[Prepare the ServingRuntime for AutoGluon with KServe](churn_prediction_tutorial.md#prepare-the-servingruntime-for-autogluon-with-kserve).
+
+<a id="model-deployment"></a>
+
+## 🚀 Model Deployment
+
+After the AutoGluon ServingRuntime is created (see [Prepare the ServingRuntime for AutoGluon with KServe](#prepare-the-servingruntime-for-autogluon-with-kserve)), deploy from the model you registered in [Model Registry](#model-registry):
+
+
+| Step  | Action                                                                                                                                                           |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **①** | From the OpenShift AI dashboard, go to **AI Hub** → **Models** → **Registry** and open the model registry where you registered the model.                        |
+| **②** | Select the model you registered in [Model Registry](#model-registry). Click **Actions** → **Deploy**, then follow the dialog until you reach **Deploy a model**. |
+| **③** | In **Deploy a model**, for **Model type**, choose **Predictive model**. For **Model framework**, choose **autogluon - 1**.                                       |
+| **④** | Under **Deployment resource**, select **AutoGluon ServingRuntime for KServe**.                                                                                   |
+| **⑤** | Set the deployment name, review **Advanced settings** (for example token authentication or an external route), and click **Deploy model**.                       |
+
+
+For full deployment options, see [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user).
+
+
+<a id="deployment-scoring"></a>
+
+## 🎯 Deployment Scoring
+
+After deployment is running, call the inference endpoint from deployment details. Time-series requests can differ from tabular payloads, so validate request shape with the generated predictor notebook and `TimeSeriesPredictor` examples.
+
+Example request (replace placeholders and send a `POST` to the model endpoint):
+
+- `DEPLOYMENT_URL` - inference URL from deployment details (base URL only; the sample appends `/v1/models/<MODEL_NAME>:predict`).
+- `MODEL_NAME` - deployed model resource name.
+- `YOUR_TOKEN` - include only when token authentication is enabled; otherwise remove the `Authorization` header.
+
+```bash
+   curl -X POST \
+   "<DEPLOYMENT_URL>/v1/models/<MODEL_NAME>:predict" \
+   -H "Content-Type: application/json" \
+   -H "Authorization: Bearer <YOUR_TOKEN>" \
+   -d '{
+    "instances": [
+        {
+            "item_id": "industry_a",
+            "timestamp": "2021-08-18",
+            "target": 47.2642021
+        },
+        {
+            "item_id": "industry_a",
+            "timestamp": "2021-08-19",
+            "target": 47.88765448
+        },
+        {
+            "item_id": "industry_a",
+            "timestamp": "2021-08-20",
+            "target": 48.6093501
+        },
+        {
+            "item_id": "industry_a",
+            "timestamp": "2021-08-21",
+            "target": 48.48047505
+        },
+        {
+            "item_id": "industry_a",
+            "timestamp": "2021-08-22",
+            "target": 47.76307524
+        }
+    ]
+   }'
+```
+
+Example response:
+
+```json
+{
+   "predictions":[
+      {
+         "item_id":"industry_a",
+         "timestamp":"2021-08-23T00:00:00",
+         "mean":47.76307524,
+         "0.1":46.993928415183454,
+         "0.2":47.257960723421256,
+         "0.3":47.44834659378267,
+         "0.4":47.61102430019208,
+         "0.5":47.76307524,
+         "0.6":47.91512617980792,
+         "0.7":48.07780388621733,
+         "0.8":48.26818975657874,
+         "0.9":48.532222064816544
+      },
+      {
+         "item_id":"industry_a",
+         "timestamp":"2021-08-24T00:00:00",
+         "mean":47.76307524,
+         "0.1":46.675337368888236,
+         "0.2":47.04873544010281,
+         "0.3":47.31798172005212,
+         "0.4":47.54804273875206,
+         "0.5":47.76307524,
+         "0.6":47.97810774124794,
+         "0.7":48.20816875994788,
+         "0.8":48.47741503989719,
+         "0.9":48.85081311111176
+      },
+      {
+         "item_id":"industry_a",
+         "timestamp":"2021-08-25T00:00:00",
+         "mean":47.76307524,
+         "0.1":46.43087386093746,
+         "0.2":46.888191233645024,
+         "0.3":47.217949234154204,
+         "0.4":47.49971528691408,
+         "0.5":47.76307524,
+         "0.6":48.026435193085916,
+         "0.7":48.308201245845794,
+         "0.8":48.637959246354974,
+         "0.9":49.09527661906254
+      },
+      {
+         "item_id":"industry_a",
+         "timestamp":"2021-08-26T00:00:00",
+         "mean":47.76307524,
+         "0.1":46.2247815903669,
+         "0.2":46.75284620684251,
+         "0.3":47.13361794756533,
+         "0.4":47.45897336038416,
+         "0.5":47.76307524,
+         "0.6":48.06717711961584,
+         "0.7":48.39253253243467,
+         "0.8":48.773304273157486,
+         "0.9":49.301368889633096
+      },
+      {
+         "item_id":"industry_a",
+         "timestamp":"2021-08-27T00:00:00",
+         "mean":47.76307524,
+         "0.1":46.04321065503208,
+         "0.2":46.633604844507985,
+         "0.3":47.059320592591554,
+         "0.4":47.42307900254676,
+         "0.5":47.76307524,
+         "0.6":48.10307147745324,
+         "0.7":48.466829887408444,
+         "0.8":48.89254563549201,
+         "0.9":49.48293982496792
+      },
+      {
+         "item_id":"industry_a",
+         "timestamp":"2021-08-28T00:00:00",
+         "mean":47.76307524,
+         "0.1":45.87905798191762,
+         "0.2":46.52580241270948,
+         "0.3":46.9921506493306,
+         "0.4":47.39062802255995,
+         "0.5":47.76307524,
+         "0.6":48.13552245744005,
+         "0.7":48.533999830669394,
+         "0.8":49.00034806729052,
+         "0.9":49.64709249808238
+      },
+      {
+         "item_id":"industry_a",
+         "timestamp":"2021-08-29T00:00:00",
+         "mean":47.76307524,
+         "0.1":45.72810401984045,
+         "0.2":46.42666784552403,
+         "0.3":46.9303815116409,
+         "0.4":47.360786266654586,
+         "0.5":47.76307524,
+         "0.6":48.16536421334541,
+         "0.7":48.595768968359096,
+         "0.8":49.09948263447597,
+         "0.9":49.79804646015955
+      }
+   ]
+}
+```
+
+- **Notebook source:** use the model-specific notebook from [Time series predictor notebook](#time-series-predictor-notebook).
+- **API/reference:** see [AutoGluon TimeSeries forecasting quickstart](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) and [KServe V1 Protocol](https://kserve.github.io/website/docs/concepts/architecture/data-plane/v1-protocol).
 
 ---
-
-
 
 ## Pipeline reference
 
 - **Branch:** [rhoai-3.4](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4) — [pipelines-components](https://github.com/red-hat-data-services/pipelines-components)
 - **Pipeline:** [autogluon_timeseries_training_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline) (name: `autogluon-timeseries-training-pipeline`)
-- **Stability:** alpha (see upstream README)
+- **Stability:** beta (see upstream README)
 
