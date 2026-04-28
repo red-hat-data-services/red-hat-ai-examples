@@ -257,7 +257,7 @@ spec:
     - v2
   containers:
     - name: kserve-container
-      image: registry.redhat.io/rhoai/odh-kserve-autogluon-server-rhel9@sha256:c63cf0533aad9c50111e3f00261b3315d34cca46d6c0d026a85c3ae44155b511
+      image: registry.redhat.io/rhoai/odh-kserve-autogluon-server-rhel9@sha256:ea631abd80563c786637b7471bce8271c465e08b3b5921d29ad48d00c84215b9
       args:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models
