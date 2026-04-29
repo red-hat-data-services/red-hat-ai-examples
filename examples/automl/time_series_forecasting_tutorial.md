@@ -267,7 +267,7 @@ After the AutoGluon ServingRuntime is created (see [Prepare the ServingRuntime f
 
 > [!warning]
 > **Custom id or timestamp column names**  
-> Inference defaults to JSON keys **`item_id`** and **`timestamp`**. If your training CSV used different **`id_column`** or **`timestamp_column`**, you **must** set **`AUTOGLUON_TS_ID_COLUMN`** and **`AUTOGLUON_TS_TIMESTAMP_COLUMN`** before deploy (**Advanced settings** → **Configuration parameters** → **Add custom runtime environment variables** → **+ Add variable**). Use your pipeline run values (same names as in the dataset):
+> Inference defaults to JSON keys **`item_id`** and **`timestamp`**. If your training CSV used different columns like: **`id_column`** or **`timestamp_column`**, you **must** set **`AUTOGLUON_TS_ID_COLUMN`** and **`AUTOGLUON_TS_TIMESTAMP_COLUMN`** before deploy (**Advanced settings** → **Configuration parameters** → **Add custom runtime environment variables** → **+ Add variable**). Use your pipeline run values (same names as in the dataset):
 >
 > | Role | Default JSON key | Environment variable | Value |
 > | --- | --- | --- | --- |
