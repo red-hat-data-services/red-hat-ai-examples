@@ -261,19 +261,29 @@ After the AutoGluon ServingRuntime is created (see [Prepare the ServingRuntime f
 | **②** | Select the model you registered in [Model Registry](#model-registry). Click **Actions** → **Deploy**, then follow the dialog until you reach **Deploy a model**. |
 | **③** | In **Deploy a model**, for **Model type**, choose **Predictive model**. For **Model framework**, choose **autogluon - 1**.                                       |
 | **④** | Under **Deployment resource**, select **AutoGluon ServingRuntime for KServe**.                                                                                   |
-| **⑤** | Set the deployment name, review **Advanced settings** (for example token authentication or an external route), and click **Deploy model**.                       |
+| **⑤** | Set the deployment name and review **Advanced settings** for options such as token authentication or an external route. |
+| **⑥** | Read the **warning** below: if it applies, add the runtime environment variables under **Advanced settings** before deploying. Then click **Deploy model**. |
 
 
-For full deployment options, see [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user).
+> [!warning]
+> **Custom id or timestamp column names**  
+> Inference defaults to JSON keys **`item_id`** and **`timestamp`**. If your training CSV used different columns like: **`id_column`** or **`timestamp_column`**, you **must** set **`AUTOGLUON_TS_ID_COLUMN`** and **`AUTOGLUON_TS_TIMESTAMP_COLUMN`** before deploy (**Advanced settings** → **Configuration parameters** → **Add custom runtime environment variables** → **+ Add variable**). Use your pipeline run values (same names as in the dataset):
+>
+> | Role | Default JSON key | Environment variable | Value |
+> | --- | --- | --- | --- |
+> | Series id | `item_id` | `AUTOGLUON_TS_ID_COLUMN` | Your `id_column` (e.g. `d_id`) |
+> | Timestamp | `timestamp` | `AUTOGLUON_TS_TIMESTAMP_COLUMN` | Your `timestamp_column` (e.g. `date`) |
+>
+> No env vars are needed if your data already uses `item_id` and `timestamp`.
 
 
 <a id="deployment-scoring"></a>
 
 ## 🎯 Deployment Scoring
 
-After deployment is running, call the inference endpoint from deployment details. Time-series requests can differ from tabular payloads, so validate request shape with the generated predictor notebook and `TimeSeriesPredictor` examples.
+After deployment is running, call the inference endpoint from deployment details. Time-series requests can differ from tabular payloads, so validate request shape with the generated predictor notebook and `TimeSeriesPredictor` examples. If your **`id_column`** or **`timestamp_column`** were not `item_id` / `timestamp`, configure the env vars from [Model Deployment](#model-deployment) (step **⑥**) when you deploy.
 
-Example request (replace placeholders and send a `POST` to the model endpoint):
+Example request for this tutorial (**`item_id`**, **`timestamp`**, **`target`**):
 
 - `DEPLOYMENT_URL` - inference URL from deployment details (base URL only; the sample appends `/v1/models/<MODEL_NAME>:predict`).
 - `MODEL_NAME` - deployed model resource name.
