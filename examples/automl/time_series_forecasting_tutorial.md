@@ -261,8 +261,36 @@ After the AutoGluon ServingRuntime is created (see [Prepare the ServingRuntime f
 | **②** | Select the model you registered in [Model Registry](#model-registry). Click **Actions** → **Deploy**, then follow the dialog until you reach **Deploy a model**. |
 | **③** | In **Deploy a model**, for **Model type**, choose **Predictive model**. For **Model framework**, choose **autogluon - 1**.                                       |
 | **④** | Under **Deployment resource**, select **AutoGluon ServingRuntime for KServe**.                                                                                   |
-| **⑤** | Set the deployment name, review **Advanced settings** (for example token authentication or an external route), and click **Deploy model**.                       |
+| **⑤** | Set the deployment name and review **Advanced settings** for options such as token authentication or an external route. |
+| **⑥** | Read the **warning** below: if it applies, add the runtime environment variables under **Advanced settings** before deploying. Then click **Deploy model**. |
 
+
+> [!warning]
+> **When your dataset columns are not the defaults**  
+> By default, each instance in the inference JSON uses the keys **`item_id`**, **`timestamp`**, and **`target`**—the same layout as this tutorial’s CSV and the [scoring example](#deployment-scoring).  
+> **If your training file used different column names** (whatever you passed as pipeline `id_column`, `timestamp_column`, and `target`), you **must** configure **custom runtime environment variables** before you deploy. Otherwise the runtime will not treat your request fields as the series id, time, and target columns.
+>
+> In **Advanced settings** → **Configuration parameters**, enable **Add custom runtime environment variables**, click **+ Add variable**, and for each row set **Key** to the variable name and **Value** to **exactly** the column name from your dataset (the same names you trained with).
+>
+> | Role | Default key if you skip env vars | Environment variable | Value you set |
+> | --- | --- | --- | --- |
+> | Series id | `item_id` | `AUTOGLUON_TS_ID_COLUMN` | Your `id_column` (e.g. `d_id`) |
+> | Timestamp | `timestamp` | `AUTOGLUON_TS_TIMESTAMP_COLUMN` | Your `timestamp_column` (e.g. `date`) |
+> | Target in each instance | `target`, or as stored in the predictor | `AUTOGLUON_TS_TARGET` | Rarely needed; use only when the server docs apply (predictor without a fixed target name). |
+>
+> After deployment, **send inference requests using those same field names** in each instance—for example `d_id` and `date` if that is what you configured—so requests stay aligned with your data and training. If you use this tutorial’s CSV without renaming columns, you do **not** need these variables.
+
+**Reference — default keys vs env overrides**
+
+![AutoGluon TS default payload keys and environment variables](images/autogluon_ts_payload_default_keys_and_env_vars.png)
+
+**Advanced settings — enable custom variables and add rows**
+
+![Advanced settings — Add custom runtime environment variables](images/model_deployment_advanced_settings_configuration_parameters.png)
+
+**Example — training columns `d_id` and `date`**
+
+![Environment variables mapping id and timestamp columns](images/model_deployment_ts_env_vars_example_d_id_date.png)
 
 For full deployment options, see [Deploying models on the model serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/deploying_models/deploying_models#deploying-models-on-the-model-serving-platform_rhoai-user).
 
@@ -271,9 +299,9 @@ For full deployment options, see [Deploying models on the model serving platform
 
 ## 🎯 Deployment Scoring
 
-After deployment is running, call the inference endpoint from deployment details. Time-series requests can differ from tabular payloads, so validate request shape with the generated predictor notebook and `TimeSeriesPredictor` examples.
+After deployment is running, call the inference endpoint from deployment details. Time-series requests can differ from tabular payloads, so validate request shape with the generated predictor notebook and `TimeSeriesPredictor` examples. If your training data used non-default column names, set the runtime variables described under [Model Deployment](#model-deployment) (step **⑥** and the warning box) **when you deploy**, then use **those same field names** in each instance of your JSON body when scoring.
 
-Example request (replace placeholders and send a `POST` to the model endpoint):
+Example request (defaults **`item_id`**, **`timestamp`**, **`target`** — replace keys if you configured different names via environment variables):
 
 - `DEPLOYMENT_URL` - inference URL from deployment details (base URL only; the sample appends `/v1/models/<MODEL_NAME>:predict`).
 - `MODEL_NAME` - deployed model resource name.
