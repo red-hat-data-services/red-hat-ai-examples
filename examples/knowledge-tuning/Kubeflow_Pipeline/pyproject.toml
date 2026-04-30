@@ -1,7 +1,7 @@
 [project]
 name = "kfp-knowledge-tuning"
 version = "0.1.0"
-description = "Kubeflow pipeline for the instruct lab knowledge tuning workflow"
+description = "Kubeflow pipeline for the Knowledge Tuning workflow"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
