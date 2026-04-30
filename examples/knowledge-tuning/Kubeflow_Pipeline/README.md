@@ -18,7 +18,7 @@ Figure 1. End-to-end workflow overview
 
 ### Pipeline components
 
-The `kubeflow-pipline/components` subfolder has python files for each component in the Knowledge Tuning workflow:
+The `Kubeflow_Pipline/components` subfolder has python files for each component in the Knowledge Tuning workflow:
 
 **Data Processing**
 
@@ -142,7 +142,7 @@ After you compile the pipeline, you can import the YAML file and deploy it in Op
 
 ### Prerequisites
 
-- Make sure that the `nfs-csi` storage class is available on our cluster.
+- Make sure that the `nfs-csi` storage class is available on your cluster.
 
 - For workspace storage, KFP uses the pipeline configuration to automatically create a PVC with the following configuration:
 
