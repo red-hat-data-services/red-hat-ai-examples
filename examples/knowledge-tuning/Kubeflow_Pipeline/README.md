@@ -8,7 +8,6 @@ The Knowledge Tuning example uses notebooks to implement a workflow that process
 
 This Kubeflow Pipelines example converts the steps into KFP (Kubeflow Pipelines) components for production use. The example is structured with independent components at the step level for easier debugging. The example provides defaults for the flows and parameters. Optionally, you can customize the parameter values and the model.
 
-
 ### About the example pipeline workflow
 
 The pipeline follows the Knowledge Tuning example workflow as shown in the following figure:
@@ -17,73 +16,74 @@ Figure 1. End-to-end workflow overview
 
 ![End-to-end workflow overview diagram](../../../assets/usecase/knowledge-tuning/Overall%20Flow.png)
 
-
 ### Pipeline components
 
 The `kubeflow-pipline/components` subfolder has python files for each component in the Knowledge Tuning workflow:
 
 **Data Processing**
 
-  Downloads Docling models (cached) and processes documents from web URLs or local files:
+Downloads Docling models (cached) and processes documents from web URLs or local files:
 
-  - Converts PDF/HTML to Markdown
-  - Chunks documents with configurable token limits
-  - Adds domain-specific context and ICL (In-Context Learning) examples
+- Converts PDF/HTML to Markdown
+- Chunks documents with configurable token limits
+- Adds domain-specific context and ICL (In-Context Learning) examples
 
-  Example python files: `document_processing.py`, `download_docling_models.py`
+Example python files: `document_processing.py`, `download_docling_models.py`
 
-  Source repository:  `opendatahub-io/data-processing`
+Source repository:  `opendatahub-io/data-processing`
 
-  Base image: `quay.io/fabianofranz/docling-ubi9:2.54.0`
+Base image: `quay.io/fabianofranz/docling-ubi9:2.54.0`
 
-  Packages: `torch`, `datasets`, `docling`, `tiktoken`
+Packages: `torch`, `datasets`, `docling`, `tiktoken`
 
 **Knowledge Generation**
 
-  Generates four types of synthetic training data in parallel:
-  - Detailed summaries: Comprehensive summaries with Q&A pairs
-  - Extractive summaries: Direct extracts from documents with Q&A (runs sequentially)
-  - Key facts summary: Focuses on key facts and concepts
-  - Document-based Q&A: Question-answer pairs based on document content
-  Merges all datasets after generation.
+Generates four types of synthetic training data in parallel:
 
-  Example python file: `knowledge_generation.py`
+- Detailed summaries: Comprehensive summaries with Q&A pairs
+- Extractive summaries: Direct extracts from documents with Q&A (runs sequentially)
+- Key facts summary: Focuses on key facts and concepts
+- Document-based Q&A: Question-answer pairs based on document content
 
-  Source repository: `red-hat-data-services/red-hat-ai-examples`
+Merges all datasets after generation.
 
-  Base image: `quay.io/fabianofranz/docling-ubi9:2.54.0`
+Example python file: `knowledge_generation.py`
 
-  Packages: `nest-asyncio`, `sdg-hub`, `datasets`
+Source repository: `red-hat-data-services/red-hat-ai-examples`
+
+Base image: `quay.io/fabianofranz/docling-ubi9:2.54.0`
+
+Packages: `nest-asyncio`, `sdg-hub`, `datasets`
 
 **Knowledge Mixing**
 
-  Processes and combines the generated datasets:
+Processes and combines the generated datasets:
 
-  - Samples Q&A pairs based on configurable cut sizes
-  - Tokenizes content using the student model tokenizer
-  - Validates and filters data
-  - Creates training-ready JSONL files in chat format
-  - Selects the optimal dataset (largest feasible cut size)
+- Samples Q&A pairs based on configurable cut sizes
+- Tokenizes content using the student model tokenizer
+- Validates and filters data
+- Creates training-ready JSONL files in chat format
+- Selects the optimal dataset (largest feasible cut size)
 
-  Example python file: `knowledge_mixing.py`
+Example python file: `knowledge_mixing.py`
 
-  Source repository: Not applicable. This is a custom component.
+Source repository: Not applicable. This is a custom component.
 
-  Base image: `quay.io/opendatahub/odh-training-th04-cpu-torch29-py312-rhel9:cpu-3.3`
+Base image: `quay.io/opendatahub/odh-training-th04-cpu-torch29-py312-rhel9:cpu-3.3`
 
-  Packages: `polars`, `transformers`, `torch`
+Packages: `polars`, `transformers`, `torch`
 
 **Model Fine-tuning**
 
-  Fine-tunes a student model by using the mixed knowledge dataset:
-  - Supervised Fine-Tuning (SFT)
-  - Configurable GPU/memory resources
-  - Multi-epoch training with batch size control
+Fine-tunes a student model by using the mixed knowledge dataset:
 
-  This is a reusable  prebuilt component that is managed by the Kubeflow pipelines team.
+- Supervised Fine-Tuning (SFT)
+- Configurable GPU/memory resources
+- Multi-epoch training with batch size control
 
-  Source repository: `red-hat-data-services/pipelines-components`
+This is a reusable  prebuilt component that is managed by the Kubeflow pipelines team.
 
+Source repository: `red-hat-data-services/pipelines-components`
 
 ## Prepare the example pipeline
 
@@ -95,16 +95,15 @@ The `kubeflow-pipline/components` subfolder has python files for each component 
       ```
       $ git clone https://github.com/red-hat-data-services/red-hat-ai-examples.git
       ```
-
    b. Set your working directory to the `Kubeflow_Pipeline` folder:
 
       ```
       $ cd red-hat-ai-examples/examples/knowledge-tuning/Kubeflow_Pipeline
       ```
-
 2. Set up the Python environment.
 
    Run the following commands to install these required packages:
+
    - kfp==2.15.2
    - kfp-kubernetes>=2.15.2
    - kfp-components @ git+https://github.com/red-hat-data-services/pipelines-components@main
@@ -124,7 +123,6 @@ The `kubeflow-pipline/components` subfolder has python files for each component 
    - Default parameters
 
    See _Customize the pipeline configuration_ for details on the parameter values that you can change.
-
 
 4. Compile the pipeline:
 
@@ -194,33 +192,33 @@ Use the following information to help troubleshoot problems that you might encou
 
 **PVC not created or insufficient storage**
 
-  - **Solution:** Verify that the storage class `nfs-csi` exists and that it supports the `ReadWriteMany` access mode.
+- **Solution:** Verify that the storage class `nfs-csi` exists and that it supports the `ReadWriteMany` access mode.
 
-  - **Alternative:** Modify `PVC_STORAGE_CLASS` in the `pipeline.py` file.
+- **Alternative:** Modify `PVC_STORAGE_CLASS` in the `pipeline.py` file.
 
 **Inference timeouts during knowledge generation**
 
-  - **Solution:** Increase the `inference_timeout` parameter (default: `2500s`) for the Knowledge Generation component.
+- **Solution:** Increase the `inference_timeout` parameter (default: `2500s`) for the Knowledge Generation component.
 
-  - **Alternative:** Reduce the value of the `max_concurrency` parameter to lower the API load.
+- **Alternative:** Reduce the value of the `max_concurrency` parameter to lower the API load.
 
 **Out of memory during training**
 
-  - **Solution:** Increase the value of the `training_resource_memory_per_worker` parameter for the Model Training component.
+- **Solution:** Increase the value of the `training_resource_memory_per_worker` parameter for the Model Training component.
 
-  - **Alternative:** Reduce the value of the `training_effective_batch_size` parameter for the Model Training component.
+- **Alternative:** Reduce the value of the `training_effective_batch_size` parameter for the Model Training component.
 
 **Cut size validation warnings**
 
-  - **Solution:** Reduce the value of the `cut_size` parameter for the Knowledge Mixing component.
+- **Solution:** Reduce the value of the `cut_size` parameter for the Knowledge Mixing component.
 
-  - **Details:** Pipeline validates that sufficient summaries exist per raw document
+- **Details:** Pipeline validates that sufficient summaries exist per raw document
 
 **Missing HuggingFace models**
 
-  - **Solution:** Verify that the `HF_TOKEN` is correct in the `kubernetes-credentials` secret
+- **Solution:** Verify that the `HF_TOKEN` is correct in the `kubernetes-credentials` secret
 
-  - **Alternative:** Use a publicly-accessible model.
+- **Alternative:** Use a publicly-accessible model.
 
 ## Customize the pipeline
 
