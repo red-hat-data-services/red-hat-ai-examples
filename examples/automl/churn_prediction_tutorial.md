@@ -125,10 +125,6 @@ If you run the [optional pipeline flow](#optional-run-automl-via-pipeline-defini
 
 When you follow [Run AutoML with the AutoML UI](#run-automl-with-the-automl-ui), the **leaderboard** (ranked models and metrics) **appears automatically** once your **optimization run** completes successfully—the UI updates when the run reaches **SUCCEEDED**. Stay in **Develop & train** → **AutoML**, open your completed run, and review the leaderboard there; you do not need **Pipelines** → **Runs** on this path.
 
-If you train using a [pipeline definition](#optional-run-automl-via-pipeline-definition) instead, open the leaderboard from the completed pipeline run as described in [View the leaderboard from the pipeline run](#view-the-leaderboard-from-the-pipeline-run).
-
-![Leaderboard from the AutoML UI after the optimization run completes](images/automl_ui_leaderboard_after_run.png)
-
 <a id="predictor-notebook"></a>
 
 ## 📓 Predictor Notebook
