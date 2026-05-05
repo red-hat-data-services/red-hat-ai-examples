@@ -39,7 +39,7 @@ AutoRAG is **pipeline-driven**: you run the **Documents RAG Optimization Pipelin
 - **RAG stack** — A **Llama-stack server** with the RAG stack (chat model, embedding model, vector store such as Milvus) is a prerequisite. See [Llama stack setup](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md) for installation. The pipeline calls this stack for embedding, retrieval, and generation during optimization.
 - **Leaderboard and artifacts** — When the pipeline run completes, you get an HTML leaderboard of RAG patterns ranked by your chosen metric, plus per-pattern artifacts (pattern.json, evaluation_results.json, indexing and inference notebooks) that you can use to deploy or refine your RAG application.
 
-You run the pipeline via the AI Pipelines UI or API; no custom training code is required.
+You can run AutoRAG via the **AutoRAG UI** (streamlined interface) or the **traditional Kubeflow Pipelines UI/API**; no custom training code is required.
 
 ### What AutoRAG supports
 
@@ -50,7 +50,7 @@ AutoRAG is exposed as the **Documents RAG Optimization Pipeline** (Kubeflow Pipe
 | **Documents** | Stored in S3-compatible object storage (via RHOAI Connections). |
 | **Test data** | JSON file in S3 (e.g. `benchmark.json` or `benchmark_data.json`): list of items with `question`, `correct_answers`, and `correct_answer_document_ids` for evaluation. |
 | **RAG stack** | Llama-stack server with RAG stack (chat model, embedding model, vector store e.g. Milvus). See [Llama stack setup](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md). |
-| **Execution** | [Documents RAG Optimization Pipeline](pipelines/pipeline.yaml) via AI Pipelines UI or API. |
+| **Execution** | **AutoRAG UI** (streamlined interface, recommended) or [Documents RAG Optimization Pipeline](pipelines/pipeline.yaml) via Kubeflow Pipelines UI/API. |
 | **What you get** | HTML leaderboard of RAG patterns, RAG pattern artifacts (pattern.json, evaluation results, indexing and inference notebooks). |
 
 ### How it works under the hood
@@ -213,15 +213,29 @@ In each scenario you run the same pipeline; only the document set and test data 
 
 ## Running AutoRAG
 
-You run AutoRAG by **running the Documents RAG Optimization Pipeline**:
+You can run AutoRAG using **two approaches**:
 
-1. Ensure the **Llama-stack RAG stack** is deployed (see [Llama stack setup](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md)) and that you have created a secret (or connection) with `LLAMA_STACK_CLIENT_BASE_URL` and `LLAMA_STACK_CLIENT_API_KEY` for the pipeline to use.
-2. Ensure the **sample documents** from [data/rh_summit_2026/input_data/](data/rh_summit_2026/input_data/) and the **benchmark** file [benchmark_data.json](data/rh_summit_2026/benchmark_data.json) are uploaded to S3 (same bucket, different paths), and that you have an S3 connection for that data plus a Pipeline Server configured with a results connection for artifacts.
-3. Add the **Documents RAG Optimization Pipeline** as a Pipeline Definition (from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline), branch `autox`). You can find it's compiled version [here](pipelines/pipeline.yaml).
+### Option 1: AutoRAG UI (Recommended)
+
+Use the streamlined **AutoRAG UI** in Red Hat OpenShift AI:
+
+1. Ensure the **Llama-stack RAG stack** is deployed (see [Llama stack setup](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md)) and that you have created a connection with `LLAMA_STACK_CLIENT_BASE_URL` and `LLAMA_STACK_CLIENT_API_KEY`.
+2. Ensure the **sample documents** from [data/rh_summit_2026/input_data/](data/rh_summit_2026/input_data/) and the **benchmark** file [benchmark_data.json](data/rh_summit_2026/benchmark_data.json) are uploaded to S3 (same bucket, different paths), and that you have S3 connections configured.
+3. Navigate to **AutoRAG** in the Red Hat OpenShift AI sidebar (under **Models**).
+4. **Create a new AutoRAG optimization run**: configure basic settings (name, description, Llama Stack connection), then set up knowledge base (data connections, vector DB provider, evaluation queries, optimization metric) and model configuration (embedding models, generation models).
+5. **View the results**: Once the run completes, access the leaderboard and RAG pattern artifacts.
+
+### Option 2: KFP Native Pipeline
+
+Use the traditional **Kubeflow Pipelines** approach for advanced use cases or automation:
+
+1. Ensure the **Llama-stack RAG stack** is deployed and you have created a secret (or connection) with `LLAMA_STACK_CLIENT_BASE_URL` and `LLAMA_STACK_CLIENT_API_KEY`.
+2. Ensure the **sample documents** and **benchmark** file are uploaded to S3, and that you have S3 connections configured plus a Pipeline Server configured with a results connection for artifacts.
+3. Add the **Documents RAG Optimization Pipeline** as a Pipeline Definition (from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline), branch `autox`). You can find its compiled version [here](pipelines/pipeline.yaml).
 4. Create a pipeline run and set the required parameters: use the same connection and bucket for test data and input documents (different object keys); Llama-stack secret name; embeddings_models and generation_models lists; optimization_metric.
-5. **View the results** in the run's Artifacts: leaderboard HTML and RAG pattern artifacts (pattern.json, evaluation_results.json, indexing and inference notebooks).
+5. **View the results** in the run's Artifacts: leaderboard HTML and RAG pattern artifacts.
 
-For a step-by-step walkthrough, see the [Tutorial: Ask questions against Red Hat Summit 2026](red_hat_summit_tutorial.md).
+For a detailed step-by-step walkthrough of both approaches, see the [Tutorial: Ask questions against Red Hat Summit 2026](red_hat_summit_tutorial.md).
 
 ## Tutorial: Ask questions against Red Hat Summit 2026
 
