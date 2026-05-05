@@ -5,10 +5,10 @@
 #    embeddings_models: list
 #    generation_models: list
 #    input_data_bucket_name: str
-#    input_data_key: str
+#    input_data_key: str [Default: '']
 #    input_data_secret_name: str
 #    llama_stack_secret_name: str
-#    llama_stack_vector_database_id: str
+#    llama_stack_vector_io_provider_id: str
 #    optimization_max_rag_patterns: int [Default: 8.0]
 #    optimization_metric: str [Default: 'faithfulness']
 #    test_data_bucket_name: str
@@ -30,7 +30,9 @@ components:
           description: S3 (or compatible) bucket containing input data.
           parameterType: STRING
         input_data_path:
+          defaultValue: ''
           description: Path to folder with input documents within the bucket.
+          isOptional: true
           parameterType: STRING
         sampling_enabled:
           defaultValue: true
@@ -76,6 +78,22 @@ components:
         html_artifact:
           artifactType:
             schemaTitle: system.HTML
+            schemaVersion: 0.0.1
+  comp-prepare-responses-api-requests:
+    executorLabel: exec-prepare-responses-api-requests
+    inputDefinitions:
+      artifacts:
+        rag_patterns:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: Local path to the ``rag_patterns`` directory (same layout as
+            ``leaderboard_evaluation``).
+    outputDefinitions:
+      artifacts:
+        responses_api_artifacts:
+          artifactType:
+            schemaTitle: system.Artifact
             schemaVersion: 0.0.1
   comp-rag-templates-optimization:
     executorLabel: exec-rag-templates-optimization
@@ -123,12 +141,13 @@ components:
           isOptional: true
           parameterType: STRING
         input_data_key:
+          defaultValue: ''
           description: A path to documents dir within a bucket used as an input to
             AI4RAG experiment.
           isOptional: true
           parameterType: STRING
-        llama_stack_vector_database_id:
-          description: Vector database identifier as registered in llama-stack.
+        llama_stack_vector_io_provider_id:
+          description: Vector I/O provider identifier as registered in llama-stack.
           isOptional: true
           parameterType: STRING
         optimization_settings:
@@ -136,17 +155,11 @@ components:
           isOptional: true
           parameterType: STRUCT
         test_data_key:
-          description: A path to test data file within a bucket used as an input to
-            AI4RAG experiment.
-          isOptional: true
+          description: Path to the benchmark JSON file in object storage used by generated
+            notebooks.
           parameterType: STRING
     outputDefinitions:
       artifacts:
-        autorag_run_artifact:
-          artifactType:
-            schemaTitle: system.Artifact
-            schemaVersion: 0.0.1
-          description: Run log and experiment status (TODO).
         rag_patterns:
           artifactType:
             schemaTitle: system.Artifact
@@ -246,6 +259,28 @@ components:
           description: 'Input artifact containing
 
             documents_descriptor.json with bucket, prefix, and documents list.'
+      parameters:
+        error_tolerance:
+          description: "Fraction of documents (0.0\u20131.0) allowed to fail without\n\
+            raising an error. None (the default) means zero tolerance \u2014 any failure\n\
+            raises immediately after all documents are processed. 0.1 means up to\n\
+            10 % of documents may fail. Exceeding the threshold raises RuntimeError\n\
+            with a summary of up to 10 failing documents."
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
+        max_extraction_workers:
+          description: 'Number of parallel worker processes used for text
+
+            extraction. Each worker loads a full docling DocumentConverter into memory
+
+            (ONNX models, layout detection, etc.), so this should be kept low to avoid
+
+            out-of-memory issues. Defaults to 4. Set to None to use all available
+            CPU
+
+            cores. Set to 1 to disable parallelism.'
+          isOptional: true
+          parameterType: NUMBER_INTEGER
     outputDefinitions:
       artifacts:
         extracted_text:
@@ -266,7 +301,6 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'boto3'  && \
           \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
@@ -282,7 +316,7 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef documents_discovery(\n    input_data_bucket_name: str,\n    input_data_path:\
-          \ str,\n    test_data: dsl.Input[dsl.Artifact] = None,\n    sampling_enabled:\
+          \ str = \"\",\n    test_data: dsl.Input[dsl.Artifact] = None,\n    sampling_enabled:\
           \ bool = True,\n    sampling_max_size: float = 1,\n    discovered_documents:\
           \ dsl.Output[dsl.Artifact] = None,\n):\n    \"\"\"Documents discovery component.\n\
           \n    Lists available documents from S3, performs sampling if applied and\
@@ -302,50 +336,61 @@ deploymentSpec:
           \    handler = logging.StreamHandler(sys.stdout)\n    logger.addHandler(handler)\n\
           \n    DOCUMENTS_DESCRIPTOR_FILENAME = \"documents_descriptor.json\"\n  \
           \  SUPPORTED_EXTENSIONS = {\".pdf\", \".docx\", \".pptx\", \".md\", \".html\"\
-          , \".txt\"}\n    MAX_SIZE_BYTES = float(inf)\n    if sampling_enabled:\n\
+          , \".txt\"}\n    MAX_SIZE_BYTES = float(inf)\n\n    if sampling_enabled:\n\
           \        MAX_SIZE_BYTES = float(sampling_max_size) * 1024**3\n\n    def\
           \ get_test_data_docs_names() -> list[str]:\n        if test_data is None:\n\
           \            return []\n        with open(test_data.path, \"r\") as f:\n\
           \            benchmark = json.load(f)\n\n        docs_names = []\n     \
           \   for question in benchmark:\n            docs_names.extend(question[\"\
-          correct_answer_document_ids\"])\n\n        return docs_names\n\n    def\
-          \ build_and_write_descriptor():\n        \"\"\"Validate S3 credentials,\
-          \ list objects, sample, and write JSON descriptor.\"\"\"\n        s3_creds\
-          \ = {\n            k: os.environ.get(k)\n            for k in [\"AWS_ACCESS_KEY_ID\"\
-          , \"AWS_SECRET_ACCESS_KEY\", \"AWS_S3_ENDPOINT\", \"AWS_DEFAULT_REGION\"\
-          ]\n        }\n        for k, v in s3_creds.items():\n            if v is\
-          \ None:\n                raise ValueError(\n                    \"%s environment\
-          \ variable not set. Check if kubernetes secret was configured properly\"\
-          \ % k\n                )\n\n        s3_client = boto3.client(\n        \
-          \    \"s3\",\n            endpoint_url=s3_creds[\"AWS_S3_ENDPOINT\"],\n\
-          \            region_name=s3_creds[\"AWS_DEFAULT_REGION\"],\n           \
-          \ aws_access_key_id=s3_creds[\"AWS_ACCESS_KEY_ID\"],\n            aws_secret_access_key=s3_creds[\"\
-          AWS_SECRET_ACCESS_KEY\"],\n        )\n\n        contents = s3_client.list_objects_v2(\n\
-          \            Bucket=input_data_bucket_name,\n            Prefix=input_data_path,\n\
-          \        ).get(\"Contents\", [])\n\n        supported_files = [c for c in\
-          \ contents if c[\"Key\"].endswith(tuple(SUPPORTED_EXTENSIONS))]\n      \
-          \  if not supported_files:\n            raise Exception(\"No supported documents\
-          \ found.\")\n\n        test_data_docs_names = get_test_data_docs_names()\n\
-          \        if test_data_docs_names:\n            supported_files.sort(key=lambda\
-          \ c: c[\"Key\"] not in test_data_docs_names)\n\n        total_size = 0\n\
-          \        selected = []\n        for file in supported_files:\n         \
-          \   if total_size + file[\"Size\"] > MAX_SIZE_BYTES:\n                continue\n\
-          \            selected.append(file)\n            total_size += file[\"Size\"\
-          ]\n\n        documents = []\n        for file_info in selected:\n      \
-          \      key = file_info[\"Key\"]\n            size_bytes = file_info[\"Size\"\
-          ]\n            documents.append(\n                {\n                  \
-          \  \"key\": key,\n                    \"size_bytes\": size_bytes,\n    \
-          \            }\n            )\n\n        descriptor = {\n            \"\
-          bucket\": input_data_bucket_name,\n            \"prefix\": input_data_path,\n\
-          \            \"documents\": documents,\n            \"total_size_bytes\"\
-          : total_size,\n            \"count\": len(documents),\n        }\n\n   \
-          \     logger.info(\"Documents descriptor content %s\", descriptor)\n\n \
-          \       os.makedirs(discovered_documents.path, exist_ok=True)\n        descriptor_path\
-          \ = os.path.join(discovered_documents.path, DOCUMENTS_DESCRIPTOR_FILENAME)\n\
-          \        with open(descriptor_path, \"w\") as f:\n            json.dump(descriptor,\
-          \ f, indent=2)\n\n        logger.info(\"Documents descriptor written to\
-          \ %s\", descriptor_path)\n\n    build_and_write_descriptor()\n\n"
-        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
+          correct_answer_document_ids\"])\n\n        return docs_names\n\n    \"\"\
+          \"Validate S3 credentials, list objects, sample, and write JSON descriptor.\"\
+          \"\"\n    from botocore.exceptions import SSLError\n\n    s3_creds = {\n\
+          \        k: os.environ.get(k)\n        for k in [\"AWS_ACCESS_KEY_ID\",\
+          \ \"AWS_SECRET_ACCESS_KEY\", \"AWS_S3_ENDPOINT\", \"AWS_DEFAULT_REGION\"\
+          ]\n    }\n    for k, v in s3_creds.items():\n        if v is None:\n   \
+          \         raise ValueError(\"%s environment variable not set. Check if kubernetes\
+          \ secret was configured properly\" % k)\n\n    def _make_s3_client(verify=True):\n\
+          \        return boto3.client(\n            \"s3\",\n            endpoint_url=s3_creds[\"\
+          AWS_S3_ENDPOINT\"],\n            region_name=s3_creds[\"AWS_DEFAULT_REGION\"\
+          ],\n            aws_access_key_id=s3_creds[\"AWS_ACCESS_KEY_ID\"],\n   \
+          \         aws_secret_access_key=s3_creds[\"AWS_SECRET_ACCESS_KEY\"],\n \
+          \           verify=verify,\n        )\n\n    try:\n        s3_client = _make_s3_client()\n\
+          \        contents = s3_client.list_objects_v2(\n            Bucket=input_data_bucket_name,\n\
+          \            Prefix=input_data_path,\n        ).get(\"Contents\", [])\n\
+          \    except SSLError:\n        logger.warning(\n            \"SSL error\
+          \ when listing objects in s3://%s/%s, retrying with verify=False\",\n  \
+          \          input_data_bucket_name,\n            input_data_path,\n     \
+          \   )\n        s3_client = _make_s3_client(verify=False)\n        contents\
+          \ = s3_client.list_objects_v2(\n            Bucket=input_data_bucket_name,\n\
+          \            Prefix=input_data_path,\n        ).get(\"Contents\", [])\n\n\
+          \    supported_files = [c for c in contents if c[\"Key\"].endswith(tuple(SUPPORTED_EXTENSIONS))]\n\
+          \    if not supported_files:\n        raise Exception(\"No supported documents\
+          \ found.\")\n\n    test_data_docs_names = get_test_data_docs_names()\n \
+          \   if test_data_docs_names:\n        supported_files.sort(key=lambda c:\
+          \ c[\"Key\"] not in test_data_docs_names)\n\n    total_size = 0\n    selected\
+          \ = []\n    for file in supported_files:\n        if total_size + file[\"\
+          Size\"] > MAX_SIZE_BYTES:\n            continue\n        selected.append(file)\n\
+          \        total_size += file[\"Size\"]\n\n    documents = []\n    for file_info\
+          \ in selected:\n        key = file_info[\"Key\"]\n        size_bytes = file_info[\"\
+          Size\"]\n        documents.append(\n            {\n                \"key\"\
+          : key,\n                \"size_bytes\": size_bytes,\n            }\n   \
+          \     )\n    if not documents:\n        raise ValueError(\n            \"\
+          No documents to process. Check that the bucket/prefix is correct and contains\
+          \ supported files.\"\n        )\n\n    descriptor = {\n        \"bucket\"\
+          : input_data_bucket_name,\n        \"prefix\": input_data_path,\n      \
+          \  \"documents\": documents,\n        \"total_size_bytes\": total_size,\n\
+          \        \"count\": len(documents),\n    }\n\n    logger.info(\"Documents\
+          \ descriptor content %s\", descriptor)\n\n    os.makedirs(discovered_documents.path,\
+          \ exist_ok=True)\n    descriptor_path = os.path.join(discovered_documents.path,\
+          \ DOCUMENTS_DESCRIPTOR_FILENAME)\n    with open(descriptor_path, \"w\")\
+          \ as f:\n        json.dump(descriptor, f, indent=2)\n\n    logger.info(\"\
+          Documents descriptor written to %s\", descriptor_path)\n\n"
+        image: registry.redhat.io/rhoai/odh-autorag-rhel9@sha256:b51e1c7b2b4b857f4f5ea34654b10326196fdd1a0487012a9f7074ef092a63c5
+        resources:
+          cpuRequest: 2.0
+          memoryRequest: 8.589934592
+          resourceCpuRequest: '2'
+          resourceMemoryRequest: 8Gi
     exec-leaderboard-evaluation:
       container:
         args:
@@ -621,7 +666,340 @@ deploymentSpec:
           \    )\n\n    Path(html_artifact.path).parent.mkdir(parents=True, exist_ok=True)\n\
           \    with open(html_artifact.path, \"w\", encoding=\"utf-8\") as f:\n  \
           \      f.write(html_content)\n\n"
-        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
+        image: registry.redhat.io/rhoai/odh-autorag-rhel9@sha256:b51e1c7b2b4b857f4f5ea34654b10326196fdd1a0487012a9f7074ef092a63c5
+        resources:
+          cpuRequest: 1.0
+          memoryRequest: 4.294967296
+          resourceCpuRequest: '1'
+          resourceMemoryRequest: 4Gi
+    exec-prepare-responses-api-requests:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - prepare_responses_api_requests
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef prepare_responses_api_requests(\n    rag_patterns: dsl.InputPath(dsl.Artifact),\n\
+          \    responses_api_artifacts: dsl.Output[dsl.Artifact],\n):\n    \"\"\"\
+          Emit one Llama Stack ``POST /v1/responses`` JSON body per RAG pattern directory.\n\
+          \n    Expects the ``rag_patterns`` layout from ``rag_templates_optimization``:\
+          \ each subdirectory\n    contains ``pattern.json``. For each pattern, writes\
+          \ ``v1_responses_body.json``,\n    ``create_model_response.py``, and ``README.md``\
+          \ (how to run the script) under a matching\n    output subdirectory.\n \
+          \   The helper script embeds the Llama Stack base URL from environment variable\n\
+          \    ``LLAMA_STACK_CLIENT_BASE_URL`` at pipeline run time (default ``http://localhost:8321``\
+          \ if unset);\n    each per-pattern ``README.md`` documents how to run the\
+          \ script and override that URL if needed.\n    The generated ``create_model_response.py``\
+          \ resolves the API key from ``LLAMA_STACK_CLIENT_API_KEY``\n    or ``LLAMA_STACK_API_KEY``\
+          \ (or a one-time prompt), sets ``os.environ`` for the process when you\n\
+          \    type a key at the prompt, then loops on questions until an empty line.\
+          \ No secret file is written.\n    For TLS, the script honors ``REQUESTS_CA_BUNDLE``\
+          \ / ``SSL_CERT_FILE`` for custom CA bundles\n    (e.g. corporate/private\
+          \ PKI), and ``LLAMA_STACK_TLS_INSECURE=1`` as a dev-only opt-out that\n\
+          \    disables certificate verification with a stderr warning.\n\n    Request-body\
+          \ construction is defined inside this function so Kubeflow embeds it in\n\
+          \    ``ephemeral_component.py`` (module-level helpers in this file are not\
+          \ shipped to the executor).\n\n    The generated body matches OpenAI-compatible\
+          \ ``POST /v1/responses`` (see OpenAI's\n    `Migrate to the Responses API\
+          \ <https://developers.openai.com/api/docs/guides/migrate-to-responses>`__\n\
+          \    and Llama Stack's ``POST /v1/responses``): ``model``, ``input``, ``stream``,\
+          \ ``store``,\n    ``metadata`` (string values only), optional ``instructions``,\
+          \ and optional ``tools`` /\n    ``file_search`` when a collection name is\
+          \ set, plus ``tool_choice`` forcing file search\n    and ``include: [\"\
+          file_search_call.results\"]`` to return file-search hits in the response.\n\
+          \    Replace\n    ``vector_store_ids`` with Llama Stack--registered vector\
+          \ store identifiers if your deployment\n    does not use the collection\
+          \ name as the store id.\n\n    Args:\n        rag_patterns: Local path to\
+          \ the ``rag_patterns`` directory (same layout as ``leaderboard_evaluation``).\n\
+          \        responses_api_artifacts: Output directory artifact; mirrors pattern\
+          \ folder names (JSON body,\n            helper script, and README per pattern).\n\
+          \            Request bodies use ``RESPONSES_BODY_DEFAULT_QUESTION`` as the\
+          \ placeholder user message;\n            the interactive script replaces\
+          \ it when you run it locally.\n    \"\"\"\n    import json\n    import os\n\
+          \    from pathlib import Path\n\n    # Fixed placeholder question embedded\
+          \ in generated ``POST /v1/responses`` bodies (overridden at\n    # runtime\
+          \ by ``create_model_response.py`` when the user enters a question).\n  \
+          \  RESPONSES_BODY_DEFAULT_QUESTION = \"What information is available in\
+          \ the indexed knowledge base?\"\n\n    output_filename = \"v1_responses_body.json\"\
+          \n    script_filename = \"create_model_response.py\"\n    readme_filename\
+          \ = \"README.md\"\n    llama_stack_base_url = (\n        (os.environ.get(\"\
+          LLAMA_STACK_CLIENT_BASE_URL\") or \"http://localhost:8321\").strip().rstrip(\"\
+          /\")\n    )\n    grounding_instruction = (\n        \"Use only information\
+          \ found in file_search results. \"\n        'If file_search results are\
+          \ insufficient, reply exactly: \"I cannot answer based on the provided context.\"\
+          '\n    )\n    default_language_instruction = \"Respond in the same language\
+          \ as the user question.\"\n    default_instructions = f\"{grounding_instruction}\
+          \ {default_language_instruction}\"\n\n    def _metadata_string_values(pattern:\
+          \ dict) -> dict[str, str]:\n        \"\"\"Build compact metadata dict with\
+          \ string values only (Llama Stack API constraint).\"\"\"\n        settings\
+          \ = pattern.get(\"settings\") or {}\n        vs = settings.get(\"vector_store\"\
+          ) or {}\n        emb = settings.get(\"embedding\") or {}\n        return\
+          \ {\n            \"rag_pattern_name\": str(pattern.get(\"name\") or \"\"\
+          ),\n            \"rag_pattern_iteration\": str(pattern.get(\"iteration\"\
+          , \"\")),\n            \"vector_datasource_type\": str(vs.get(\"datasource_type\"\
+          ) or \"\"),\n            \"embedding_model_id\": str(emb.get(\"model_id\"\
+          ) or \"\"),\n        }\n\n    def _ranking_options_from_retrieval(retrieval:\
+          \ dict) -> dict | None:\n        \"\"\"Map hybrid retrieval settings to\
+          \ file_search ranking_options when possible.\"\"\"\n        search_mode\
+          \ = str(retrieval.get(\"search_mode\") or \"\").strip().lower()\n      \
+          \  if search_mode and search_mode != \"hybrid\":\n            return None\n\
+          \        ranker = retrieval.get(\"ranker_strategy\")\n        if ranker\
+          \ is None and retrieval.get(\"ranker_alpha\") is None and retrieval.get(\"\
+          ranker_k\") is None:\n            return None\n        out: dict = {}\n\
+          \        if ranker is not None:\n            out[\"ranker\"] = str(ranker)\n\
+          \        if retrieval.get(\"ranker_alpha\") is not None:\n            out[\"\
+          alpha\"] = float(retrieval[\"ranker_alpha\"])\n        if retrieval.get(\"\
+          ranker_k\") is not None:\n            out[\"impact_factor\"] = float(retrieval[\"\
+          ranker_k\"])\n        return out or None\n\n    def _tools_from_pattern(pattern:\
+          \ dict) -> list[dict]:\n        \"\"\"Build Responses API `tools` list;\
+          \ file_search uses vector_store_ids from the pattern collection.\"\"\"\n\
+          \        settings = pattern.get(\"settings\") or {}\n        vs = settings.get(\"\
+          vector_store\") or {}\n        collection = (vs.get(\"collection_name\"\
+          ) or \"\").strip()\n        if not collection:\n            return []\n\
+          \        retrieval = settings.get(\"retrieval\") or {}\n        try:\n \
+          \           max_results = int(retrieval.get(\"number_of_chunks\") or 5)\n\
+          \        except (TypeError, ValueError):\n            max_results = 5\n\
+          \        tool: dict = {\n            \"type\": \"file_search\",\n      \
+          \      \"vector_store_ids\": [collection],\n            \"max_num_results\"\
+          : max_results,\n        }\n        ro = _ranking_options_from_retrieval(retrieval)\
+          \ if isinstance(retrieval, dict) else None\n        if ro:\n           \
+          \ tool[\"ranking_options\"] = ro\n        return [tool]\n\n    def _user_message_placeholder_text()\
+          \ -> str:\n        \"\"\"Placeholder user message in the JSON; interactive\
+          \ script overwrites at runtime.\"\"\"\n        return RESPONSES_BODY_DEFAULT_QUESTION\n\
+          \n    def _language_instruction_from_user_message(user_message_text: object)\
+          \ -> str:\n        \"\"\"Extract language guidance from generation.user_message_text\
+          \ when present.\"\"\"\n        if not isinstance(user_message_text, str):\n\
+          \            return \"\"\n        text = user_message_text.strip()\n   \
+          \     if not text:\n            return \"\"\n        lowered = text.lower()\n\
+          \        if \"language of the question\" in lowered:\n            return\
+          \ default_language_instruction\n        if \"same language\" in lowered\
+          \ and \"question\" in lowered:\n            return default_language_instruction\n\
+          \        return \"\"\n\n    def _normalize_system_message_for_file_search(system_message_text:\
+          \ object) -> str:\n        \"\"\"Rewrite legacy context-section wording\
+          \ into file_search-grounded Responses wording.\"\"\"\n        if not isinstance(system_message_text,\
+          \ str):\n            return \"\"\n        text = system_message_text.strip()\n\
+          \        if not text:\n            return \"\"\n        replacements = {\n\
+          \            \"based solely on the information i provide in the context\
+          \ section\": (\n                \"using only information found in file_search\
+          \ results\"\n            ),\n            \"based on the context provided\
+          \ only\": \"using only information found in file_search results\",\n   \
+          \         \"context section\": \"file_search results\",\n            \"\
+          question section\": \"user question\",\n        }\n        normalized =\
+          \ text\n        lowered = normalized.lower()\n        for source, target\
+          \ in replacements.items():\n            idx = lowered.find(source)\n   \
+          \         if idx >= 0:\n                normalized = normalized[:idx] +\
+          \ target + normalized[idx + len(source) :]\n                lowered = normalized.lower()\n\
+          \        return normalized.strip()\n\n    def _compose_instructions(generation:\
+          \ dict) -> str:\n        \"\"\"Compose Responses API instructions from system/user\
+          \ generation fields.\"\"\"\n        system_text = _normalize_system_message_for_file_search(generation.get(\"\
+          system_message_text\"))\n        language_hint = _language_instruction_from_user_message(generation.get(\"\
+          user_message_text\"))\n        if not system_text:\n            return default_instructions\n\
+          \n        parts = [system_text]\n        lowered = system_text.lower()\n\
+          \        if \"file_search\" not in lowered and \"retriev\" not in lowered:\n\
+          \            parts.append(grounding_instruction)\n        if language_hint:\n\
+          \            if \"same language as the user question\" not in lowered and\
+          \ \"language of the question\" not in lowered:\n                parts.append(language_hint)\n\
+          \        elif \"same language as the user question\" not in lowered and\
+          \ \"language of the question\" not in lowered:\n            parts.append(default_language_instruction)\n\
+          \        return \" \".join(p.strip() for p in parts if p and p.strip())\n\
+          \n    def _build_llama_stack_v1_responses_body(pattern: dict) -> dict:\n\
+          \        \"\"\"Build the JSON object sent as the HTTP body for Llama Stack\
+          \ ``POST /v1/responses``.\"\"\"\n        settings = pattern.get(\"settings\"\
+          ) or {}\n        generation = settings.get(\"generation\") or {}\n     \
+          \   model_id = str(generation.get(\"model_id\") or \"\").strip()\n     \
+          \   instructions = _compose_instructions(generation)\n\n        tools =\
+          \ _tools_from_pattern(pattern)\n        body: dict = {\n            \"model\"\
+          : model_id,\n            \"stream\": False,\n            \"store\": True,\n\
+          \            \"input\": [\n                {\n                    \"type\"\
+          : \"message\",\n                    \"role\": \"user\",\n              \
+          \      \"content\": [\n                        {\n                     \
+          \       \"type\": \"input_text\",\n                            \"text\"\
+          : _user_message_placeholder_text(),\n                        }\n       \
+          \             ],\n                }\n            ],\n            \"metadata\"\
+          : _metadata_string_values(pattern),\n        }\n        body[\"instructions\"\
+          ] = instructions.strip()\n        if tools:\n            body[\"tools\"\
+          ] = tools\n            body[\"tool_choice\"] = {\"type\": \"file_search\"\
+          }\n            body[\"include\"] = [\"file_search_call.results\"]\n    \
+          \    return body\n\n    def _request_script_contents(base_url: str) -> str:\n\
+          \        \"\"\"Build a runnable script that loads local JSON and posts to\
+          \ ``/v1/responses``.\"\"\"\n        return f'''#!/usr/bin/env python3\n\"\
+          \"\"Interactive helper: load v1_responses_body.json and call POST /v1/responses.\"\
+          \"\"\n\nimport copy\nimport json\nimport os\nfrom getpass import getpass\n\
+          from pathlib import Path\nfrom urllib import request\nfrom urllib.error\
+          \ import HTTPError, URLError\nimport ssl\nimport sys\n\n\nLLAMA_STACK_BASE_URL\
+          \ = \"{base_url.rstrip(\"/\")}\"\nBODY_PATH = Path(__file__).with_name(\"\
+          {output_filename}\")\n\n\ndef _set_question(body: dict, question: str) ->\
+          \ None:\n    \"\"\"Replace first user input_text payload with an interactive\
+          \ question.\"\"\"\n    try:\n        body[\"input\"][0][\"content\"][0][\"\
+          text\"] = question\n    except (KeyError, IndexError, TypeError):\n    \
+          \    pass\n\n\ndef _api_key_from_env() -> str:\n    return (\n        os.environ.get(\"\
+          LLAMA_STACK_CLIENT_API_KEY\", \"\").strip()\n        or os.environ.get(\"\
+          LLAMA_STACK_API_KEY\", \"\").strip()\n    )\n\n\ndef _apply_api_key_to_env(key:\
+          \ str) -> None:\n    \"\"\"Store key only in this process environment (for\
+          \ the rest of this run).\"\"\"\n    if not key:\n        return\n    os.environ[\"\
+          LLAMA_STACK_CLIENT_API_KEY\"] = key\n    os.environ[\"LLAMA_STACK_API_KEY\"\
+          ] = key\n\n\ndef _resolve_api_key_once() -> str:\n    \"\"\"Use ``LLAMA_STACK_CLIENT_API_KEY``\
+          \ / ``LLAMA_STACK_API_KEY``, else one interactive prompt.\"\"\"\n    key\
+          \ = _api_key_from_env()\n    if key:\n        return key\n    key = getpass(\"\
+          Llama Stack API key (press Enter if not required): \").strip()\n    if key:\n\
+          \        _apply_api_key_to_env(key)\n    return key\n\n\ndef _build_ssl_context():\n\
+          \    \"\"\"Build an SSLContext honoring corporate CA bundles or a dev-only\
+          \ insecure flag.\n\n    Precedence:\n      1. LLAMA_STACK_TLS_INSECURE=1\
+          \  -> verification disabled (dev only, prints warning)\n      2. REQUESTS_CA_BUNDLE\
+          \          -> custom CA bundle path\n      3. SSL_CERT_FILE            \
+          \   -> custom CA bundle path\n      4. None                        -> stdlib\
+          \ default (system trust store)\n    \"\"\"\n    insecure = os.environ.get(\"\
+          LLAMA_STACK_TLS_INSECURE\", \"\").strip().lower() in (\"1\", \"true\", \"\
+          yes\", \"on\")\n    if insecure:\n        print(\n            \"WARNING:\
+          \ TLS verification is DISABLED (LLAMA_STACK_TLS_INSECURE=1). \"\n      \
+          \      \"Do not use this against production Llama Stack deployments.\",\n\
+          \            file=sys.stderr,\n        )\n        ctx = ssl.create_default_context()\n\
+          \        ctx.check_hostname = False\n        ctx.verify_mode = ssl.CERT_NONE\n\
+          \        return ctx\n    cafile = (\n        os.environ.get(\"REQUESTS_CA_BUNDLE\"\
+          , \"\").strip()\n        or os.environ.get(\"SSL_CERT_FILE\", \"\").strip()\n\
+          \    )\n    if cafile:\n        return ssl.create_default_context(cafile=cafile)\n\
+          \    return None\n\n\ndef _post_responses(body: dict, api_key: str, ssl_context)\
+          \ -> int:\n    url = f\"{{LLAMA_STACK_BASE_URL}}/v1/responses\"\n    headers\
+          \ = {{\n        \"Content-Type\": \"application/json\",\n        \"Accept\"\
+          : \"application/json\",\n    }}\n    if api_key:\n        headers[\"Authorization\"\
+          ] = f\"Bearer {{api_key}}\"\n\n    req = request.Request(\n        url=url,\n\
+          \        data=json.dumps(body).encode(\"utf-8\"),\n        headers=headers,\n\
+          \        method=\"POST\",\n    )\n\n    try:\n        with request.urlopen(req,\
+          \ timeout=120, context=ssl_context) as resp:\n            payload = resp.read().decode(\"\
+          utf-8\")\n            print(payload)\n            return 0\n    except HTTPError\
+          \ as e:\n        print(f\"HTTP {{e.code}}: {{e.reason}}\")\n        detail\
+          \ = e.read().decode(\"utf-8\", errors=\"replace\")\n        if detail:\n\
+          \            print(detail)\n        return 2\n    except URLError as e:\n\
+          \        print(f\"Connection error: {{e}}\")\n        return 3\n\n\ndef\
+          \ main() -> int:\n    if not BODY_PATH.is_file():\n        print(f\"Missing\
+          \ JSON body file: {{BODY_PATH}}\")\n        return 1\n\n    api_key = _resolve_api_key_once()\n\
+          \    ssl_context = _build_ssl_context()\n\n    with BODY_PATH.open(encoding=\"\
+          utf-8\") as f:\n        template = json.load(f)\n\n    print(\"Enter questions;\
+          \ an empty line exits.\")\n    while True:\n        question = input(\"\
+          Question (empty line to exit): \").strip()\n        if not question:\n \
+          \           return 0\n        body = copy.deepcopy(template)\n        _set_question(body,\
+          \ question)\n        rc = _post_responses(body, api_key, ssl_context)\n\
+          \        if rc != 0:\n            return rc\n\n\nif __name__ == \"__main__\"\
+          :\n    raise SystemExit(main())\n'''\n\n    def _pattern_readme_contents(base_url:\
+          \ str) -> str:\n        \"\"\"Short README next to each pattern's JSON and\
+          \ script.\"\"\"\n        url = base_url.rstrip(\"/\")\n        ofn = output_filename\n\
+          \        sfn = script_filename\n        return (\n            f\"# Call\
+          \ Llama Stack ``POST /v1/responses`` for this RAG pattern\\n\\n\"\n    \
+          \        f\"This folder contains:\\n\\n\"\n            f\"- ``{ofn}`` \u2014\
+          \ request body for the OpenAI-compatible Responses API \"\n            f\"\
+          (Llama Stack ``/v1/responses``).\\n\"\n            f\"- ``{sfn}`` \u2014\
+          \ interactive helper that loads the JSON, resolves the API key from \"\n\
+          \            f\"environment variables or one prompt (then sets ``os.environ``\
+          \ for this run only), \"\n            f\"then loops: ask a question, POST,\
+          \ repeat until you enter an empty question.\\n\\n\"\n            \"## Prerequisites\\\
+          n\\n\"\n            \"- Python 3 available on your PATH as ``python3`` \"\
+          \n            \"(or run with your Python interpreter).\\n\"\n          \
+          \  \"- Network reachability to Llama Stack.\\n\"\n            f\"- Keep\
+          \ ``{ofn}`` in the **same directory** as ``{sfn}`` \"\n            \"(the\
+          \ script loads the JSON from alongside itself).\\n\\n\"\n            \"\
+          ## Server URL\\n\\n\"\n            \"The script was generated with:\\n\\\
+          n\"\n            \"```text\\n\"\n            f'LLAMA_STACK_BASE_URL = \"\
+          {url}\"\\n'\n            \"```\\n\\n\"\n            \"That value came from\
+          \ the pipeline run (environment variable \"\n            \"``LLAMA_STACK_CLIENT_BASE_URL``,\
+          \ or ``http://localhost:8321`` if unset). \"\n            f\"To use a different\
+          \ URL, edit ``LLAMA_STACK_BASE_URL`` inside ``{sfn}``, or re-run \"\n  \
+          \          \"the pipeline step with ``LLAMA_STACK_CLIENT_BASE_URL`` set\
+          \ as needed.\\n\\n\"\n            \"## Run\\n\\n\"\n            \"From this\
+          \ directory:\\n\\n\"\n            \"```bash\\n\"\n            f\"python3\
+          \ {sfn}\\n\"\n            \"```\\n\\n\"\n            \"Optional:\\n\\n\"\
+          \n            \"```bash\\n\"\n            f\"chmod +x {sfn}\\n\"\n     \
+          \       f\"./{sfn}\\n\"\n            \"```\\n\\n\"\n            \"Flow:\\\
+          n\\n\"\n            \"1. **API key** \u2014 use ``LLAMA_STACK_CLIENT_API_KEY``\
+          \ or ``LLAMA_STACK_API_KEY`` \"\n            \"(recommended: export in your\
+          \ shell before running). If unset, you are prompted \"\n            \"**once**;\
+          \ a typed key is applied only to this process (``os.environ`` for the rest\
+          \ \"\n            \"of this run). Press Enter if your server needs no bearer\
+          \ token.\\n\"\n            \"2. **Questions** \u2014 repeatedly enter a\
+          \ question; each request uses a fresh copy of \"\n            \"the JSON\
+          \ body. An **empty line** exits.\\n\\n\"\n            \"Each response body\
+          \ is printed to stdout (JSON).\\n\\n\"\n            \"To reuse the same\
+          \ key in a **new** shell session, export \"\n            \"``LLAMA_STACK_CLIENT_API_KEY``\
+          \ (or ``LLAMA_STACK_API_KEY``) again; nothing is \"\n            \"written\
+          \ to disk by this script.\\n\\n\"\n            \"## TLS / certificates\\\
+          n\\n\"\n            \"The script uses Python's standard library (``urllib``\
+          \ + ``ssl``). It honors these \"\n            \"environment variables, in\
+          \ order of precedence:\\n\\n\"\n            \"1. **``LLAMA_STACK_TLS_INSECURE=1``**\
+          \ \u2014 **dev only.** Disables TLS verification \"\n            \"entirely\
+          \ (``check_hostname=False``, ``verify_mode=CERT_NONE``) and prints a warning\
+          \ \"\n            \"to stderr. **Never** use this against a production Llama\
+          \ Stack deployment; it \"\n            \"exposes you to man-in-the-middle\
+          \ attacks.\\n\"\n            \"2. **``REQUESTS_CA_BUNDLE=/path/to/ca-bundle.pem``**\
+          \ \u2014 path to a PEM file containing \"\n            \"the CA(s) that\
+          \ signed your Llama Stack server certificate. Use this when your \"\n  \
+          \          \"deployment is fronted by a private/corporate CA that is not\
+          \ in the OS default trust \"\n            \"store.\\n\"\n            \"\
+          3. **``SSL_CERT_FILE=/path/to/ca-bundle.pem``** \u2014 same effect as \"\
+          \n            \"``REQUESTS_CA_BUNDLE``; honored for compatibility with the\
+          \ Python stdlib \"\n            \"convention.\\n\"\n            \"4. If\
+          \ none of the above are set, the script uses the system trust store.\\n\\\
+          n\"\n            \"Example (private/corporate CA):\\n\\n\"\n           \
+          \ \"```bash\\n\"\n            \"export REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/corporate-ca.pem\\\
+          n\"\n            f\"python3 {sfn}\\n\"\n            \"```\\n\\n\"\n    \
+          \        \"Example (dev cluster with self-signed cert, **non-production**):\\\
+          n\\n\"\n            \"```bash\\n\"\n            \"export LLAMA_STACK_TLS_INSECURE=1\\\
+          n\"\n            f\"python3 {sfn}\\n\"\n            \"```\\n\\n\"\n    \
+          \        \"## Troubleshooting\\n\\n\"\n            f\"- **Missing JSON body\
+          \ file** \u2014 restore ``{ofn}`` next to the script or \"\n           \
+          \ \"re-download the artifact folder.\\n\"\n            \"- **TLS / certificate\
+          \ errors** (e.g. ``CERTIFICATE_VERIFY_FAILED``) \u2014 your Llama \"\n \
+          \           \"Stack server certificate is signed by a CA not in the OS trust\
+          \ store. See the \"\n            \"**TLS / certificates** section above\
+          \ for ``REQUESTS_CA_BUNDLE`` / ``SSL_CERT_FILE`` \"\n            \"and the\
+          \ dev-only ``LLAMA_STACK_TLS_INSECURE`` opt-out.\\n\"\n            \"- **Connection\
+          \ or HTTP errors** \u2014 confirm the base URL, firewall, and that \"\n\
+          \            \"the model and ``file_search`` / vector store identifiers\
+          \ in the JSON match your \"\n            \"deployment.\\n\"\n        )\n\
+          \n    root = Path(rag_patterns)\n    out_root = Path(responses_api_artifacts.path)\n\
+          \    out_root.mkdir(parents=True, exist_ok=True)\n\n    written: list[dict]\
+          \ = []\n    if not root.is_dir():\n        raise FileNotFoundError(f\"rag_patterns\
+          \ path is not a directory: {root}\")\n\n    for sub in sorted(p for p in\
+          \ root.iterdir() if p.is_dir()):\n        pattern_path = sub / \"pattern.json\"\
+          \n        if not pattern_path.is_file():\n            continue\n       \
+          \ with pattern_path.open(encoding=\"utf-8\") as f:\n            pattern\
+          \ = json.load(f)\n        body = _build_llama_stack_v1_responses_body(pattern)\n\
+          \        dest_dir = out_root / sub.name\n        dest_dir.mkdir(parents=True,\
+          \ exist_ok=True)\n        out_file = dest_dir / output_filename\n      \
+          \  with out_file.open(\"w\", encoding=\"utf-8\") as out_f:\n           \
+          \ json.dump(body, out_f, indent=2, ensure_ascii=False)\n        script_file\
+          \ = dest_dir / script_filename\n        script_file.write_text(_request_script_contents(llama_stack_base_url),\
+          \ encoding=\"utf-8\")\n        readme_file = dest_dir / readme_filename\n\
+          \        readme_file.write_text(_pattern_readme_contents(llama_stack_base_url),\
+          \ encoding=\"utf-8\")\n        written.append(\n            {\n        \
+          \        \"pattern_dir\": sub.name,\n                \"body_path\": str(out_file),\n\
+          \                \"script_path\": str(script_file),\n                \"\
+          readme_path\": str(readme_file),\n            }\n        )\n\n    responses_api_artifacts.metadata[\"\
+          name\"] = \"responses_api_artifacts\"\n    responses_api_artifacts.metadata[\"\
+          metadata\"] = {\"patterns\": written}\n\n"
+        image: registry.redhat.io/rhoai/odh-autorag-rhel9@sha256:b51e1c7b2b4b857f4f5ea34654b10326196fdd1a0487012a9f7074ef092a63c5
+        resources:
+          cpuRequest: 0.5
+          memoryRequest: 2.147483648
+          resourceCpuRequest: 500m
+          resourceMemoryRequest: 2Gi
     exec-rag-templates-optimization:
       container:
         args:
@@ -634,11 +1012,9 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'ai4rag==0.5.2'\
-          \ 'pyyaml' 'pysqlite3-binary' 'llama-stack-client' 'openai'  &&  python3\
-          \ -m pip install --quiet --no-warn-script-location 'kfp==2.15.2' '--no-deps'\
-          \ 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\
-          \n"
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
         - sh
         - -ec
         - 'program_path=$(mktemp -d)
@@ -650,7 +1026,7 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\n__KFP_EMBEDDED_ARCHIVE_B64 = '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'\n\
+          \ *\n\n__KFP_EMBEDDED_ARCHIVE_B64 = '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'\n\
           \nimport base64 as __kfp_b64\nimport io as __kfp_io\nimport os as __kfp_os\n\
           import sys as __kfp_sys\nimport tarfile as __kfp_tarfile\nimport tempfile\
           \ as __kfp_tempfile\n\n# Extract embedded archive at import time to ensure\
@@ -665,80 +1041,134 @@ deploymentSpec:
           \n\n\n\ndef rag_templates_optimization(\n    extracted_text: dsl.InputPath(dsl.Artifact),\n\
           \    test_data: dsl.InputPath(dsl.Artifact),\n    search_space_prep_report:\
           \ dsl.InputPath(dsl.Artifact),\n    rag_patterns: dsl.Output[dsl.Artifact],\n\
-          \    autorag_run_artifact: dsl.Output[dsl.Artifact],\n    embedded_artifact:\
-          \ dsl.EmbeddedInput[dsl.Dataset],\n    chat_model_url: Optional[str] = None,\n\
-          \    chat_model_token: Optional[str] = None,\n    embedding_model_url: Optional[str]\
-          \ = None,\n    embedding_model_token: Optional[str] = None,\n    llama_stack_vector_database_id:\
+          \    embedded_artifact: dsl.EmbeddedInput[dsl.Dataset],\n    test_data_key:\
+          \ Optional[str],\n    chat_model_url: Optional[str] = None,\n    chat_model_token:\
+          \ Optional[str] = None,\n    embedding_model_url: Optional[str] = None,\n\
+          \    embedding_model_token: Optional[str] = None,\n    llama_stack_vector_io_provider_id:\
           \ Optional[str] = None,\n    optimization_settings: Optional[dict] = None,\n\
-          \    input_data_key: Optional[str] = None,\n    test_data_key: Optional[str]\
-          \ = None,\n):\n    \"\"\"RAG Templates Optimization component.\n\n    Carries\
-          \ out the iterative RAG optimization process.\n\n    Args:\n        extracted_text:\
-          \ A path pointing to a folder containg extracted texts from input documents.\n\
-          \n        test_data: A path pointing to test data used for evaluating RAG\
-          \ pattern quality.\n\n        search_space_prep_report: A path pointing\
-          \ to a .yml file containig short\n            report on the experiment's\
-          \ first phase (search space preparation).\n\n        rag_patterns: kfp-enforced\
-          \ argument specifying an output artifact. Provided by kfp backend automatically.\n\
-          \n        autorag_run_artifact: kfp-enforced argument specifying an output\
-          \ artifact. Provided by kfp backend atomatically.\n\n        embedded_artifact:\
-          \ kfp-enforced argument to allow access of base64 encoded dir with notebook\
-          \ templates.\n\n        chat_model_url: Inference endpoint URL for the chat/generation\
-          \ model (OpenAI-compatible).\n            Required for in-memory scenario.\n\
-          \n        chat_model_token: Optional API token for the chat model endpoint.\
-          \ Omit if deployment has no auth.\n\n        embedding_model_url: Inference\
-          \ endpoint URL for the embedding model. Required for in-memory scenario.\n\
-          \n        embedding_model_token: Optional API token for the embedding model\
-          \ endpoint. Omit if no auth.\n\n        vector_database: An identificator\
-          \ of the vector store used in the experiment.\n\n        llama_stack_vector_database_id:\
-          \ Vector database identifier as registered in llama-stack.\n\n        optimization_settings:\
-          \ Additional settings customising the experiment.\n\n        input_data_key:\
-          \ A path to documents dir within a bucket used as an input to AI4RAG experiment.\n\
-          \        test_data_key: A path to test data file within a bucket used as\
-          \ an input to AI4RAG experiment.\n\n    Returns:\n        rag_patterns:\
-          \ Folder containing all generated RAG patterns (each subdir: pattern.json,\n\
-          \            indexing_notebook.ipynb, inference_notebook.ipynb).\n     \
-          \   autorag_run_artifact: Run log and experiment status (TODO).\n    \"\"\
-          \"\n    # ChromaDB (via ai4rag) requires sqlite3 >= 3.35; RHEL9 base image\
-          \ has older sqlite.\n    # Patch stdlib sqlite3 with pysqlite3-binary before\
-          \ any ai4rag import.\n    import sys\n\n    try:\n        import pysqlite3\n\
-          \n        sys.modules[\"sqlite3\"] = pysqlite3\n    except ImportError:\n\
-          \        pass\n\n    import os\n    from collections import namedtuple\n\
+          \    input_data_key: Optional[str] = \"\",\n):\n    \"\"\"RAG Templates\
+          \ Optimization component.\n\n    Carries out the iterative RAG optimization\
+          \ process.\n\n    Args:\n        extracted_text: A path pointing to a folder\
+          \ containg extracted texts from input documents.\n\n        test_data: A\
+          \ path pointing to test data used for evaluating RAG pattern quality.\n\n\
+          \        search_space_prep_report: A path pointing to a .yml file containig\
+          \ short\n            report on the experiment's first phase (search space\
+          \ preparation).\n\n        rag_patterns: kfp-enforced argument specifying\
+          \ an output artifact. Provided by kfp backend automatically.\n\n       \
+          \ embedded_artifact: kfp-enforced argument to allow access of base64 encoded\
+          \ dir with notebook templates.\n\n        test_data_key: Path to the benchmark\
+          \ JSON file in object storage used by generated notebooks.\n\n        chat_model_url:\
+          \ Inference endpoint URL for the chat/generation model (OpenAI-compatible).\n\
+          \            Required for in-memory scenario.\n\n        chat_model_token:\
+          \ Optional API token for the chat model endpoint. Omit if deployment has\
+          \ no auth.\n\n        embedding_model_url: Inference endpoint URL for the\
+          \ embedding model. Required for in-memory scenario.\n\n        embedding_model_token:\
+          \ Optional API token for the embedding model endpoint. Omit if no auth.\n\
+          \n        llama_stack_vector_io_provider_id: Vector I/O provider identifier\
+          \ as registered in llama-stack.\n\n        optimization_settings: Additional\
+          \ settings customising the experiment.\n\n        input_data_key: A path\
+          \ to documents dir within a bucket used as an input to AI4RAG experiment.\n\
+          \n    Returns:\n        rag_patterns: Folder containing all generated RAG\
+          \ patterns (each subdir: pattern.json,\n            indexing_notebook.ipynb,\
+          \ inference_notebook.ipynb).\n    \"\"\"\n    # ChromaDB (via ai4rag) requires\
+          \ sqlite3 >= 3.35; RHEL9 base image has older sqlite.\n    # Patch stdlib\
+          \ sqlite3 with pysqlite3-binary before any ai4rag import.\n    import sys\n\
+          \n    try:\n        import pysqlite3\n\n        sys.modules[\"sqlite3\"\
+          ] = pysqlite3\n    except ImportError:\n        pass\n\n    import logging\n\
+          \    import os\n    import ssl\n    from collections import namedtuple\n\
           \    from json import dump as json_dump\n    from json import load as json_load\n\
           \    from pathlib import Path\n    from string import Formatter\n    from\
-          \ typing import Any, Literal, Self\n\n    import pandas as pd\n    import\
-          \ yaml as yml\n    from ai4rag.core.experiment.experiment import AI4RAGExperiment\n\
-          \    from ai4rag.core.experiment.results import ExperimentResults\n    from\
-          \ ai4rag.core.hpo.gam_opt import GAMOptSettings\n    from ai4rag.rag.embedding.base_model\
-          \ import BaseEmbeddingModel\n    from ai4rag.rag.embedding.llama_stack import\
-          \ LSEmbeddingModel\n    from ai4rag.rag.embedding.openai_model import OpenAIEmbeddingModel\n\
-          \    from ai4rag.rag.foundation_models.base_model import BaseFoundationModel\n\
-          \    from ai4rag.rag.foundation_models.llama_stack import LSFoundationModel\n\
+          \ typing import Any, Literal, Self\n\n    import httpx\n    import pandas\
+          \ as pd\n    import yaml as yml\n    from ai4rag.core.experiment.experiment\
+          \ import AI4RAGExperiment\n    from ai4rag.core.experiment.results import\
+          \ ExperimentResults\n    from ai4rag.core.hpo.gam_opt import GAMOptSettings\n\
+          \    from ai4rag.rag.embedding.base_model import BaseEmbeddingModel\n  \
+          \  from ai4rag.rag.embedding.llama_stack import LSEmbeddingModel\n    from\
+          \ ai4rag.rag.embedding.openai_model import OpenAIEmbeddingModel\n    from\
+          \ ai4rag.rag.foundation_models.base_model import BaseFoundationModel\n \
+          \   from ai4rag.rag.foundation_models.llama_stack import LSFoundationModel\n\
           \    from ai4rag.rag.foundation_models.openai_model import OpenAIFoundationModel\n\
           \    from ai4rag.search_space.src.parameter import Parameter\n    from ai4rag.search_space.src.search_space\
           \ import AI4RAGSearchSpace\n    from ai4rag.utils.event_handler.event_handler\
           \ import BaseEventHandler, LogLevel\n    from langchain_core.documents import\
-          \ Document\n    from llama_stack_client import LlamaStackClient\n    from\
-          \ openai import OpenAI\n\n    MAX_NUMBER_OF_RAG_PATTERNS = 8\n    METRIC\
-          \ = \"faithfulness\"\n    SUPPORTED_OPTIMIZATION_METRICS = frozenset({\"\
-          faithfulness\", \"answer_correctness\", \"context_correctness\"})\n\n  \
-          \  class NotebookCell:\n        \"\"\"Represents a single cell in a Jupyter\
-          \ notebook.\n\n        Parameters\n        ----------\n        cell_type\
-          \ : Literal[\"code\", \"markdown\"]\n            The type of cell.\n   \
-          \     source : str | list[str]\n            The cell content. Can be a string\
-          \ or list of strings.\n        metadata : dict, optional\n            Cell\
-          \ metadata.\n        \"\"\"\n\n        def __init__(\n            self,\n\
-          \            cell_type: Literal[\"code\", \"markdown\"],\n            source:\
-          \ str | list[str],\n            metadata: dict | None = None,\n        ):\n\
-          \            self.cell_type = cell_type\n            self.metadata = metadata\
-          \ or {}\n\n            self.source = source\n\n            if cell_type\
-          \ == \"code\":\n                self.execution_count = None\n          \
-          \      self.outputs = []\n\n        def to_dict(self) -> dict:\n       \
-          \     \"\"\"Convert cell to notebook JSON format.\n\n            Returns:\n\
-          \                dict: Cell in notebook format.\n            \"\"\"\n  \
-          \          cell_dict = {\n                \"cell_type\": self.cell_type,\n\
-          \                \"metadata\": self.metadata,\n                \"source\"\
-          : self.source,\n            }\n\n            if self.cell_type == \"code\"\
-          :\n                cell_dict[\"execution_count\"] = self.execution_count\n\
+          \ Document\n    from llama_stack_client import APIConnectionError as LSAPIConnectionError\n\
+          \    from llama_stack_client import LlamaStackClient\n    from openai import\
+          \ APIConnectionError as OAIAPIConnectionError\n    from openai import OpenAI\n\
+          \n    DEFAULT_MAX_NUMBER_OF_RAG_PATTERNS = 8\n    MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE\
+          \ = (4, 20)\n    METRIC = \"faithfulness\"\n    SUPPORTED_OPTIMIZATION_METRICS\
+          \ = frozenset({\"faithfulness\", \"answer_correctness\", \"context_correctness\"\
+          })\n    _ssl_logger = logging.getLogger(__name__)\n\n    def _is_ssl_error(exc:\
+          \ BaseException) -> bool:\n        \"\"\"Check whether an exception (or\
+          \ its cause/context chain) is an SSL verification failure.\"\"\"\n     \
+          \   seen = set()\n        current: BaseException | None = exc\n        while\
+          \ current is not None and id(current) not in seen:\n            seen.add(id(current))\n\
+          \            msg = str(current).upper()\n            if \"CERTIFICATE_VERIFY_FAILED\"\
+          \ in msg or \"SSL\" in msg:\n                return True\n            current\
+          \ = current.__cause__ or current.__context__\n        return False\n\n \
+          \   # Mutable containers so the nested _create_openai_client can update\
+          \ the flags\n    # without requiring `nonlocal` or returning the flag.\n\
+          \    _chat_ssl_verify = [True]\n    _embedding_ssl_verify = [True]\n\n \
+          \   def _create_openai_client(api_key: str, base_url: str, _ssl_verify:\
+          \ list) -> OpenAI:\n        \"\"\"Create OpenAI client, falling back to\
+          \ SSL-unverified if self-signed cert detected.\"\"\"\n        client = OpenAI(api_key=api_key,\
+          \ base_url=base_url)\n        try:\n            client.models.list()\n \
+          \       except (ssl.SSLCertVerificationError, httpx.ConnectError, OAIAPIConnectionError)\
+          \ as exc:\n            if _is_ssl_error(exc):\n                _ssl_logger.warning(\n\
+          \                    \"SSL verification failed for %s \u2014 retrying with\
+          \ verify=False. \",\n                    base_url,\n                )\n\
+          \                client = OpenAI(\n                    api_key=api_key,\n\
+          \                    base_url=base_url,\n                    http_client=httpx.Client(verify=False),\n\
+          \                )\n                _ssl_verify[0] = False\n           \
+          \ else:\n                raise\n        return client\n\n    # Mutable container\
+          \ so the nested _create_llama_stack_client can update the flag\n    # without\
+          \ requiring `nonlocal` or returning the flag.\n    _ls_ssl_verify = [True]\n\
+          \n    def _create_llama_stack_client(**kwargs) -> LlamaStackClient:\n  \
+          \      \"\"\"Create LlamaStackClient, falling back to SSL-unverified if\
+          \ self-signed cert detected.\"\"\"\n        client = LlamaStackClient(**kwargs)\n\
+          \        try:\n            client.models.list()\n        except (ssl.SSLCertVerificationError,\
+          \ httpx.ConnectError, LSAPIConnectionError) as exc:\n            if _is_ssl_error(exc):\n\
+          \                _ssl_logger.warning(\"SSL verification failed for LlamaStackClient\
+          \ \u2014 retrying with verify=False. \")\n                client = LlamaStackClient(\n\
+          \                    **kwargs,\n                    http_client=httpx.Client(verify=False),\n\
+          \                )\n                _ls_ssl_verify[0] = False\n        \
+          \    else:\n                raise\n        return client\n\n    if not isinstance(test_data_key,\
+          \ str) or not test_data_key.strip() or not test_data_key.lower().endswith(\"\
+          .json\"):\n        raise ValueError(\"test_data_path must point to a JSON\
+          \ file\")\n\n    if optimization_settings is not None:\n        if not isinstance(optimization_settings,\
+          \ dict):\n            raise TypeError(\"optimization_settings must be a\
+          \ dictionary.\")\n        max_rag_patterns = optimization_settings.get(\"\
+          max_number_of_rag_patterns\", DEFAULT_MAX_NUMBER_OF_RAG_PATTERNS)\n    \
+          \    if isinstance(max_rag_patterns, str):\n            try:\n         \
+          \       max_rag_patterns = int(max_rag_patterns.strip())\n            except\
+          \ ValueError as exc:\n                raise ValueError(\n              \
+          \      \"optimization_settings.max_number_of_rag_patterns must be a valid\
+          \ integer \"\n                    f\"(e.g. from the pipeline UI); got {max_rag_patterns!r}.\"\
+          \n                ) from exc\n        if not isinstance(max_rag_patterns,\
+          \ int):\n            raise TypeError(\"optimization_settings.max_number_of_rag_patterns\
+          \ must be an integer.\")\n\n        _ssl_logger.info(\"max_number_of_rag_patterns\
+          \ %s\", max_rag_patterns)\n        if not (\n            MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[0]\n\
+          \            <= max_rag_patterns\n            <= MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[1]\n\
+          \        ):\n            raise ValueError(\n                f\"optimization_settings.max_number_of_rag_patterns\
+          \ must be in a range\"\n                f\"{MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[0]}\
+          \ to \"\n                f\"{MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[1]}.\"\
+          \n            )\n\n    class NotebookCell:\n        \"\"\"Represents a single\
+          \ cell in a Jupyter notebook.\n\n        Parameters\n        ----------\n\
+          \        cell_type : Literal[\"code\", \"markdown\"]\n            The type\
+          \ of cell.\n        source : str | list[str]\n            The cell content.\
+          \ Can be a string or list of strings.\n        metadata : dict, optional\n\
+          \            Cell metadata.\n        \"\"\"\n\n        def __init__(\n \
+          \           self,\n            cell_type: Literal[\"code\", \"markdown\"\
+          ],\n            source: str | list[str],\n            metadata: dict | None\
+          \ = None,\n        ):\n            self.cell_type = cell_type\n        \
+          \    self.metadata = metadata or {}\n\n            self.source = source\n\
+          \n            if cell_type == \"code\":\n                self.execution_count\
+          \ = None\n                self.outputs = []\n\n        def to_dict(self)\
+          \ -> dict:\n            \"\"\"Convert cell to notebook JSON format.\n\n\
+          \            Returns:\n                dict: Cell in notebook format.\n\
+          \            \"\"\"\n            cell_dict = {\n                \"cell_type\"\
+          : self.cell_type,\n                \"metadata\": self.metadata,\n      \
+          \          \"source\": self.source,\n            }\n\n            if self.cell_type\
+          \ == \"code\":\n                cell_dict[\"execution_count\"] = self.execution_count\n\
           \                cell_dict[\"outputs\"] = self.outputs\n\n            return\
           \ cell_dict\n\n        def format_source(\n            self,\n         \
           \   placeholders_mapping: dict,\n        ) -> Self:\n            \"\"\"\
@@ -798,8 +1228,8 @@ deploymentSpec:
           \ self\n\n        @classmethod\n        def load(\n            cls,\n  \
           \          notebook_name: Literal[\n                \"ls_indexing_template.ipynb\"\
           ,\n                \"ls_inference_template.ipynb\",\n                \"\
-          chroma_teamplate.ipynb\",\n            ],\n        ) -> \"Notebook\":\n\
-          \            \"\"\"Load a Jupyter notebook from a file.\n\n            Parameters\n\
+          chroma_template.ipynb\",\n            ],\n        ) -> \"Notebook\":\n \
+          \           \"\"\"Load a Jupyter notebook from a file.\n\n            Parameters\n\
           \            ----------\n            path : str | Path\n               \
           \ Input file path to the .ipynb file.\n\n            Returns:\n        \
           \    -------\n            Notebook\n                A new Notebook instance\
@@ -832,61 +1262,77 @@ deploymentSpec:
           \    def create_placeholder_mapping(\n        output_data: dict[str, Any],\n\
           \        test_data_key: str = \"\",\n        input_data_key: str = \"\"\
           ,\n        chat_model_url: str = \"\",\n        embedding_model_url: str\
-          \ = \"\",\n    ) -> dict[str, Any]:\n        \"\"\"Create a mapping from\
-          \ placeholder names to their values from output.json.\n\n        This function\
-          \ extracts values from the output.json structure and creates\n        a\
-          \ flat dictionary suitable for use with NotebookCell.format_source().\n\n\
-          \        Expected output.json structure:\n        {\n            \"config\"\
-          : {\n                \"pattern_name\": \"...\",\n                \"autorag_version\"\
-          : \"...\",\n                \"llama_stack\": {\n                    \"foundation_model\"\
-          : {...},\n                    \"embedding_model\": {...},\n            \
-          \        \"vector_store\": {...},\n                    \"retriever\": {...},\n\
-          \                    \"chunker\": {...}\n                },\n          \
-          \      \"data\": {...}\n            }\n        }\n\n        Args:\n    \
-          \        output_data: The parsed pattern.json data\n            test_data_key:\
+          \ = \"\",\n        ls_ssl_verify: bool = True,\n        chat_ssl_verify:\
+          \ bool = True,\n        embedding_ssl_verify: bool = True,\n    ) -> dict[str,\
+          \ Any]:\n        \"\"\"Create a mapping from placeholder names to their\
+          \ values from output.json.\n\n        This function extracts values from\
+          \ the output.json structure and creates\n        a flat dictionary suitable\
+          \ for use with NotebookCell.format_source().\n\n        Expected output.json\
+          \ structure:\n        {\n            \"config\": {\n                \"pattern_name\"\
+          : \"...\",\n                \"autorag_version\": \"...\",\n            \
+          \    \"llama_stack\": {\n                    \"foundation_model\": {...},\n\
+          \                    \"embedding_model\": {...},\n                    \"\
+          vector_store\": {...},\n                    \"retriever\": {...},\n    \
+          \                \"chunker\": {...}\n                },\n              \
+          \  \"data\": {...}\n            }\n        }\n\n        Args:\n        \
+          \    output_data: The parsed pattern.json data\n            test_data_key:\
           \ Test data key.\n            input_data_key: Input data key.\n        \
           \    chat_model_url: Chat model url.\n            embedding_model_url: Embedding\
-          \ model url.\n\n        Returns:\n            Dictionary mapping placeholder\
-          \ names to their values.\n        \"\"\"\n        mapping = {}\n\n     \
-          \   mapping[\"PATTERN_NAME\"] = output_data.get(\"name\", \"\")\n      \
-          \  settings = output_data.get(\"settings\", {})\n        fm = settings.get(\"\
-          generation\", {})\n        mapping[\"FM_MODEL_ID\"] = fm.get(\"model_id\"\
-          , \"\")\n        mapping[\"SYSTEM_MESSAGE\"] = fm.get(\"system_message_text\"\
-          , \"\")\n        mapping[\"USER_MESSAGE\"] = fm.get(\"user_message_text\"\
-          , \"\")\n        mapping[\"CONTEXT_TEXT\"] = fm.get(\"context_template_text\"\
-          , \"\")\n\n        em = settings.get(\"embedding\", {})\n        mapping[\"\
-          EMBEDDING_MODEL_ID\"] = em.get(\"model_id\", \"\")\n        mapping[\"EMBEDDING_PARAMS\"\
-          ] = em.get(\"embedding_params\", {\"embedding_dimension\": 768})\n     \
-          \   mapping[\"DISTANCE_METRIC\"] = em.get(\"distance_metric\", \"\")\n\n\
-          \        vs = settings.get(\"vector_store\", {})\n        mapping[\"PROVIDER_ID\"\
-          ] = vs.get(\"datasource_type\", \"\")\n        mapping[\"COLLECTION_NAME\"\
-          ] = vs.get(\"collection_name\", \"\")\n\n        ret = settings.get(\"retrieval\"\
-          , {})\n        mapping[\"RETRIEVAL_METHOD\"] = ret.get(\"method\", \"\"\
-          )\n        mapping[\"NUMBER_OF_CHUNKS\"] = ret.get(\"number_of_chunks\"\
-          , 5)\n\n        ch = settings.get(\"chunking\", {})\n        mapping[\"\
-          CHUNKING_METHOD\"] = ch.get(\"method\", \"\")\n        mapping[\"CHUNK_SIZE\"\
-          ] = ch.get(\"chunk_size\", 512)\n        mapping[\"CHUNK_OVERLAP\"] = ch.get(\"\
-          chunk_overlap\", 50)\n\n        mapping[\"TEST_DATA_KEY\"] = test_data_key\n\
-          \        mapping[\"INPUT_DATA_KEY\"] = input_data_key\n\n        mapping[\"\
-          CHAT_MODEL_URL\"] = chat_model_url\n        mapping[\"EMBEDDING_MODEL_URL\"\
-          ] = embedding_model_url\n\n        return mapping\n\n    def generate_notebook_from_templates(\n\
+          \ model url.\n            ls_ssl_verify: Whether LlamaStack SSL verification\
+          \ succeeded.\n            chat_ssl_verify: Whether chat model (OpenAI) SSL\
+          \ verification succeeded.\n            embedding_ssl_verify: Whether embedding\
+          \ model (OpenAI) SSL verification succeeded.\n\n        Returns:\n     \
+          \       Dictionary mapping placeholder names to their values.\n        \"\
+          \"\"\n        mapping = {}\n\n        mapping[\"PATTERN_NAME\"] = output_data.get(\"\
+          name\", \"\")\n        settings = output_data.get(\"settings\", {})\n  \
+          \      fm = settings.get(\"generation\", {})\n        mapping[\"FM_MODEL_ID\"\
+          ] = fm.get(\"model_id\", \"\")\n        mapping[\"SYSTEM_MESSAGE\"] = fm.get(\"\
+          system_message_text\", \"\")\n        mapping[\"USER_MESSAGE\"] = fm.get(\"\
+          user_message_text\", \"\")\n        mapping[\"CONTEXT_TEXT\"] = fm.get(\"\
+          context_template_text\", \"\")\n\n        em = settings.get(\"embedding\"\
+          , {})\n        mapping[\"EMBEDDING_MODEL_ID\"] = em.get(\"model_id\", \"\
+          \")\n        mapping[\"EMBEDDING_PARAMS\"] = em.get(\"embedding_params\"\
+          , {\"embedding_dimension\": 768})\n        mapping[\"DISTANCE_METRIC\"]\
+          \ = em.get(\"distance_metric\", \"\")\n\n        vs = settings.get(\"vector_store\"\
+          , {})\n        mapping[\"PROVIDER_ID\"] = vs.get(\"datasource_type\", \"\
+          \")\n        mapping[\"COLLECTION_NAME\"] = vs.get(\"collection_name\",\
+          \ \"\")\n\n        ret = settings.get(\"retrieval\", {})\n        mapping[\"\
+          RETRIEVAL_METHOD\"] = ret.get(\"method\", \"\")\n        mapping[\"NUMBER_OF_CHUNKS\"\
+          ] = ret.get(\"number_of_chunks\", 5)\n\n        ch = settings.get(\"chunking\"\
+          , {})\n        mapping[\"CHUNKING_METHOD\"] = ch.get(\"method\", \"\")\n\
+          \        mapping[\"CHUNK_SIZE\"] = ch.get(\"chunk_size\", 512)\n       \
+          \ mapping[\"CHUNK_OVERLAP\"] = ch.get(\"chunk_overlap\", 50)\n\n       \
+          \ mapping[\"TEST_DATA_KEY\"] = test_data_key\n        mapping[\"INPUT_DATA_KEY\"\
+          ] = input_data_key\n\n        mapping[\"CHAT_MODEL_URL\"] = chat_model_url\n\
+          \        mapping[\"EMBEDDING_MODEL_URL\"] = embedding_model_url\n      \
+          \  mapping[\"LS_SSL_VERIFY\"] = ls_ssl_verify\n        mapping[\"CHAT_SSL_VERIFY\"\
+          ] = chat_ssl_verify\n        mapping[\"EMBEDDING_SSL_VERIFY\"] = embedding_ssl_verify\n\
+          \n        return mapping\n\n    def generate_notebook_from_templates(\n\
           \        notebook_template: Literal[\n            \"ls_inference\",\n  \
           \          \"ls_indexing\",\n            \"chroma\",\n        ],\n     \
           \   output_data: dict[str, Any],\n        output_notebook_path: Path,\n\
           \        test_data_key: str = \"\",\n        input_data_key: str = \"\"\
-          ,\n    ) -> None:\n        \"\"\"Generate a filled notebook from templates\
-          \ and output.json.\n\n        Args:\n            notebook_template: One\
-          \ of the allowed template names.\n            output_data: The parsed output.json\
-          \ data.\n            output_notebook_path: Path where to save the generated\
-          \ notebook.\n            test_data_key: Path to test data file within bucket\
-          \ used as input to AI4RAG.\n            input_data_key: Path to documents\
-          \ dir within bucket used as input to AI4RAG.\n\n        Returns:\n     \
-          \       None. The notebook is written to output_notebook_path.\n       \
-          \ \"\"\"\n        placeholder_mapping = create_placeholder_mapping(\n  \
-          \          output_data,\n            test_data_key=test_data_key,\n    \
-          \        input_data_key=input_data_key,\n            chat_model_url=chat_model_url,\n\
-          \            embedding_model_url=embedding_model_url,\n        )\n     \
-          \   notebook = Notebook.load(notebook_name=f\"{notebook_template}_template.ipynb\"\
+          ,\n        ls_ssl_verify: bool = True,\n        chat_ssl_verify: bool =\
+          \ True,\n        embedding_ssl_verify: bool = True,\n    ) -> None:\n  \
+          \      \"\"\"Generate a filled notebook from templates and output.json.\n\
+          \n        Args:\n            notebook_template: One of the allowed template\
+          \ names.\n            output_data: The parsed output.json data.\n      \
+          \      output_notebook_path: Path where to save the generated notebook.\n\
+          \            test_data_key: Path to test data file within bucket used as\
+          \ input to AI4RAG.\n            input_data_key: Path to documents dir within\
+          \ bucket used as input to AI4RAG.\n            ls_ssl_verify: Whether LlamaStack\
+          \ SSL verification succeeded; False causes the\n                generated\
+          \ notebook to skip the SSL probe and connect with verify=False directly.\n\
+          \            chat_ssl_verify: Whether chat model (OpenAI) SSL verification\
+          \ succeeded.\n            embedding_ssl_verify: Whether embedding model\
+          \ (OpenAI) SSL verification succeeded.\n\n        Returns:\n           \
+          \ None. The notebook is written to output_notebook_path.\n        \"\"\"\
+          \n        placeholder_mapping = create_placeholder_mapping(\n          \
+          \  output_data,\n            test_data_key=test_data_key,\n            input_data_key=input_data_key,\n\
+          \            chat_model_url=chat_model_url,\n            embedding_model_url=embedding_model_url,\n\
+          \            ls_ssl_verify=ls_ssl_verify,\n            chat_ssl_verify=chat_ssl_verify,\n\
+          \            embedding_ssl_verify=embedding_ssl_verify,\n        )\n   \
+          \     notebook = Notebook.load(notebook_name=f\"{notebook_template}_template.ipynb\"\
           )\n        filled_cells = []\n        for cell in notebook.cells:\n    \
           \        filled_cell = cell.format_source(placeholder_mapping)\n       \
           \     filled_cells.append(filled_cell)\n\n        notebook = Notebook(cells=filled_cells)\n\
@@ -918,17 +1364,25 @@ deploymentSpec:
           \ = False\n    Client = namedtuple(\n        \"Client\",\n        [\"llama_stack\"\
           , \"generation_model\", \"embedding_model\"],\n        defaults=[None, None,\
           \ None],\n    )\n\n    if llama_stack_client_base_url and llama_stack_client_api_key:\n\
-          \        client = Client(llama_stack=LlamaStackClient())\n    else:\n  \
-          \      if not all(\n            (\n                chat_model_url,\n   \
-          \             chat_model_token,\n                embedding_model_url,\n\
-          \                embedding_model_token,\n            )\n        ):\n   \
-          \         raise ValueError(\n                \"All of (`chat_model_url`,\
-          \ `chat_model_token`, `embedding_model_url`, `embedding_model_token`) \"\
-          \n                \"have to be defined when running AutoRAG experiment using\
-          \ an in-memory vector store.\"\n            )\n        client = Client(\n\
-          \            generation_model=OpenAI(api_key=chat_model_token, base_url=chat_model_url),\n\
-          \            embedding_model=OpenAI(api_key=embedding_model_token, base_url=embedding_model_url),\n\
-          \        )\n        in_memory_vector_store_scenario = True\n\n    def construct_model_instance(loader,\
+          \        client = Client(llama_stack=_create_llama_stack_client())\n   \
+          \ else:\n        for name, value in (\n            (\"chat_model_url\",\
+          \ chat_model_url),\n            (\"chat_model_token\", chat_model_token),\n\
+          \            (\"embedding_model_url\", embedding_model_url),\n         \
+          \   (\"embedding_model_token\", embedding_model_token),\n        ):\n  \
+          \          if not value:\n                raise TypeError(f\"{name} must\
+          \ be a non-empty string.\")\n        if not all(\n            (\n      \
+          \          chat_model_url,\n                chat_model_token,\n        \
+          \        embedding_model_url,\n                embedding_model_token,\n\
+          \            )\n        ):\n            raise ValueError(\n            \
+          \    \"All of (`chat_model_url`, `chat_model_token`, `embedding_model_url`,\
+          \ `embedding_model_token`) \"\n                \"have to be defined when\
+          \ running AutoRAG experiment using an in-memory vector store.\"\n      \
+          \      )\n        client = Client(\n            generation_model=_create_openai_client(\n\
+          \                api_key=chat_model_token, base_url=chat_model_url, _ssl_verify=_chat_ssl_verify\n\
+          \            ),\n            embedding_model=_create_openai_client(\n  \
+          \              api_key=embedding_model_token, base_url=embedding_model_url,\
+          \ _ssl_verify=_embedding_ssl_verify\n            ),\n        )\n       \
+          \ in_memory_vector_store_scenario = True\n\n    def construct_model_instance(loader,\
           \ node: yml.MappingNode) -> BaseEmbeddingModel | BaseFoundationModel:\n\
           \        \"\"\"Instructs yml.Loader on how to construct \"!Model\" tag.\"\
           \"\"\n        mapping = loader.construct_mapping(node, deep=True)\n\n  \
@@ -956,15 +1410,29 @@ deploymentSpec:
           \ = AI4RAGSearchSpace(\n        params=[Parameter(param, \"C\", values=values)\
           \ for param, values in search_space.items()]\n    )\n\n    event_handler\
           \ = TmpEventHandler()\n    max_rag_patterns = optimization_settings.get(\"\
-          max_number_of_rag_patterns\", MAX_NUMBER_OF_RAG_PATTERNS)\n    optimizer_settings\
-          \ = GAMOptSettings(max_evals=int(max_rag_patterns))\n\n    benchmark_data\
-          \ = pd.read_json(Path(test_data))\n\n    if not llama_stack_vector_database_id\
-          \ and in_memory_vector_store_scenario:\n        llama_stack_vector_database_id\
-          \ = \"chroma\"\n    elif not llama_stack_vector_database_id:\n        llama_stack_vector_database_id\
-          \ = \"ls_milvus\"\n\n    rag_exp = AI4RAGExperiment(\n        client=None\
-          \ if in_memory_vector_store_scenario else client.llama_stack,\n        event_handler=event_handler,\n\
-          \        optimizer_settings=optimizer_settings,\n        search_space=search_space,\n\
-          \        benchmark_data=benchmark_data,\n        vector_store_type=llama_stack_vector_database_id,\n\
+          max_number_of_rag_patterns\", DEFAULT_MAX_NUMBER_OF_RAG_PATTERNS)\n    if\
+          \ isinstance(max_rag_patterns, str):\n        try:\n            max_rag_patterns\
+          \ = int(max_rag_patterns.strip())\n        except ValueError as exc:\n \
+          \           raise ValueError(\n                \"optimization_settings.max_number_of_rag_patterns\
+          \ must be a valid integer \"\n                f\"(e.g. from the pipeline\
+          \ UI); got {max_rag_patterns!r}.\"\n            ) from exc\n    optimizer_settings\
+          \ = GAMOptSettings(max_evals=max_rag_patterns)\n\n    benchmark_data = pd.read_json(Path(test_data))\n\
+          \n    if not llama_stack_vector_io_provider_id or not llama_stack_vector_io_provider_id.strip():\n\
+          \        if in_memory_vector_store_scenario:\n            llama_stack_vector_io_provider_id\
+          \ = \"chroma\"\n        else:\n            raise ValueError(\n         \
+          \       \"llama_stack_vector_io_provider_id must be provided when using\
+          \ llama-stack vector database.\"\n            )\n\n    # ai4rag expects\
+          \ vector_store_type with an \"ls_\" prefix for llama-stack providers.\n\
+          \    # Users provide the raw llama-stack provider_id (e.g. \"milvus\");\
+          \ the prefix is added here.\n    # If the user already included \"ls_\"\
+          , don't double-prefix.\n    if in_memory_vector_store_scenario:\n      \
+          \  vector_store_type = llama_stack_vector_io_provider_id\n    elif llama_stack_vector_io_provider_id.startswith(\"\
+          ls_\"):\n        vector_store_type = llama_stack_vector_io_provider_id\n\
+          \    else:\n        vector_store_type = f\"ls_{llama_stack_vector_io_provider_id}\"\
+          \n\n    rag_exp = AI4RAGExperiment(\n        client=None if in_memory_vector_store_scenario\
+          \ else client.llama_stack,\n        event_handler=event_handler,\n     \
+          \   optimizer_settings=optimizer_settings,\n        search_space=search_space,\n\
+          \        benchmark_data=benchmark_data,\n        vector_store_type=vector_store_type,\n\
           \        documents=documents,\n        optimization_metric=optimization_metric,\n\
           \        # TODO some necessary kwargs (if any at all)\n    )\n\n    # retrieve\
           \ documents && run optimisation loop\n    rag_exp.search()\n\n    def _evaluation_result_fallback(eval_data_list,\
@@ -1030,13 +1498,13 @@ deploymentSpec:
           \ \"execution_time\", 0) or 0,\n            \"settings\": {\n          \
           \      \"vector_store\": {\n                    \"datasource_type\": idx.get(\"\
           vector_store\", {}).get(\"datasource_type\")\n                    or rp.get(\"\
-          vector_store\", {}).get(\"datasource_type\")\n                    or \"\
-          ls_milvus\",\n                    \"collection_name\": getattr(evaluation_result,\
-          \ \"collection\", \"\") or \"\",\n                },\n                \"\
-          chunking\": {\n                    \"method\": chunking.get(\"method\",\
-          \ \"recursive\"),\n                    \"chunk_size\": chunking.get(\"chunk_size\"\
-          , 2048),\n                    \"chunk_overlap\": chunking.get(\"chunk_overlap\"\
-          , 256),\n                },\n                \"embedding\": {\n        \
+          vector_store\", {}).get(\"datasource_type\")\n                    or vector_store_type,\n\
+          \                    \"collection_name\": getattr(evaluation_result, \"\
+          collection\", \"\") or \"\",\n                },\n                \"chunking\"\
+          : {\n                    \"method\": chunking.get(\"method\", \"recursive\"\
+          ),\n                    \"chunk_size\": chunking.get(\"chunk_size\", 2048),\n\
+          \                    \"chunk_overlap\": chunking.get(\"chunk_overlap\",\
+          \ 256),\n                },\n                \"embedding\": {\n        \
           \            \"model_id\": embedding_model_id or \"\",\n               \
           \     \"distance_metric\": (\n                        embeddings.get(\"\
           distance_metric\", \"cosine\") if isinstance(embeddings, dict) else \"cosine\"\
@@ -1073,25 +1541,27 @@ deploymentSpec:
           metadata\"] = {\"patterns\": []}\n    for i, eval in enumerate(evaluations_list):\n\
           \        patt_dir = rag_patterns_dir / eval.pattern_name\n        patt_dir.mkdir(parents=True,\
           \ exist_ok=True)\n\n        pattern_data = _build_pattern_json(eval, iteration=i,\
-          \ max_combinations=max_combinations)\n        if llama_stack_vector_database_id\
+          \ max_combinations=max_combinations)\n        if llama_stack_vector_io_provider_id\
           \ == \"chroma\":\n            generate_notebook_from_templates(\n      \
           \          \"chroma\",\n                pattern_data,\n                Path(patt_dir,\
           \ \"indexing_and_inference.ipynb\"),\n                input_data_key=input_data_key,\n\
-          \                test_data_key=test_data_key,\n            )\n        else:\n\
-          \            generate_notebook_from_templates(\n                \"ls_indexing\"\
-          ,\n                pattern_data,\n                Path(patt_dir, \"indexing.ipynb\"\
-          ),\n                input_data_key=input_data_key,\n            )\n\n  \
-          \          generate_notebook_from_templates(\n                \"ls_inference\"\
+          \                test_data_key=test_data_key,\n                chat_ssl_verify=_chat_ssl_verify[0],\n\
+          \                embedding_ssl_verify=_embedding_ssl_verify[0],\n      \
+          \      )\n        else:\n            generate_notebook_from_templates(\n\
+          \                \"ls_indexing\",\n                pattern_data,\n     \
+          \           Path(patt_dir, \"indexing.ipynb\"),\n                input_data_key=input_data_key,\n\
+          \                ls_ssl_verify=_ls_ssl_verify[0],\n            )\n\n   \
+          \         generate_notebook_from_templates(\n                \"ls_inference\"\
           ,\n                pattern_data,\n                Path(patt_dir, \"inference.ipynb\"\
-          ),\n                test_data_key=test_data_key,\n            )\n\n    \
-          \    # Flat schema: scores = per-metric aggregates (mean, ci_low, ci_high);\
-          \ final_score\n        pattern_data[\"scores\"] = (getattr(eval, \"scores\"\
-          , None) or {}).get(\"scores\") or {}\n        pattern_data[\"final_score\"\
-          ] = getattr(eval, \"final_score\", None)\n        rag_patterns.metadata[\"\
-          metadata\"][\"patterns\"].append(pattern_data)\n        with (patt_dir /\
-          \ \"pattern.json\").open(\"w+\", encoding=\"utf-8\") as pattern_details:\n\
-          \            json_dump(pattern_data, pattern_details, indent=2)\n\n    \
-          \    eval_data = evaluation_data_list[i] if i < len(evaluation_data_list)\
+          ),\n                test_data_key=test_data_key,\n                ls_ssl_verify=_ls_ssl_verify[0],\n\
+          \            )\n\n        # Flat schema: scores = per-metric aggregates\
+          \ (mean, ci_low, ci_high); final_score\n        pattern_data[\"scores\"\
+          ] = (getattr(eval, \"scores\", None) or {}).get(\"scores\") or {}\n    \
+          \    pattern_data[\"final_score\"] = getattr(eval, \"final_score\", None)\n\
+          \        rag_patterns.metadata[\"metadata\"][\"patterns\"].append(pattern_data)\n\
+          \        with (patt_dir / \"pattern.json\").open(\"w+\", encoding=\"utf-8\"\
+          ) as pattern_details:\n            json_dump(pattern_data, pattern_details,\
+          \ indent=2)\n\n        eval_data = evaluation_data_list[i] if i < len(evaluation_data_list)\
           \ else []\n        try:\n            q_scores = (eval.scores or {}).get(\"\
           question_scores\") or {}\n            if q_scores and all(isinstance(q_scores.get(k),\
           \ dict) for k in q_scores):\n                evaluation_result_list = ExperimentResults.create_evaluation_results_json(eval_data,\
@@ -1101,7 +1571,12 @@ deploymentSpec:
           \ / \"evaluation_results.json\").open(\"w+\", encoding=\"utf-8\") as f:\n\
           \            json_dump(evaluation_result_list, f, indent=2)\n\n    # TODO\
           \ autorag_run_artifact\n\n"
-        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
+        image: registry.redhat.io/rhoai/odh-autorag-rhel9@sha256:b51e1c7b2b4b857f4f5ea34654b10326196fdd1a0487012a9f7074ef092a63c5
+        resources:
+          cpuRequest: 2.0
+          memoryRequest: 8.589934592
+          resourceCpuRequest: '2'
+          resourceMemoryRequest: 8Gi
     exec-search-space-preparation:
       container:
         args:
@@ -1114,10 +1589,9 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'ai4rag==0.5.2'\
-          \ 'pysqlite3-binary' 'openai' 'llama-stack-client'  &&  python3 -m pip install\
-          \ --quiet --no-warn-script-location 'kfp==2.15.2' '--no-deps' 'typing-extensions>=3.7.4,<5;\
-          \ python_version<\"3.9\"' && \"$0\" \"$@\"\n"
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
         - sh
         - -ec
         - 'program_path=$(mktemp -d)
@@ -1162,58 +1636,101 @@ deploymentSpec:
           \ base image has older sqlite.\n    # Patch stdlib sqlite3 with pysqlite3-binary\
           \ before any ai4rag import.\n    import sys\n\n    try:\n        import\
           \ pysqlite3\n\n        sys.modules[\"sqlite3\"] = pysqlite3\n    except\
-          \ ImportError:\n        pass\n\n    import os\n    from collections import\
-          \ namedtuple\n    from dataclasses import fields, is_dataclass\n    from\
-          \ pathlib import Path\n\n    import pandas as pd\n    import yaml as yml\n\
-          \    from ai4rag.core.experiment.benchmark_data import BenchmarkData\n \
-          \   from ai4rag.core.experiment.mps import ModelsPreSelector\n    from ai4rag.rag.embedding.base_model\
-          \ import BaseEmbeddingModel\n    from ai4rag.rag.embedding.openai_model\
-          \ import OpenAIEmbeddingModel\n    from ai4rag.rag.foundation_models.base_model\
-          \ import BaseFoundationModel\n    from ai4rag.rag.foundation_models.openai_model\
-          \ import OpenAIFoundationModel\n    from ai4rag.search_space.prepare.prepare_search_space\
-          \ import (\n        prepare_search_space_with_llama_stack,\n    )\n    from\
-          \ ai4rag.search_space.src.parameter import Parameter\n    from ai4rag.search_space.src.search_space\
-          \ import AI4RAGSearchSpace\n    from langchain_core.documents import Document\n\
+          \ ImportError:\n        pass\n\n    import logging\n    import os\n    import\
+          \ ssl\n    from collections import namedtuple\n    from dataclasses import\
+          \ fields, is_dataclass\n    from pathlib import Path\n\n    import httpx\n\
+          \    import pandas as pd\n    import yaml as yml\n    from ai4rag.core.experiment.benchmark_data\
+          \ import BenchmarkData\n    from ai4rag.core.experiment.mps import ModelsPreSelector\n\
+          \    from ai4rag.rag.embedding.base_model import BaseEmbeddingModel\n  \
+          \  from ai4rag.rag.embedding.openai_model import OpenAIEmbeddingModel\n\
+          \    from ai4rag.rag.foundation_models.base_model import BaseFoundationModel\n\
+          \    from ai4rag.rag.foundation_models.openai_model import OpenAIFoundationModel\n\
+          \    from ai4rag.search_space.prepare.prepare_search_space import (\n  \
+          \      prepare_search_space_with_llama_stack,\n    )\n    from ai4rag.search_space.src.parameter\
+          \ import Parameter\n    from ai4rag.search_space.src.search_space import\
+          \ AI4RAGSearchSpace\n    from langchain_core.documents import Document\n\
+          \    from llama_stack_client import APIConnectionError as LSAPIConnectionError\n\
           \    from llama_stack_client import LlamaStackClient\n    from openai import\
-          \ OpenAI\n\n    TOP_N_GENERATION_MODELS = 3\n    TOP_K_EMBEDDING_MODELS\
+          \ APIConnectionError as OAIAPIConnectionError\n    from openai import OpenAI\n\
+          \n    _ssl_logger = logging.getLogger(__name__)\n\n    def _is_ssl_error(exc:\
+          \ BaseException) -> bool:\n        \"\"\"Check whether an exception (or\
+          \ its cause/context chain) is an SSL verification failure.\"\"\"\n     \
+          \   seen = set()\n        current: BaseException | None = exc\n        while\
+          \ current is not None and id(current) not in seen:\n            seen.add(id(current))\n\
+          \            msg = str(current).upper()\n            if \"CERTIFICATE_VERIFY_FAILED\"\
+          \ in msg or \"SSL\" in msg:\n                return True\n            current\
+          \ = current.__cause__ or current.__context__\n        return False\n\n \
+          \   def _create_openai_client(api_key: str, base_url: str) -> OpenAI:\n\
+          \        \"\"\"Create OpenAI client, falling back to SSL-unverified if self-signed\
+          \ cert detected.\"\"\"\n        client = OpenAI(api_key=api_key, base_url=base_url)\n\
+          \        try:\n            client.models.list()\n        except (ssl.SSLCertVerificationError,\
+          \ httpx.ConnectError, OAIAPIConnectionError) as exc:\n            if _is_ssl_error(exc):\n\
+          \                _ssl_logger.warning(\n                    \"SSL verification\
+          \ failed for %s \u2014 retrying with verify=False. \",\n               \
+          \     base_url,\n                )\n                client = OpenAI(\n \
+          \                   api_key=api_key,\n                    base_url=base_url,\n\
+          \                    http_client=httpx.Client(verify=False),\n         \
+          \       )\n            else:\n                raise\n        return client\n\
+          \n    def _create_llama_stack_client(**kwargs) -> LlamaStackClient:\n  \
+          \      \"\"\"Create LlamaStackClient, falling back to SSL-unverified if\
+          \ self-signed cert detected.\"\"\"\n        client = LlamaStackClient(**kwargs)\n\
+          \        try:\n            client.models.list()\n        except (ssl.SSLCertVerificationError,\
+          \ httpx.ConnectError, LSAPIConnectionError) as exc:\n            if _is_ssl_error(exc):\n\
+          \                _ssl_logger.warning(\"SSL verification failed for LlamaStackClient\
+          \ \u2014 retrying with verify=False. \")\n                client = LlamaStackClient(\n\
+          \                    **kwargs,\n                    http_client=httpx.Client(verify=False),\n\
+          \                )\n            else:\n                raise\n        return\
+          \ client\n\n    TOP_N_GENERATION_MODELS = 3\n    TOP_K_EMBEDDING_MODELS\
           \ = 2\n    METRIC = \"faithfulness\"\n    SAMPLE_SIZE = 5\n    SEED = 17\n\
-          \n    if embedding_model_url and chat_model_url:\n        # Specification\
-          \ of OpenAI API compatibility\n        embedding_model_url += \"/v1\"\n\
-          \        chat_model_url += \"/v1\"\n\n    def _get_model_metadata_from(url:\
-          \ str, token: str) -> dict:\n        \"\"\"Retrieve specified model's metadata\
-          \ from the model's deployment URL.\n\n        Currently the following keys\
-          \ are returned:\n            - id: model's identifier\n            - max_model_len:\
-          \ size of the context window\n\n        Args:\n            url: str\n  \
-          \              Model deployment url.\n\n            token: str\n       \
-          \         Authorization token.\n\n        Returns:\n            Model's\
-          \ metadata as key-value mapping.\n\n        Raises:\n            ValueError\n\
-          \                If model metadata could not be retrieved (for whatever\
-          \ reason).\n        \"\"\"\n        api_client = OpenAI(api_key=token, base_url=url)\n\
-          \        models = api_client.models.list()\n        response = {\"id\":\
-          \ \"\", \"max_model_len\": 0}\n        required_md = {\"id\"}\n\n      \
-          \  if models.data:\n            response[\"id\"] = getattr(models.data[0],\
-          \ \"id\", \"\")\n            response[\"max_model_len\"] = getattr(models.data[0],\
-          \ \"max_model_len\", 0)\n\n        for k in response.keys() & required_md:\n\
-          \            if not response[k]:\n                raise ValueError(\n  \
-          \                  f\"Could not retrieve all the required model metadata\
-          \ from the provided url: ({url}). \"\n                    f\"Please verify\
-          \ all the required data ({required_md}) is defined on \"\n             \
-          \       \"the deployment and can be obtained programmatically.\"\n     \
-          \           )\n\n        return response\n\n    def load_as_langchain_doc(path:\
-          \ str | Path) -> list[Document]:\n        \"\"\"Given path to a text-based\
-          \ file or a folder thereof load everything to memory.\n\n        Args:\n\
-          \            path: str | Path\n                A local path to either a\
-          \ text file or a folder of text files.\n\n        Returns\":\n\n       \
-          \ list[Document]\n            A list of langchain `Document` objects.\n\
-          \        \"\"\"\n        if isinstance(path, str):\n            path = Path(path)\n\
-          \n        documents = []\n        if path.is_dir():\n            for doc_path\
-          \ in path.iterdir():\n                with doc_path.open(\"r\", encoding=\"\
-          utf-8\") as doc:\n                    documents.append(\n              \
-          \          Document(\n                            page_content=doc.read(),\n\
-          \                            metadata={\"document_id\": doc_path.stem},\n\
-          \                        )\n                    )\n\n        elif path.is_file():\n\
-          \            with path.open(\"r\", encoding=\"utf-8\") as doc:\n       \
-          \         documents.append(Document(page_content=doc.read(), metadata={\"\
+          \n    supported_metrics = [\"faithfulness\", \"answer_correctness\", \"\
+          context_correctness\"]\n\n    if embeddings_models:\n        if not isinstance(embeddings_models,\
+          \ list):\n            raise TypeError(\"embeddings_models must be a list.\"\
+          )\n        for i, m in enumerate(embeddings_models):\n            if not\
+          \ m:\n                raise TypeError(f\"embeddings_models[{i}] must be\
+          \ a non-empty string.\")\n\n    if generation_models:\n        if not isinstance(generation_models,\
+          \ list):\n            raise TypeError(\"generation_models must be a list.\"\
+          )\n        for i, m in enumerate(generation_models):\n            if not\
+          \ m:\n                raise TypeError(f\"generation_models[{i}] must be\
+          \ a non-empty string.\")\n\n    if metric and metric not in supported_metrics:\n\
+          \        raise ValueError(f\"Metric {metric} is not supported. Supported\
+          \ metrics are {supported_metrics}.\")\n\n    if embedding_model_url and\
+          \ chat_model_url:\n        # Specification of OpenAI API compatibility\n\
+          \        embedding_model_url += \"/v1\"\n        chat_model_url += \"/v1\"\
+          \n\n    def _get_model_metadata_from(url: str, token: str) -> dict:\n  \
+          \      \"\"\"Retrieve specified model's metadata from the model's deployment\
+          \ URL.\n\n        Currently the following keys are returned:\n         \
+          \   - id: model's identifier\n            - max_model_len: size of the context\
+          \ window\n\n        Args:\n            url: str\n                Model deployment\
+          \ url.\n\n            token: str\n                Authorization token.\n\
+          \n        Returns:\n            Model's metadata as key-value mapping.\n\
+          \n        Raises:\n            ValueError\n                If model metadata\
+          \ could not be retrieved (for whatever reason).\n        \"\"\"\n      \
+          \  api_client = _create_openai_client(api_key=token, base_url=url)\n   \
+          \     models = api_client.models.list()\n        response = {\"id\": \"\"\
+          , \"max_model_len\": 0}\n        required_md = {\"id\"}\n\n        if models.data:\n\
+          \            response[\"id\"] = getattr(models.data[0], \"id\", \"\")\n\
+          \            response[\"max_model_len\"] = getattr(models.data[0], \"max_model_len\"\
+          , 0)\n\n        for k in response.keys() & required_md:\n            if\
+          \ not response[k]:\n                raise ValueError(\n                \
+          \    f\"Could not retrieve all the required model metadata from the provided\
+          \ url: ({url}). \"\n                    f\"Please verify all the required\
+          \ data ({required_md}) is defined on \"\n                    \"the deployment\
+          \ and can be obtained programmatically.\"\n                )\n\n       \
+          \ return response\n\n    def load_as_langchain_doc(path: str | Path) ->\
+          \ list[Document]:\n        \"\"\"Given path to a text-based file or a folder\
+          \ thereof load everything to memory.\n\n        Args:\n            path:\
+          \ str | Path\n                A local path to either a text file or a folder\
+          \ of text files.\n\n        Returns\":\n\n        list[Document]\n     \
+          \       A list of langchain `Document` objects.\n        \"\"\"\n      \
+          \  if isinstance(path, str):\n            path = Path(path)\n\n        documents\
+          \ = []\n        if path.is_dir():\n            for doc_path in path.iterdir():\n\
+          \                with doc_path.open(\"r\", encoding=\"utf-8\") as doc:\n\
+          \                    documents.append(\n                        Document(\n\
+          \                            page_content=doc.read(),\n                \
+          \            metadata={\"document_id\": doc_path.stem},\n              \
+          \          )\n                    )\n\n        elif path.is_file():\n  \
+          \          with path.open(\"r\", encoding=\"utf-8\") as doc:\n         \
+          \       documents.append(Document(page_content=doc.read(), metadata={\"\
           document_id\": path.stem}))\n\n        return documents\n\n    def prepare_ai4rag_search_space()\
           \ -> AI4RAGSearchSpace:\n        \"\"\"Prepares search space for AI4RAG\
           \ experiment.\n\n        Returns:\n            AI4RAGSearchSpace\n     \
@@ -1263,20 +1780,20 @@ deploymentSpec:
           \ = False\n    Client = namedtuple(\n        \"Client\",\n        [\"llama_stack\"\
           , \"generation_model\", \"embedding_model\"],\n        defaults=[None, None,\
           \ None],\n    )\n\n    if llama_stack_client_base_url and llama_stack_client_api_key:\n\
-          \        client = Client(llama_stack=LlamaStackClient())\n    else:\n  \
-          \      if not all(\n            (\n                chat_model_url,\n   \
-          \             chat_model_token,\n                embedding_model_url,\n\
+          \        client = Client(llama_stack=_create_llama_stack_client())\n   \
+          \ else:\n        if not all(\n            (\n                chat_model_url,\n\
+          \                chat_model_token,\n                embedding_model_url,\n\
           \                embedding_model_token,\n            )\n        ):\n   \
           \         raise ValueError(\n                \"All of (`chat_model_url`,\
           \ `chat_model_token`, `embedding_model_url`, `embedding_model_token`) \"\
           \n                \"have to be defined when running AutoRAG experiment on\
           \ an in-memory vector store.\"\n            )\n        client = Client(\n\
-          \            generation_model=OpenAI(api_key=chat_model_token, base_url=chat_model_url),\n\
-          \            embedding_model=OpenAI(api_key=embedding_model_token, base_url=embedding_model_url),\n\
-          \        )\n        in_memory_vector_store_scenario = True\n\n    search_space\
-          \ = prepare_ai4rag_search_space()\n\n    benchmark_data = BenchmarkData(pd.read_json(Path(test_data.path)))\n\
-          \    documents = load_as_langchain_doc(extracted_text.path)\n\n    if (\n\
-          \        len(search_space[\"foundation_model\"].values) > TOP_K_EMBEDDING_MODELS\n\
+          \            generation_model=_create_openai_client(api_key=chat_model_token,\
+          \ base_url=chat_model_url),\n            embedding_model=_create_openai_client(api_key=embedding_model_token,\
+          \ base_url=embedding_model_url),\n        )\n        in_memory_vector_store_scenario\
+          \ = True\n\n    search_space = prepare_ai4rag_search_space()\n\n    benchmark_data\
+          \ = BenchmarkData(pd.read_json(Path(test_data.path)))\n    documents = load_as_langchain_doc(extracted_text.path)\n\
+          \n    if (\n        len(search_space[\"foundation_model\"].values) > TOP_K_EMBEDDING_MODELS\n\
           \        or len(search_space[\"embedding_model\"].values) > TOP_N_GENERATION_MODELS\n\
           \    ):\n        mps = ModelsPreSelector(\n            benchmark_data=benchmark_data.get_random_sample(n_records=SAMPLE_SIZE,\
           \ random_seed=SEED),\n            documents=documents,\n            foundation_models=search_space._search_space[\"\
@@ -1294,7 +1811,12 @@ deploymentSpec:
           \ |= selected_models_names\n\n    with open(search_space_prep_report.path,\
           \ \"w\") as report_file:\n        yml.safe_dump(verbose_search_space_repr,\
           \ report_file)\n\n"
-        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
+        image: registry.redhat.io/rhoai/odh-autorag-rhel9@sha256:b51e1c7b2b4b857f4f5ea34654b10326196fdd1a0487012a9f7074ef092a63c5
+        resources:
+          cpuRequest: 2.0
+          memoryRequest: 8.589934592
+          resourceCpuRequest: '2'
+          resourceMemoryRequest: 8Gi
     exec-test-data-loader:
       container:
         args:
@@ -1307,7 +1829,6 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'boto3'  && \
           \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
@@ -1336,41 +1857,56 @@ deploymentSpec:
           \ AWS_SECRET_ACCESS_KEY, AWS_S3_ENDPOINT, AWS_DEFAULT_REGION.\n\n    Raises:\n\
           \        ValueError: If S3 credentials are missing or misconfigured.\n \
           \       Exception: If the download fails or the path is not a JSON file.\n\
-          \    \"\"\"\n    import logging\n    import os\n    import sys\n\n    import\
-          \ boto3\n    from botocore.exceptions import ClientError\n\n    logger =\
-          \ logging.getLogger(\"Test Data Loader component logger\")\n    logger.setLevel(logging.INFO)\n\
-          \    if not logger.handlers:\n        handler = logging.StreamHandler(sys.stdout)\n\
-          \        logger.addHandler(handler)\n\n    def get_test_data_s3():\n   \
-          \     \"\"\"Validate S3 credentials and download the JSON test data file.\"\
-          \"\"\n        s3_creds = {\n            k: os.environ.get(k)\n         \
-          \   for k in [\"AWS_ACCESS_KEY_ID\", \"AWS_SECRET_ACCESS_KEY\", \"AWS_S3_ENDPOINT\"\
+          \    \"\"\"\n    import json\n    import logging\n    import os\n    import\
+          \ sys\n\n    import boto3\n    from botocore.exceptions import ClientError,\
+          \ SSLError\n\n    logger = logging.getLogger(\"Test Data Loader component\
+          \ logger\")\n    logger.setLevel(logging.INFO)\n    if not logger.handlers:\n\
+          \        handler = logging.StreamHandler(sys.stdout)\n        logger.addHandler(handler)\n\
+          \n    if not test_data_bucket_name:\n        raise TypeError(\"test_data_bucket_name\
+          \ must be a non-empty string\")\n\n    def get_test_data_s3():\n       \
+          \ \"\"\"Validate S3 credentials and download the JSON test data file.\"\"\
+          \"\n\n        class TestDataLoaderException(Exception):\n            pass\n\
+          \n        s3_creds = {\n            k: os.environ.get(k)\n            for\
+          \ k in [\"AWS_ACCESS_KEY_ID\", \"AWS_SECRET_ACCESS_KEY\", \"AWS_S3_ENDPOINT\"\
           , \"AWS_DEFAULT_REGION\"]\n        }\n        for k, v in s3_creds.items():\n\
           \            if v is None:\n                raise ValueError(\n        \
           \            \"%s environment variable not set. Check if kubernetes secret\
-          \ was configured properly\" % k\n                )\n\n        s3_client\
-          \ = boto3.client(\n            \"s3\",\n            endpoint_url=s3_creds[\"\
-          AWS_S3_ENDPOINT\"],\n            region_name=s3_creds[\"AWS_DEFAULT_REGION\"\
-          ],\n            aws_access_key_id=s3_creds[\"AWS_ACCESS_KEY_ID\"],\n   \
-          \         aws_secret_access_key=s3_creds[\"AWS_SECRET_ACCESS_KEY\"],\n \
-          \       )\n\n        if test_data_path.endswith(\".json\"):\n          \
-          \  logger.info(f\"Fetching test data from S3: bucket={test_data_bucket_name},\
-          \ path={test_data_path}\")\n            try:\n                logger.info(f\"\
-          Starting download to {test_data.path}\")\n                s3_client.download_file(test_data_bucket_name,\
-          \ test_data_path, test_data.path)\n                logger.info(\"Download\
-          \ completed successfully\")\n            except ClientError as e:\n    \
-          \            if e.response.get(\"Error\", {}).get(\"Code\") in (\"404\"\
-          , \"NoSuchKey\"):\n                    raise FileNotFoundError(\n      \
-          \                  \"Test data object not found in S3. bucket=%r, key=%r.\
-          \ \"\n                        \"Check that test_data_key (pipeline parameter)\
-          \ is the full object key to an existing JSON file.\"\n                 \
-          \       % (test_data_bucket_name, test_data_path)\n                    )\
-          \ from e\n                logger.error(\"Failed to fetch %s: %s\", test_data_path,\
-          \ e)\n                raise\n            except Exception as e:\n      \
-          \          logger.error(\"Failed to fetch %s: %s\", test_data_path, e)\n\
-          \                raise\n        else:\n            logger.error(\"Test data\
-          \ must be a json file: %s\", test_data_path)\n            raise\n\n    get_test_data_s3()\n\
+          \ was configured properly\" % k\n                )\n\n        def _make_s3_client(verify=True):\n\
+          \            return boto3.client(\n                \"s3\",\n           \
+          \     endpoint_url=s3_creds[\"AWS_S3_ENDPOINT\"],\n                region_name=s3_creds[\"\
+          AWS_DEFAULT_REGION\"],\n                aws_access_key_id=s3_creds[\"AWS_ACCESS_KEY_ID\"\
+          ],\n                aws_secret_access_key=s3_creds[\"AWS_SECRET_ACCESS_KEY\"\
+          ],\n                verify=verify,\n            )\n\n        s3_client =\
+          \ _make_s3_client()\n\n        logger.info(f\"Fetching test data from S3:\
+          \ bucket={test_data_bucket_name}, path={test_data_path}\")\n        try:\n\
+          \            logger.info(f\"Starting download to {test_data.path}\")\n \
+          \           s3_client.download_file(test_data_bucket_name, test_data_path,\
+          \ test_data.path)\n            logger.info(\"Download completed successfully\"\
+          )\n        except SSLError:\n            logger.warning(\n             \
+          \   \"SSL error when downloading %s, retrying with verify=False\",\n   \
+          \             test_data_path,\n            )\n            s3_client = _make_s3_client(verify=False)\n\
+          \            s3_client.download_file(test_data_bucket_name, test_data_path,\
+          \ test_data.path)\n            logger.info(\"Download completed successfully\
+          \ with verify=False\")\n        except ClientError as e:\n            if\
+          \ e.response.get(\"Error\", {}).get(\"Code\") in (\"404\", \"NoSuchKey\"\
+          ):\n                raise FileNotFoundError(\n                    \"Test\
+          \ data object not found in S3. bucket=%r, key=%r. \"\n                 \
+          \   \"Check that test_data_key (pipeline parameter) is the full object key\
+          \ to an existing JSON file.\"\n                    % (test_data_bucket_name,\
+          \ test_data_path)\n                ) from e\n            else:\n       \
+          \         raise TestDataLoaderException(\"Failed to fetch %s: %s\", test_data_path,\
+          \ e) from e\n        except Exception as e:\n            raise TestDataLoaderException(\"\
+          Failed to fetch %s: %s\", test_data_path, e) from e\n\n        try:\n  \
+          \          with open(test_data.path, \"r\") as f:\n                json.load(f)\n\
+          \        except JSONDecodeError as e:\n            raise TestDataLoaderException(\"\
+          test_data_path must point to a valid JSON file.\") from e\n\n    get_test_data_s3()\n\
           \n"
-        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
+        image: registry.redhat.io/rhoai/odh-autorag-rhel9@sha256:b51e1c7b2b4b857f4f5ea34654b10326196fdd1a0487012a9f7074ef092a63c5
+        resources:
+          cpuRequest: 2.0
+          memoryRequest: 8.589934592
+          resourceCpuRequest: '2'
+          resourceMemoryRequest: 8Gi
     exec-text-extraction:
       container:
         args:
@@ -1383,8 +1919,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'docling[ort]'\
-          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -1399,85 +1934,273 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef text_extraction(\n    documents_descriptor: dsl.Input[dsl.Artifact],\n\
-          \    extracted_text: dsl.Output[dsl.Artifact],\n):\n    \"\"\"Text Extraction\
-          \ component.\n\n    Reads the documents_descriptor JSON (from documents_discovery),\
-          \ fetches\n    the listed documents from S3, and extracts text using the\
-          \ docling library.\n\n    Args:\n        documents_descriptor: Input artifact\
-          \ containing\n            documents_descriptor.json with bucket, prefix,\
-          \ and documents list.\n        extracted_text: Output artifact where the\
-          \ extracted text content will be stored.\n    \"\"\"\n    import json\n\
-          \    import logging\n    import os\n    import sys\n    import tempfile\n\
-          \    from concurrent.futures import ThreadPoolExecutor\n    from functools\
-          \ import partial\n    from pathlib import Path\n\n    import boto3\n   \
-          \ from docling.datamodel.accelerator_options import AcceleratorOptions\n\
-          \    from docling.datamodel.base_models import InputFormat\n    from docling.datamodel.pipeline_options\
-          \ import PdfPipelineOptions\n    from docling.document_converter import\
-          \ DocumentConverter, PdfFormatOption\n\n    DOCUMENTS_DESCRIPTOR_FILENAME\
-          \ = \"documents_descriptor.json\"\n    SUPPORTED_EXTENSIONS = {\".pdf\"\
-          , \".docx\", \".pptx\", \".md\", \".html\", \".txt\"}\n    DOWNLOAD_MAX_WORKERS\
-          \ = 8\n    BATCH_SIZE = 10\n\n    logger = logging.getLogger(\"Text Extraction\
-          \ component logger\")\n    logger.setLevel(logging.INFO)\n    if not logger.handlers:\n\
-          \        handler = logging.StreamHandler(sys.stdout)\n        logger.addHandler(handler)\n\
-          \n    descriptor_root = Path(documents_descriptor.path)\n    if descriptor_root.is_dir():\n\
-          \        descriptor_path = descriptor_root / DOCUMENTS_DESCRIPTOR_FILENAME\n\
-          \    else:\n        descriptor_path = descriptor_root\n\n    if not descriptor_path.exists():\n\
-          \        raise FileNotFoundError(f\"Descriptor not found: {descriptor_path}\"\
-          )\n\n    with open(descriptor_path) as f:\n        descriptor = json.load(f)\n\
-          \n    bucket = descriptor[\"bucket\"]\n    documents = descriptor[\"documents\"\
-          ]\n\n    s3_creds = {k: os.environ.get(k) for k in [\"AWS_ACCESS_KEY_ID\"\
-          , \"AWS_SECRET_ACCESS_KEY\", \"AWS_S3_ENDPOINT\"]}\n    for k, v in s3_creds.items():\n\
-          \        if v is None:\n            raise ValueError(f\"{k} environment\
-          \ variable not set. Check if kubernetes secret was configured properly.\"\
-          )\n\n    s3_creds[\"AWS_DEFAULT_REGION\"] = os.environ.get(\"AWS_DEFAULT_REGION\"\
-          , \"\")\n\n    session = boto3.session.Session(\n        aws_access_key_id=s3_creds[\"\
-          AWS_ACCESS_KEY_ID\"],\n        aws_secret_access_key=s3_creds[\"AWS_SECRET_ACCESS_KEY\"\
-          ],\n        region_name=s3_creds.get(\"AWS_DEFAULT_REGION\"),\n    )\n \
-          \   s3_client = session.client(\n        service_name=\"s3\",\n        endpoint_url=s3_creds[\"\
-          AWS_S3_ENDPOINT\"],\n    )\n\n    def download_document(doc: dict, base_path:\
-          \ Path) -> bool:\n        key = doc[\"key\"]\n        local_path = base_path\
-          \ / key\n        local_path.parent.mkdir(parents=True, exist_ok=True)\n\
-          \        try:\n            logger.info(\"Downloading %s\", key)\n      \
-          \      s3_client.download_file(bucket, key, str(local_path))\n         \
-          \   return True\n        except Exception as e:\n            logger.error(\"\
-          Failed to fetch %s: %s\", key, e)\n            raise\n\n    def process_document(file_path_str:\
-          \ str, output_dir_str: str) -> bool:\n        try:\n            path = Path(file_path_str)\n\
-          \            out_dir = Path(output_dir_str)\n            pipeline_options\
-          \ = PdfPipelineOptions()\n            pipeline_options.do_ocr = False\n\
-          \            pipeline_options.do_table_structure = False\n            pipeline_options.accelerator_options\
-          \ = AcceleratorOptions(device=\"cpu\", num_threads=1)\n            converter\
-          \ = DocumentConverter(\n                format_options={InputFormat.PDF:\
-          \ PdfFormatOption(pipeline_options=pipeline_options)}\n            )\n \
-          \           result = converter.convert(path)\n            markdown_content\
-          \ = result.document.export_to_markdown()\n            output_file = out_dir\
-          \ / f\"{path.name}.md\"\n            output_file.write_text(markdown_content,\
-          \ encoding=\"utf-8\")\n            return True\n        except Exception\
-          \ as e:\n            logger.error(\"Failed to process %s: %s\", file_path_str,\
-          \ e)\n            return False\n\n    output_dir = Path(extracted_text.path)\n\
-          \    output_dir.mkdir(parents=True, exist_ok=True)\n\n    all_results =\
-          \ []\n    batches = [documents[i : i + BATCH_SIZE] for i in range(0, len(documents),\
-          \ BATCH_SIZE)] if documents else []\n\n    logger.info(\"Starting text extraction\
-          \ for %d documents in %d batch(es).\", len(documents), len(batches))\n\n\
-          \    for batch_idx, batch_docs in enumerate(batches):\n        logger.info(\"\
-          Processing batch %d/%d (%d documents).\", batch_idx + 1, len(batches), len(batch_docs))\n\
-          \n        with tempfile.TemporaryDirectory() as download_dir:\n        \
-          \    batch_download_path = Path(download_dir)\n            download_workers\
-          \ = min(DOWNLOAD_MAX_WORKERS, len(batch_docs))\n            download_fn\
-          \ = partial(download_document, base_path=batch_download_path)\n        \
-          \    with ThreadPoolExecutor(max_workers=download_workers) as executor:\n\
-          \                list(executor.map(download_fn, batch_docs))\n\n       \
-          \     files_to_process = [\n                f for f in batch_download_path.rglob(\"\
-          *\") if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS\n     \
-          \       ]\n\n            if not files_to_process:\n                continue\n\
-          \n            process_workers = min(os.cpu_count() or 1, len(files_to_process))\n\
-          \            worker_fn = partial(process_document, output_dir_str=str(output_dir))\n\
-          \            with ThreadPoolExecutor(max_workers=process_workers) as executor:\n\
-          \                batch_results = list(executor.map(worker_fn, [str(f) for\
-          \ f in files_to_process]))\n            all_results.extend(batch_results)\n\
-          \n    results = all_results\n    processed_count = sum(1 for r in results\
-          \ if r)\n    error_count = len(results) - processed_count\n\n    summary\
-          \ = f\"Text extraction completed. Total processed: {processed_count}, Errors:\
-          \ {error_count}.\"\n    logger.info(summary)\n\n"
-        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
+          \    extracted_text: dsl.Output[dsl.Artifact],\n    error_tolerance: Optional[float]\
+          \ = None,\n    max_extraction_workers: Optional[int] = None,\n):\n    \"\
+          \"\"Text Extraction component.\n\n    Reads the documents_descriptor JSON\
+          \ (from documents_discovery), fetches\n    the listed documents from S3,\
+          \ and extracts text using the docling library.\n\n    Args:\n        documents_descriptor:\
+          \ Input artifact containing\n            documents_descriptor.json with\
+          \ bucket, prefix, and documents list.\n        extracted_text: Output artifact\
+          \ where the extracted text content will be stored.\n        error_tolerance:\
+          \ Fraction of documents (0.0\u20131.0) allowed to fail without\n       \
+          \     raising an error. None (the default) means zero tolerance \u2014 any\
+          \ failure\n            raises immediately after all documents are processed.\
+          \ 0.1 means up to\n            10 % of documents may fail. Exceeding the\
+          \ threshold raises RuntimeError\n            with a summary of up to 10\
+          \ failing documents.\n        max_extraction_workers: Number of parallel\
+          \ worker processes used for text\n            extraction. Each worker loads\
+          \ a full docling DocumentConverter into memory\n            (ONNX models,\
+          \ layout detection, etc.), so this should be kept low to avoid\n       \
+          \     out-of-memory issues. Defaults to 4. Set to None to use all available\
+          \ CPU\n            cores. Set to 1 to disable parallelism.\n    \"\"\"\n\
+          \    import json\n    import logging\n    import os\n    import sys\n  \
+          \  import tempfile\n    import time\n    import traceback\n    from concurrent.futures\
+          \ import ThreadPoolExecutor, as_completed\n    from multiprocessing.pool\
+          \ import AsyncResult\n    from pathlib import Path\n\n    import boto3\n\
+          \    import multiprocess as multiprocessing\n    from botocore.exceptions\
+          \ import SSLError\n\n    DOCUMENTS_DESCRIPTOR_FILENAME = \"documents_descriptor.json\"\
+          \n    SUPPORTED_EXTENSIONS = {\".pdf\", \".docx\", \".pptx\", \".md\", \"\
+          .html\", \".txt\"}\n    DOWNLOAD_MAX_THREADS = 8\n\n    descriptor_path\
+          \ = Path(documents_descriptor.path) / DOCUMENTS_DESCRIPTOR_FILENAME\n  \
+          \  if not descriptor_path.exists():\n        raise FileNotFoundError(f\"\
+          documents_descriptor.json not found at {descriptor_path}\")\n\n    s3_creds\
+          \ = {k: os.environ.get(k) for k in [\"AWS_ACCESS_KEY_ID\", \"AWS_SECRET_ACCESS_KEY\"\
+          , \"AWS_S3_ENDPOINT\"]}\n    for k, v in s3_creds.items():\n        if v\
+          \ is None:\n            raise ValueError(f\"{k} environment variable not\
+          \ set. Check if kubernetes secret was configured properly.\")\n    s3_creds[\"\
+          AWS_DEFAULT_REGION\"] = os.environ.get(\"AWS_DEFAULT_REGION\", \"\")\n\n\
+          \    logger = logging.getLogger(\"Text Extraction component logger\")\n\
+          \    logger.setLevel(logging.INFO)\n    logger.propagate = False\n    if\
+          \ not logger.handlers:\n        handler = logging.StreamHandler(sys.stdout)\n\
+          \        logger.addHandler(handler)\n\n    output_dir = Path(extracted_text.path)\n\
+          \    output_dir.mkdir(parents=True, exist_ok=True)\n\n    def make_s3_client(verify=True):\n\
+          \        \"\"\"Create a new boto3 S3 client from the environment credentials.\n\
+          \n        A fresh client is created on every call so it is safe to use from\n\
+          \        multiple threads without sharing state. Pass verify=False to skip\n\
+          \        TLS certificate verification (used as a fallback when an SSLError\n\
+          \        is encountered during download).\n        \"\"\"\n        session\
+          \ = boto3.session.Session(\n            aws_access_key_id=s3_creds[\"AWS_ACCESS_KEY_ID\"\
+          ],\n            aws_secret_access_key=s3_creds[\"AWS_SECRET_ACCESS_KEY\"\
+          ],\n            region_name=s3_creds.get(\"AWS_DEFAULT_REGION\"),\n    \
+          \    )\n        return session.client(\n            service_name=\"s3\"\
+          ,\n            endpoint_url=s3_creds[\"AWS_S3_ENDPOINT\"],\n           \
+          \ verify=verify,\n        )\n\n    def download_document(doc: dict, base_path:\
+          \ Path) -> Path:\n        \"\"\"Download a single document from S3 to a\
+          \ local path mirroring the S3 key structure.\n\n        On an SSLError the\
+          \ download is retried once with certificate verification\n        disabled.\
+          \ Any other exception propagates to the caller.\n\n        Args:\n     \
+          \       doc: Document descriptor dict containing at least a \"key\" field\
+          \ with\n                the S3 object key.\n            base_path: Local\
+          \ directory under which the file is saved, preserving\n                the\
+          \ S3 key as a relative sub-path.\n\n        Returns:\n            Path to\
+          \ the downloaded local file.\n        \"\"\"\n        key = doc[\"key\"\
+          ]\n        local_path = base_path / key\n        local_path.parent.mkdir(parents=True,\
+          \ exist_ok=True)\n        _dl_t0 = time.perf_counter()\n        logger.info(\"\
+          Downloading %s\", key)\n        try:\n            make_s3_client().download_file(bucket,\
+          \ key, str(local_path))\n        except SSLError:\n            logger.warning(\"\
+          SSL error when downloading %s, retrying with verify=False\", key)\n    \
+          \        make_s3_client(verify=False).download_file(bucket, key, str(local_path))\n\
+          \        logger.info(\"Download finished %s (%.1fs)\", key, time.perf_counter()\
+          \ - _dl_t0)\n        return local_path\n\n    def _docling_artifacts_path()\
+          \ -> Optional[Path]:\n        \"\"\"Local Docling models root (contains\
+          \ docling-project--* dirs). Set via image ENV for offline use.\n\n     \
+          \   Returns the path only when it exists and contains at least one model\n\
+          \        directory. If the path is missing or empty, returns None so that\n\
+          \        docling falls back to downloading models from HuggingFace.\n  \
+          \      \"\"\"\n        raw = os.environ.get(\"DOCLING_ARTIFACTS_PATH\")\n\
+          \        if not raw:\n            logger.info(\"DOCLING_ARTIFACTS_PATH not\
+          \ set \u2014 models will be downloaded from HuggingFace.\")\n          \
+          \  return None\n        p = Path(raw)\n        if not p.is_dir() or not\
+          \ any(p.iterdir()):\n            logger.warning(\n                \"DOCLING_ARTIFACTS_PATH=%s\
+          \ is set but the directory is missing or empty \"\n                \"\u2014\
+          \ falling back to HuggingFace model download.\",\n                raw,\n\
+          \            )\n            return None\n        logger.info(\"Using local\
+          \ Docling artifacts from %s\", p)\n        return p\n\n    def _build_docling_format_options():\n\
+          \        \"\"\"Shared pipeline options for main-process warmup and worker\
+          \ processes (spawn-safe: module-level).\"\"\"\n        from docling.datamodel.accelerator_options\
+          \ import AcceleratorOptions\n        from docling.datamodel.base_models\
+          \ import InputFormat\n        from docling.datamodel.pipeline_options import\
+          \ PaginatedPipelineOptions, ThreadedPdfPipelineOptions\n        from docling.document_converter\
+          \ import (\n            HTMLFormatOption,\n            MarkdownFormatOption,\n\
+          \            PdfFormatOption,\n            PowerpointFormatOption,\n   \
+          \         WordFormatOption,\n        )\n\n        ap = _docling_artifacts_path()\n\
+          \        pdf_pipeline_options = ThreadedPdfPipelineOptions(\n          \
+          \  artifacts_path=ap,\n            do_ocr=False,\n            do_table_structure=False,\n\
+          \            accelerator_options=AcceleratorOptions(device=\"cpu\", num_threads=2),\n\
+          \        )\n        paginated_pipeline_options = PaginatedPipelineOptions(\n\
+          \            artifacts_path=ap,\n            generate_page_images=False,\n\
+          \            accelerator_options=AcceleratorOptions(device=\"cpu\", num_threads=2),\n\
+          \        )\n        return {\n            InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_pipeline_options),\n\
+          \            InputFormat.DOCX: WordFormatOption(pipeline_options=paginated_pipeline_options),\n\
+          \            InputFormat.PPTX: PowerpointFormatOption(pipeline_options=paginated_pipeline_options),\n\
+          \            InputFormat.HTML: HTMLFormatOption(),\n            InputFormat.MD:\
+          \ MarkdownFormatOption(),\n        }\n\n    def _text_extraction_pool_initializer()\
+          \ -> None:\n        \"\"\"Pool initializer (top-level for multiprocessing\
+          \ spawn pickling).\"\"\"\n        import time\n\n        os.environ[\"TQDM_DISABLE\"\
+          ] = \"1\"\n        os.environ.setdefault(\"OPENBLAS_NUM_THREADS\", \"1\"\
+          )\n        os.environ.setdefault(\"MKL_NUM_THREADS\", \"1\")\n        os.environ.setdefault(\"\
+          OMP_NUM_THREADS\", \"1\")\n\n        if _docling_artifacts_path() is not\
+          \ None:\n            os.environ.setdefault(\"HF_HUB_OFFLINE\", \"1\")\n\n\
+          \        from docling.document_converter import DocumentConverter\n\n  \
+          \      worker_log = logging.getLogger(\"text_extraction_worker\")\n    \
+          \    worker_log.setLevel(logging.INFO)\n        worker_log.propagate = False\n\
+          \        if not worker_log.handlers:\n            worker_log.addHandler(logging.StreamHandler(sys.stdout))\n\
+          \n        worker_pid = os.getpid()\n        init_start_time = time.perf_counter()\n\
+          \        worker_log.debug(\"Worker pid=%s: loading DocumentConverter.\"\
+          , worker_pid)\n\n        mod = sys.modules[__name__]\n        mod._mp_worker_converter\
+          \ = DocumentConverter(format_options=_build_docling_format_options())\n\
+          \        worker_log.debug(\n            \"Worker pid=%s: DocumentConverter\
+          \ ready (%.1fs)\",\n            worker_pid,\n            time.perf_counter()\
+          \ - init_start_time,\n        )\n\n    def worker_process_document(file_path_str:\
+          \ str, output_dir_str: str) -> tuple[bool, str | None]:\n        \"\"\"\
+          Convert a single document to Markdown and write it to the output directory.\n\
+          \n        Plain-text (.txt) files are copied as-is without invoking docling.\n\
+          \        All other supported formats are converted via the DocumentConverter\n\
+          \        that was created by the multiprocessing pool initializer in this\
+          \ process.\n\n        Args:\n            file_path_str: Absolute path to\
+          \ the local input file.\n            output_dir_str: Absolute path to the\
+          \ directory where the resulting\n                Markdown file will be written\
+          \ (named <original_filename>.md).\n\n        Returns:\n            (True,\
+          \ None) on success; (False, error_message) on failure where\n          \
+          \  error_message is either a full traceback string or a plain description.\n\
+          \        \"\"\"\n        worker_log = logging.getLogger(\"text_extraction_worker\"\
+          )\n        start_time = time.perf_counter()\n        try:\n            input_file\
+          \ = Path(file_path_str)\n            output_dir = Path(output_dir_str)\n\
+          \            output_file = output_dir / f\"{input_file.name}.md\"\n\n  \
+          \          if input_file.suffix.lower() == \".txt\":\n                output_file.write_text(input_file.read_text(encoding=\"\
+          utf-8\"), encoding=\"utf-8\")\n                return True, None\n\n   \
+          \         converter = getattr(sys.modules[__name__], \"_mp_worker_converter\"\
+          , None)\n            if converter is None:\n                error_message\
+          \ = (\n                    f\"Worker pid={os.getpid()} has no DocumentConverter.\
+          \ \"\n                    \"Pool initializer did not run or failed before\
+          \ setting _mp_worker_converter. \"\n                )\n                return\
+          \ False, error_message\n\n            file_size_mib = input_file.stat().st_size\
+          \ / (1024 * 1024) if input_file.exists() else 0.0\n            worker_log.info(\n\
+          \                \"pid=%s docling convert start: %s (%.1f MiB on disk)\"\
+          , os.getpid(), input_file.name, file_size_mib\n            )\n         \
+          \   conversion_result = converter.convert(input_file)\n            output_file.write_text(conversion_result.document.export_to_markdown(),\
+          \ encoding=\"utf-8\")\n            worker_log.info(\n                \"\
+          pid=%s docling convert done: %s -> %s (%.1fs)\",\n                os.getpid(),\n\
+          \                input_file.name,\n                output_file.name,\n \
+          \               time.perf_counter() - start_time,\n            )\n     \
+          \       return True, None\n        except Exception:\n            error_traceback\
+          \ = traceback.format_exc()\n            worker_log.error(\"Failed to process\
+          \ %s:\\n%s\", file_path_str, error_traceback)\n            return False,\
+          \ error_traceback\n\n    def download_and_submit(\n        docs: list, download_path:\
+          \ Path, process_pool, out_dir: Path\n    ) -> tuple[list[tuple[str, AsyncResult]],\
+          \ list[dict]]:\n        \"\"\"Download all documents from S3, then submit\
+          \ for extraction largest-first.\n\n        Documents with unsupported extensions\
+          \ are filtered out before any\n        downloads begin. Supported documents\
+          \ are downloaded concurrently via a\n        thread pool. Once all downloads\
+          \ complete, the local files are sorted by\n        size descending before\
+          \ being submitted to the process pool. This ensures\n        the heaviest\
+          \ documents are picked up by workers first, avoiding the\n        straggler\
+          \ problem where one slow document blocks completion while other\n      \
+          \  workers sit idle.\n\n        Args:\n            docs: List of document\
+          \ descriptor dicts from the documents_descriptor JSON.\n            download_path:\
+          \ Local temporary directory where downloaded files are stored.\n       \
+          \     process_pool: Active multiprocessing Pool to submit extraction tasks\
+          \ to.\n            out_dir: Directory where extracted Markdown files will\
+          \ be written.\n\n        Returns:\n            - List of (local_file_path_str,\
+          \ AsyncResult) pairs, one per successfully\n              downloaded and\
+          \ submitted document, ordered largest-first.\n            - List of download\
+          \ error dicts, each containing 'file' (S3 key) and\n              'traceback'\
+          \ (full exception traceback string).\n        \"\"\"\n        download_error_details\
+          \ = []\n        downloaded_paths = []\n        skipped_docs = [doc for doc\
+          \ in docs if Path(doc[\"key\"]).suffix.lower() not in SUPPORTED_EXTENSIONS]\n\
+          \        supported = [doc for doc in docs if Path(doc[\"key\"]).suffix.lower()\
+          \ in SUPPORTED_EXTENSIONS]\n        if skipped_docs:\n            skipped_keys\
+          \ = \", \".join(doc[\"key\"] for doc in skipped_docs)\n            logger.warning(\"\
+          Skipping %d document(s) with unsupported extensions: %s\", len(skipped_docs),\
+          \ skipped_keys)\n\n        with ThreadPoolExecutor(max_workers=DOWNLOAD_MAX_THREADS)\
+          \ as dl_pool:\n            dl_futures = {dl_pool.submit(download_document,\
+          \ doc, download_path): doc for doc in supported}\n            for dl_future\
+          \ in as_completed(dl_futures):\n                doc = dl_futures[dl_future]\n\
+          \                key = doc.get(\"key\", \"?\") if isinstance(doc, dict)\
+          \ else \"?\"\n                try:\n                    local_path = dl_future.result()\n\
+          \                except Exception as exc:\n                    exception_traceback\
+          \ = \"\".join(traceback.format_exception(type(exc), exc, exc.__traceback__))\n\
+          \                    logger.warning(\"Download failed for key=%s: %s\",\
+          \ key, exc)\n                    download_error_details.append({\"file\"\
+          : key, \"traceback\": exception_traceback})\n                    continue\n\
+          \                downloaded_paths.append(local_path)\n\n        downloaded_paths.sort(key=lambda\
+          \ p: p.stat().st_size, reverse=True)\n        extraction_tasks = [\n   \
+          \         (str(local_path), process_pool.apply_async(worker_process_document,\
+          \ (str(local_path), str(out_dir))))\n            for local_path in downloaded_paths\n\
+          \        ]\n        return extraction_tasks, download_error_details\n\n\
+          \    def raise_if_threshold_exceeded(error_details: list, total_docs: int,\
+          \ tolerance: Optional[float]) -> None:\n        \"\"\"Check whether the\
+          \ error count exceeds the allowed tolerance.\n\n        Called twice during\
+          \ the pipeline run: once after downloads complete\n        (to abort before\
+          \ extraction starts if too many files failed to\n        download) and once\
+          \ after all extraction tasks finish (to report\n        the combined total).\n\
+          \n        Args:\n            error_details: List of error dicts accumulated\
+          \ so far, each with\n                'file' and 'traceback' keys.\n    \
+          \        total_docs: Total number of documents in the original input, used\n\
+          \                to compute the failure percentage.\n            tolerance:\
+          \ Fraction of total_docs (0.0\u20131.0) that may fail without\n        \
+          \        raising. None means zero tolerance \u2014 any error raises.\n\n\
+          \        Raises:\n            RuntimeError: When the number of errors exceeds\
+          \ the allowed count.\n        \"\"\"\n        n_errors = len(error_details)\n\
+          \        if n_errors == 0:\n            return\n        allowed = 0 if tolerance\
+          \ is None else int(tolerance * total_docs)\n        if n_errors <= allowed:\n\
+          \            return\n        tolerance_str = \"0 (none allowed)\" if tolerance\
+          \ is None else f\"{tolerance:.0%} of {total_docs}\"\n        shown = error_details[:10]\n\
+          \        lines = [\n            f\"Text extraction failed: {n_errors}/{total_docs}\
+          \ document(s) failed (tolerance: {tolerance_str}).\",\n            f\"Showing\
+          \ {len(shown)} of {n_errors} error(s):\",\n        ]\n        for i, err\
+          \ in enumerate(shown, 1):\n            tb_lines = err[\"traceback\"].strip().splitlines()\n\
+          \            snippet = \"\\n    \".join(tb_lines[-5:])\n            lines.append(f\"\
+          \\n  [{i}] {err['file']}\\n    {snippet}\")\n        raise RuntimeError(\"\
+          \\n\".join(lines))\n\n    with open(descriptor_path) as f:\n        descriptor\
+          \ = json.load(f)\n    bucket = descriptor[\"bucket\"]\n    documents = descriptor[\"\
+          documents\"]\n\n    if not documents:\n        logger.info(\"No documents\
+          \ to process.\")\n        return\n\n    documents = sorted(documents, key=lambda\
+          \ d: d.get(\"size_bytes\", 0), reverse=True)\n\n    if max_extraction_workers\
+          \ is not None:\n        effective_workers = max(1, max_extraction_workers)\n\
+          \    else:\n        effective_workers = min(max(1, (os.cpu_count() or 1)\
+          \ // 2), 8)\n    logger.info(\n        \"Starting text extraction for %d\
+          \ documents. extraction_workers=%d, download_threads=%d.\",\n        len(documents),\n\
+          \        effective_workers,\n        DOWNLOAD_MAX_THREADS,\n    )\n\n  \
+          \  if _docling_artifacts_path() is not None:\n        os.environ.setdefault(\"\
+          HF_HUB_OFFLINE\", \"1\")\n\n    multiprocessing_context = multiprocessing.get_context(\"\
+          spawn\")\n    with (\n        tempfile.TemporaryDirectory() as download_dir,\n\
+          \        multiprocessing_context.Pool(\n            processes=effective_workers,\n\
+          \            initializer=_text_extraction_pool_initializer,\n        ) as\
+          \ process_pool,\n    ):\n        download_start_time = time.perf_counter()\n\
+          \        extraction_tasks, download_error_details = download_and_submit(\n\
+          \            documents, Path(download_dir), process_pool, output_dir\n \
+          \       )\n        logger.info(\n            \"Downloads finished in %.1fs;\
+          \ %d file(s) queued for extraction, %d download error(s).\",\n         \
+          \   time.perf_counter() - download_start_time,\n            len(extraction_tasks),\n\
+          \            len(download_error_details),\n        )\n        raise_if_threshold_exceeded(download_error_details,\
+          \ len(documents), error_tolerance)\n\n        extraction_error_details =\
+          \ []\n        processed_count = 0\n        pending = list(extraction_tasks)\n\
+          \        completed = 0\n        while pending:\n            still_pending\
+          \ = []\n            for file_path, task in pending:\n                if\
+          \ task.ready():\n                    completed += 1\n                  \
+          \  try:\n                        success, tb = task.get()\n            \
+          \        except Exception:\n                        tb = traceback.format_exc()\n\
+          \                        logger.error(\"Worker crashed for %s:\\n%s\", file_path,\
+          \ tb)\n                        success = False\n                    Path(file_path).unlink(missing_ok=True)\n\
+          \                    if success:\n                        processed_count\
+          \ += 1\n                    else:\n                        extraction_error_details.append({\"\
+          file\": file_path, \"traceback\": tb})\n                    logger.info(\"\
+          Extraction progress %d/%d\", completed, len(extraction_tasks))\n       \
+          \         else:\n                    still_pending.append((file_path, task))\n\
+          \            pending = still_pending\n            if pending:\n        \
+          \        time.sleep(0.01)\n\n    all_error_details = download_error_details\
+          \ + extraction_error_details\n    total_errors = len(all_error_details)\n\
+          \    total_docs = len(documents)\n    logger.info(\n        \"Text extraction\
+          \ completed. Total processed: %d/%d, Errors: %d\",\n        processed_count,\n\
+          \        total_docs,\n        total_errors,\n    )\n    raise_if_threshold_exceeded(all_error_details,\
+          \ total_docs, error_tolerance)\n\n"
+        image: registry.redhat.io/rhoai/odh-autorag-rhel9@sha256:b51e1c7b2b4b857f4f5ea34654b10326196fdd1a0487012a9f7074ef092a63c5
+        resources:
+          cpuRequest: 2.0
+          memoryRequest: 8.589934592
+          resourceCpuRequest: '2'
+          resourceMemoryRequest: 8Gi
 pipelineInfo:
   description: Automated system for building and optimizing Retrieval-Augmented Generation
     (RAG) applications
@@ -1486,8 +2209,7 @@ root:
   dag:
     tasks:
       documents-discovery:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-documents-discovery
         dependentTasks:
@@ -1506,8 +2228,7 @@ root:
         taskInfo:
           name: documents-discovery
       leaderboard-evaluation:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-leaderboard-evaluation
         dependentTasks:
@@ -1520,9 +2241,22 @@ root:
                 producerTask: rag-templates-optimization
         taskInfo:
           name: leaderboard-evaluation
+      prepare-responses-api-requests:
+        cachingOptions: {}
+        componentRef:
+          name: comp-prepare-responses-api-requests
+        dependentTasks:
+        - rag-templates-optimization
+        inputs:
+          artifacts:
+            rag_patterns:
+              taskOutputArtifact:
+                outputArtifactKey: rag_patterns
+                producerTask: rag-templates-optimization
+        taskInfo:
+          name: prepare-responses-api-requests
       rag-templates-optimization:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-rag-templates-optimization
         dependentTasks:
@@ -1546,8 +2280,8 @@ root:
           parameters:
             input_data_key:
               componentInputParameter: input_data_key
-            llama_stack_vector_database_id:
-              componentInputParameter: llama_stack_vector_database_id
+            llama_stack_vector_io_provider_id:
+              componentInputParameter: llama_stack_vector_io_provider_id
             optimization_settings:
               runtimeValue:
                 constant:
@@ -1562,8 +2296,7 @@ root:
         taskInfo:
           name: rag-templates-optimization
       search-space-preparation:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-search-space-preparation
         dependentTasks:
@@ -1587,8 +2320,7 @@ root:
         taskInfo:
           name: search-space-preparation
       test-data-loader:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-test-data-loader
         inputs:
@@ -1600,8 +2332,7 @@ root:
         taskInfo:
           name: test-data-loader
       text-extraction:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-text-extraction
         dependentTasks:
@@ -1632,7 +2363,9 @@ root:
         description: S3 (or compatible) bucket name for the input documents.
         parameterType: STRING
       input_data_key:
+        defaultValue: ''
         description: Object key (path) of the input documents in the input data bucket.
+        isOptional: true
         parameterType: STRING
       input_data_secret_name:
         description: 'Name of the Kubernetes secret holding S3-compatible credentials
@@ -1647,12 +2380,8 @@ root:
 
           The secret must define: LLAMA_STACK_CLIENT_API_KEY, LLAMA_STACK_CLIENT_BASE_URL.'
         parameterType: STRING
-      llama_stack_vector_database_id:
-        description: 'Optional vector database id (e.g., registered in llama-stack
-          Milvus).
-
-          If not provided, an in-memory database may be used.'
-        isOptional: true
+      llama_stack_vector_io_provider_id:
+        description: Vector I/O provider id (e.g., registered in llama-stack Milvus).
         parameterType: STRING
       optimization_max_rag_patterns:
         defaultValue: 8.0
@@ -1704,6 +2433,16 @@ platforms:
             optional: false
             secretNameParameter:
               componentInputParameter: input_data_secret_name
+        exec-prepare-responses-api-requests:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: LLAMA_STACK_CLIENT_BASE_URL
+              secretKey: LLAMA_STACK_CLIENT_BASE_URL
+            - envVar: LLAMA_STACK_CLIENT_API_KEY
+              secretKey: LLAMA_STACK_CLIENT_API_KEY
+            optional: false
+            secretNameParameter:
+              componentInputParameter: llama_stack_secret_name
         exec-rag-templates-optimization:
           secretAsEnv:
           - keyToEnv:
