@@ -440,10 +440,11 @@ See [Working with data science pipelines](https://docs.redhat.com/en/documentati
 | **②** | In OpenShift AI: **Develop & train** → **Pipelines** for your project.                                                                                                                                                                                          |
 | **③** | Upload as a **Pipeline Definition**, following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines).                                       |
 
+**Step ③ — Upload the compiled pipeline as a Pipeline Definition**
 
-Pipeline configuration
+![Pipeline configuration](images/pipeline_configuration_1.png)
 
-
+<a id="run-timeseries-pipeline-with-required-inputs"></a>
 
 ### ▶️ Run the pipeline with required inputs
 
@@ -484,10 +485,12 @@ Pipeline configuration
 
 **Prediction with covariates:** If trained with `known_covariates_names`, forecasts need future covariate values over the horizon—provide them via the notebook or `TimeSeriesPredictor.predict`. See [forecasting quickstart](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html).
 
-Pipeline run configuration details 1
-Pipeline run configuration details 2
+**Step ② — Set the pipeline run details**
 
+![Pipeline run configuration details 1](images/pipeline_configuration_details_1.png)
+![Pipeline run configuration details 2](images/pipeline_configuration_details_2.png)
 
+<a id="view-the-leaderboard-from-the-pipeline-run"></a>
 
 ### 📊 View the leaderboard from the pipeline run
 
@@ -497,11 +500,12 @@ Use after [Run the pipeline with required inputs](#run-timeseries-pipeline-with-
 | Step  | Action                                                                      |
 | ----- | --------------------------------------------------------------------------- |
 | **①** | **Develop & train** → **Pipelines** → **Runs** → select your completed run. |
-| **②** | In the **pipeline run graph**, open the `**html_artifact`** node.           |
+| **②** | In the **pipeline run graph**, open the last node named **`html_artifact`**. |
 | **③** | Click **Artifact URI** in the panel to open the HTML leaderboard.           |
 
+**Pipeline path — Leaderboard via Artifact URI**
 
-Leaderboard HTML artifact from the pipeline run graph
+![Leaderboard HTML artifact from the pipeline run graph](images/leaderboard.png)
 
 For layout details, see [autogluon_timeseries_training_pipeline](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline/pipeline.py).
 
