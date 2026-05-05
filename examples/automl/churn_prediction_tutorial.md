@@ -129,17 +129,25 @@ When you follow [Run AutoML with the AutoML UI](#run-automl-with-the-automl-ui),
 
 ## 📓 Predictor Notebook
 
-The tabular AutoML training pipeline generates a **predictor notebook** (e.g. `automl_predictor_notebook.ipynb`) that loads and uses the selected AutoGluon predictor for predictions, evaluation, and exploration. You can download this notebook from the run artifacts, upload it to your workbench, run it, and customize it as needed.
+The tabular AutoML training pipeline generates a **predictor notebook** (e.g. `automl_predictor_notebook.ipynb`) that loads and uses the selected AutoGluon predictor for predictions, evaluation, and exploration. How you **first obtain** that file depends on whether you use the AutoML UI or only artifacts/pipelines; from **step ③** onward the workflow is the same (upload into the workbench, run, customize).
 
-The notebook is saved under `models_artifact.path/model_name_FULL/notebooks`, where `models_artifact.path` is a path like `autogluon-tabular-training-pipeline/<run_id>/autogluon-models-training/<task_id>/models_artifact/` (one such path per refitted model). For example: `...<run_id>/autogluon-models-training/<task_id>/models_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb`.
+On disk, each refitted model stores its notebook under `models_artifact.path/model_name_FULL/notebooks`, where `models_artifact.path` looks like `autogluon-tabular-training-pipeline/<run_id>/autogluon-models-training/<task_id>/models_artifact/` (see the [autogluon_models_training component](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/components/training/automl/autogluon_models_training) for layout).
+
+### Get the notebook — AutoML UI
+
+When you trained from the [AutoML UI](#run-automl-with-the-automl-ui), open the completed run and its [leaderboard](#view-the-leaderboard). In the leaderboard table, locate the **model** you want. On that row, open the **⋮** menu (**three vertical dots**, right side of the row) and click **Save notebook** to download the predictor notebook to your machine.
+
+### Get the notebook — artifacts / pipeline only
+
+If you are not using the leaderboard menu above (for example you only follow the [pipeline run](#view-the-leaderboard-from-the-pipeline-run) path or copy files from storage), use the **Notebook** column on the leaderboard when present, or download from your artifact store (S3): paths follow `...<run_id>/autogluon-models-training/<task_id>/models_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb`. You can pull the file with the workbench’s S3 access from **Create workbench with connections attached** if that bucket is connected.
 
 > [!tip]
 > `run_id` can be found in **Develop & train** → **Pipelines** → **Runs** → your run → **Details** (or the equivalent on the AutoML run if your product surfaces it there).
 
+### Open and use the notebook in your workbench
+
 | Step | Action |
 |------|--------|
-| **①** | Once the AutoML run completes, check the [leaderboard](#view-the-leaderboard) to find the S3 storage path for each model's generated notebook in column "Notebook". |
-| **②** | **Download** the notebook to your local machine from the artifact store (S3) if you have access (e.g. via the workbench S3 connection from **Create workbench with connections attached**). The notebook is under a path like `...<run_id>/autogluon-models-training/<task_id>/models_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb` (see the [autogluon_models_training component](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/components/training/automl/autogluon_models_training) for the exact layout). |
 | **③** | Open your **workbench** (the notebook environment you created in **Create workbench with connections attached**). In JupyterLab, click the **Upload** button (upload icon) in the File Browser sidebar, select the downloaded `.ipynb` file, and upload it. The notebook appears in your workbench file tree. |
 | **④** | Open the notebook and **run** it cell by cell. Ensure the workbench has access to the same S3 bucket (or the path configured in the notebook) so it can load the AutoGluon predictor and any data the notebook expects. If you attached the **results** connection when creating the workbench (see **Create workbench with connections attached**), that bucket is already available. |
 | **⑤** | **Customize** if required: edit the model path or artifact location to point to a specific refitted model (e.g. `LightGBM_BAG_L1_FULL`), add cells for extra visualizations or metrics, change sample data, or adapt the notebook for your own workflows. Save the notebook in the workbench when done. |
@@ -154,7 +162,7 @@ For the notebook path and artifact layout per refitted model, see the [autogluon
 
 ## 📚 Model Registry
 
-The [autogluon-tabular-training-pipeline](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_tabular_training_pipeline/pipeline.py) loads data from S3, splits it, runs **model selection** (top N on sampled data), then **refits** each top model on the full dataset via `autogluon_models_training`. Each refitted model is written as a **model artifact** with a `_FULL` suffix (e.g. `LightGBM_BAG_L1_FULL`, `WeightedEnsemble_L3_FULL`). The pipeline does **not** register models in Model Registry; it only produces the leaderboard and model artifacts in your pipeline artifact store (S3). To version and deploy a chosen model, you register it manually in **Red Hat OpenShift AI Model Registry** as described below.
+An **AutoML optimization run** (and the equivalent manual [pipeline run](#run-automl-with-the-required-inputs), which uses the same graph) executes the [autogluon-tabular-training-pipeline](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_tabular_training_pipeline/pipeline.py) data science pipeline under the hood. That pipeline loads data from S3, splits it, runs **model selection** (top N on sampled data), then **refits** each top model on the full dataset via `autogluon_models_training`. Each refitted model is written as a **model artifact** with a `_FULL` suffix (e.g. `LightGBM_BAG_L1_FULL`, `WeightedEnsemble_L3_FULL`). The pipeline does **not** register models in Model Registry; it only produces the leaderboard and model artifacts in your pipeline artifact store (S3). To version and deploy a chosen model, you register it manually in **Red Hat OpenShift AI Model Registry** as described below.
 
 **Creating a model registry (one-time, typically by an administrator)**
 
@@ -178,7 +186,17 @@ For full details and prerequisites (e.g. MySQL 5.x or 8.x), see [Creating a mode
 
 **Registering a refitted AutoGluon model from your AutoML or pipeline run**
 
-The refit stage writes each top-N model to the pipeline workspace/artifact store (same layout whether you started the job from the AutoML UI or from an [optional pipeline run](#run-automl-with-the-required-inputs)); the **Path** you give when registering must point to the **root folder of one refitted predictor** (the folder that contains the AutoGluon predictor files for that model, `predictor` folder saved in folder named with the `_FULL` suffix). Use the same S3-compatible bucket and credentials that hold your run’s artifacts (for many setups this is the **results** bucket from [Create the S3 connections](#create-the-s3-connections), matching the Pipeline Server if you configured one). The exact path depends on your run; it is typically under the run’s output directory, per training task, e.g. under a path like `.../autogluon-models-training/<task_id>/models_artifact/<ModelName>_FULL/predictor`.
+The refit stage writes each top-N model to the pipeline workspace/artifact store (same layout whether you started the job from the AutoML UI or from an [optional pipeline run](#run-automl-with-the-required-inputs)). When registering, the **path** must target the **root folder of one refitted predictor** (the AutoGluon artifact for that `_FULL` model—often the folder named `predictor` under `.../models_artifact/<ModelName>_FULL/`). For many clusters that path lives in the **results** bucket from [Create the S3 connections](#create-the-s3-connections).
+
+### Register model — AutoML UI (after an optimization run)
+
+When your **optimization run** has finished and the [leaderboard](#view-the-leaderboard) is shown, pick the model row you want to register. Click the **⋮** menu (three vertical dots) on that row—the same control used for **Save notebook** in the [Predictor Notebook](#predictor-notebook) section—and choose **Register model**.
+
+In the **Register model** dialog, select a **Model registry** (required). **Model name** and optional **Description** are typically pre-filled (you can edit them). **Model artifact location** is usually populated automatically with the S3 path where that refitted model is stored (often under `autogluon-tabular-training-pipeline/<run_id>/...`). Confirm the values, complete any other required fields your UI shows (for example **Version name** or **Source model format**, if present), then click **Register**.
+
+### Register model — manually from AI Hub (or without the leaderboard shortcut)
+
+If you do not use the leaderboard menu—for example you browse **AI Hub** → **Models** → **Registry** directly, or you only have artifact paths from a [pipeline run](#view-the-leaderboard-from-the-pipeline-run)—follow these steps:
 
 | Step | Action |
 |------|--------|
