@@ -111,18 +111,20 @@ If you run the [optional pipeline flow](#optional-run-automl-via-pipeline-defini
 
 **Step ① — AutoML navigation and Create AutoML optimization run**
 
-![AutoML — Develop & train → AutoML → Create AutoML optimization run](images/automl_ui_create_optimization_run.png)
+![AutoML — Develop & train → AutoML: project selector, optimization runs table, and Create AutoML optimization run](images/automl_ui_create_optimization_run.png)
 
-**Step ③ — Training data** — On the data step of the wizard (before configuration), attach the **training data** S3 connection and either **Upload file** or **select a file from the bucket**, as in step **③** in the table above.
+**Steps ③–⑥ — Training data, prediction type, label column, top models, and Create run**
 
-**Steps ④–⑥ — Prediction type, label column, top models, and Create run**
+Your UI may split **Documents** (data) and **Configure details** across steps or show them side by side. In the example below, the left **Documents** panel covers step **③**: pick the **training data** S3 connection and either **Upload file** or **Select file from bucket**. The right **Configure details** panel covers steps **④–⑤**: **Prediction type**, **Label column**, and **Top models to consider**.
 
-![AutoML — Binary classification, label column, and top models to consider](images/automl_ui_configure_run_binary_classification.png)
+![AutoML — Documents (S3 connection, upload or bucket file) and Configure details (Binary classification, label column, top models)](images/automl_ui_configure_run_binary_classification.png)
 
-Parameters on this screen:
+Parameters on this screen (left **Documents**, right **Configure details**):
 
 | UI control | What it does |
 |------------|----------------|
+| **S3 connection** | Select the **training data** connection you created in [Create the S3 connections](#create-the-s3-connections). Use **Add new connection** if you need another bucket profile. |
+| **Select file from bucket** / **Upload file** | Either pick an object already in the bucket ([optional upload](#upload-the-training-dataset-to-s3)) or **Upload file** and choose the CSV from your machine (for example [WA_FnUseC_TelcoCustomerChurn.csv](data/churn/input_data/WA_FnUseC_TelcoCustomerChurn.csv)). |
 | **Prediction type** (task cards) | Chooses the learning problem. **Binary classification** — two classes (e.g. Yes/No). **Multiclass classification** — more than two discrete classes. **Regression** — a numeric target. **Time series forecasting** — sequential data with a time axis. For **Telco Customer Churn**, use **Binary classification** because **Churn** has two values. |
 | **Label column** | Required — the column to predict (the **target**). For this tutorial, select **Churn**. |
 | **Top models to consider** | How many of the strongest candidate models AutoML advances for full refit and the leaderboard (use **−** / **+** to change the number). A smaller value finishes sooner but explores fewer models; a larger value explores more at higher cost. |
