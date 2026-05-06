@@ -222,6 +222,10 @@ If you do not use that menu, use the **Notebook** column on the leaderboard HTML
 | **⑨** | **Customize** as needed: point to a specific refitted model (e.g. `WeightedEnsemble_FULL`), add plots or metrics, or adapt for your data.                                                        |
 
 
+**Step ⑧ — Preview of the time series predictor notebook in Workbench**
+
+![Time series predictor notebook — JupyterLab: Setup (`autogluon.timeseries`), experiment run details (`autogluon-timeseries-training-pipeline`, run ID, model name), and download trained model](images/predictor_notebook_preview_timeseries.png)
+
 For importing notebooks, see [Creating and importing notebooks](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_in_your_data_science_ide/working_in_jupyterlab#creating-and-importing-jupyter-notebooks_ide).
 
 
@@ -244,7 +248,7 @@ When registering, the **path** must target the **predictor** root for one refitt
 
 ### Register model — AutoML UI (after an optimization run)
 
-When the [leaderboard](#view-the-leaderboard) is visible, choose the model row, click **⋮**, then **Register model**. In the dialog, select a **Model registry**, confirm **Model name**, **Description**, and **Model artifact location** (often pre-filled under `autogluon-timeseries-training-pipeline/<run_id>/...`). Complete remaining required fields, then **Register**.
+When your **optimization run** has finished and the [leaderboard](#view-the-leaderboard) is shown, choose the model row you want to register. Click **⋮**, then **Register model**. In the dialog, select a **Model registry**, confirm **Model name**, **Description**, and **Model artifact location** (often pre-filled under `autogluon-timeseries-training-pipeline/<run_id>/...`). Complete remaining required fields, then **Register**.
 
 ### Register model — manually from AI Hub (or without the leaderboard shortcut)
 

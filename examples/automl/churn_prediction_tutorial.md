@@ -225,7 +225,7 @@ The refit stage writes each top-N model to the pipeline workspace/artifact store
 
 ### Register model — AutoML UI (after an optimization run)
 
-When your **optimization run** has finished and the [leaderboard](#view-the-leaderboard) is shown, pick the model row you want to register. Click the **⋮** menu (three vertical dots) on that row—the same control used for **Save notebook** in the [Predictor Notebook](#predictor-notebook) section—and choose **Register model**.
+When your **optimization run** has finished and the [leaderboard](#view-the-leaderboard) is shown, pick the model row you want to register. Click the **⋮** menu (three vertical dots) on that row and choose **Register model**.
 
 In the **Register model** dialog, select a **Model registry** (required). **Model name** and optional **Description** are typically pre-filled (you can edit them). **Model artifact location** is usually populated automatically with the S3 path where that refitted model is stored (often under `autogluon-tabular-training-pipeline/<run_id>/...`). Confirm the values, complete any other required fields your UI shows (for example **Version name** or **Source model format**, if present), then click **Register**.
 
