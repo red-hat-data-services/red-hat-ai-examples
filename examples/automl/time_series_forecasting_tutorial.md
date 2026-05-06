@@ -141,33 +141,31 @@ For the primary **[electricity_industry_a_forecasting.csv](data/timeseries/input
 
 **Step ① — AutoML list and Create AutoML optimization run**
 
-Open **Develop & train** → **AutoML** (a **Tech Preview** badge may appear). Confirm the **Project** dropdown matches your tutorial project (for example `automl-timeseries-forecast`). Click **Create AutoML optimization run** to start the wizard. The table lists runs with **Prediction type** and **Status** — completed jobs show **SUCCEEDED**. Rows reflect whatever task each run used; after a time series run finishes, **Prediction type** is **Time series forecasting**.
+Open **Develop & train** → **AutoML**. Confirm the **Project** dropdown matches your tutorial project (for example `automl-timeseries-forecast`). Click **Create AutoML optimization run** to start the wizard.
 
 ![AutoML — Develop & train → AutoML: project selector, optimization runs table, and Create AutoML optimization run](images/automl_ui_timeseries_automl_list.png)
 
 **Steps ③–⑥ — Training data, time series prediction type, column mapping, and Create run**
 
-Your UI may split **Documents** (data) and **Configure details** across steps or show them side by side. In the example below, the left **Documents** panel covers step **③**: pick the **training data** S3 connection and either **Upload file** or **Select file from bucket**. The right **Configure details** panel covers steps **④–⑤**: choose **Time series forecasting**, then map **Target column**, **Timestamp column**, **ID column**, optional **Known covariates**, **Prediction length**, and **Top models to consider**. Click **Create run** (step **⑥**) when required fields are set.
+**Documents** (data) and **Configure details** (task and columns) may appear side by side, as in the screenshot, or on separate wizard steps. Use the table for what to enter; the in-UI help icons define each field if labels differ slightly by version.
 
 ![AutoML — Documents (S3 connection, upload) and Configure details (Time series forecasting, columns, horizon, top models)](images/automl_ui_configure_run_timeseries_forecasting.png)
 
-Parameters on this screen (left **Documents**, right **Configure details**):
+| Parameter | What to set (primary file: [electricity_industry_a_forecasting.csv](data/timeseries/input_data/electricity_industry_a_forecasting.csv)) |
+|-----------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| **S3 connection** | The **training data** [connection](#create-the-s3-connections) you created. **Add new connection** only if you need another bucket profile. |
+| **Select file from bucket** / **Upload file** | [Pre-upload to S3](#upload-the-time-series-dataset-to-s3) and select the object, or **Upload file** and choose the CSV from your machine. |
+| **Prediction type** | **Time series forecasting** (structured, sequential data; not Binary classification or Regression for this tutorial). |
+| **Target column** | `target` — numeric value to forecast. |
+| **Timestamp column** | `timestamp` — time index for each row. |
+| **ID column** | `item_id` — separates multiple series in one table. |
+| **Known covariates** | Leave empty for the electricity file. For an example with a covariate, see [timeseries_sales.csv](data/timeseries/input_data/timeseries_sales.csv). |
+| **Prediction length** | Integer count of future steps (e.g. `7` or `14`); the UI may default to `1` — set a horizon that matches your use case. |
+| **Top models to consider** | e.g. `3` — how many top models to refit and list; use **−** / **+** to change. |
 
-| UI control | What it does |
-|------------|----------------|
-| **S3 connection** | Select the **training data** connection from [Create the S3 connections](#create-the-s3-connections). Use **Add new connection** if you need another bucket profile. |
-| **Select file from bucket** / **Upload file** | Either pick an object already in the bucket ([optional upload](#upload-the-time-series-dataset-to-s3)) or **Upload file** and choose the CSV from your machine (for example [electricity_industry_a_forecasting.csv](data/timeseries/input_data/electricity_industry_a_forecasting.csv)). |
-| **Prediction type** (task cards) | Choose **Time series forecasting** — *Predict future activity over a specified date/time range. Data must be structured and sequential.* Do not use Binary classification or Regression for this tutorial. |
-| **Target column** | Required — the numeric column to forecast. For the electricity sample, select **target**. |
-| **Timestamp column** | Required — the date/time column. For the electricity sample, select **timestamp**. |
-| **ID column** | Required — the series identifier (one column can hold multiple series). For the electricity sample, select **item_id**. |
-| **Known covariates** | Optional — columns known for the forecast horizon (e.g. promotions). Leave unset or empty for the primary electricity file; see [timeseries_sales.csv](data/timeseries/input_data/timeseries_sales.csv) for a covariate example. |
-| **Prediction length** | How many future time steps to forecast (integer). The screenshot shows `1`; for the tutorial, use a horizon such as `7` or `14` steps matching your use case. |
-| **Top models to consider** | How many top candidate models AutoML refits and surfaces on the leaderboard (adjust with **−** / **+**). Example value: `3`. |
+When **Create run** is available, start the job and wait until the run shows **SUCCEEDED** on the AutoML list (step **⑥** in the table above).
 
-After these fields are valid, click **Create run** and wait until the run status is **SUCCEEDED** on the AutoML list page.
-
-**Note:** If your cluster moves column mapping to a later step or reorders fields, follow the on-screen flow; the critical choices are **Time series forecasting** and correct mappings for **target**, **timestamp**, and **item_id** on the electricity dataset.
+**Note:** If your cluster moves column mapping to a later step or reorders fields, follow the on-screen flow; the critical choices are **Time series forecasting** and the `target` / `timestamp` / `item_id` mappings for the electricity dataset.
 
 
 
