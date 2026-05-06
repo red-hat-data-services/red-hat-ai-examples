@@ -147,8 +147,6 @@ Open **Develop & train** → **AutoML**. Confirm the **Project** dropdown matche
 
 **Steps ③–⑥ — Training data, time series prediction type, column mapping, and Create run**
 
-**Documents** (data) and **Configure details** (task and columns) may appear side by side, as in the screenshot, or on separate wizard steps. Use the table for what to enter; the in-UI help icons define each field if labels differ slightly by version.
-
 ![AutoML — Documents (S3 connection, upload) and Configure details (Time series forecasting, columns, horizon, top models)](images/automl_ui_configure_run_timeseries_forecasting.png)
 
 | Parameter | What to set (primary file: [electricity_industry_a_forecasting.csv](data/timeseries/input_data/electricity_industry_a_forecasting.csv)) |
@@ -159,7 +157,7 @@ Open **Develop & train** → **AutoML**. Confirm the **Project** dropdown matche
 | **Target column** | `target` — numeric value to forecast. |
 | **Timestamp column** | `timestamp` — time index for each row. |
 | **ID column** | `item_id` — separates multiple series in one table. |
-| **Known covariates** | Leave empty for the electricity file. For an example with a covariate, see [timeseries_sales.csv](data/timeseries/input_data/timeseries_sales.csv). |
+| **Known covariates** | Leave empty for the electricity file. |
 | **Prediction length** | Integer count of future steps (e.g. `7` or `14`); the UI may default to `1` — set a horizon that matches your use case. |
 | **Top models to consider** | e.g. `3` — how many top models to refit and list; use **−** / **+** to change. |
 
