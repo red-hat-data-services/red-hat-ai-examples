@@ -16,6 +16,8 @@ In this example workflow, you complete the following modules sequentially in you
 5. Model Training — Fine-tune a model by using the training mixes.
 6. Evaluation — Run the trained model and generated datasets against held-out test data.
 
+Optionally, the Kubeflow Pipeline module automates the Data Processing, Knowledge Generation, Knowledge Mixing, and Model Training stages.
+
 *Figure 1. End-to-end workflow overview*
 
 ![End-to-end workflow overview diagram](../../assets/usecase/knowledge-tuning/Overall%20Flow.png)
