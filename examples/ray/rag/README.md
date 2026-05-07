@@ -2,13 +2,13 @@
 
 End-to-end Retrieval-Augmented Generation (RAG) pipeline on OpenShift AI that processes PDF documents, ingests them into Milvus, deploys an LLM, and enables question-answering over the ingested content.
 
-## 🚀 Quick Links
+## Quick Links
 
 - **New to this project?** Start with [Setup](#setup) below
-- **Preparing for a demo?** See [DEMO_GUIDE.md](../docs/DEMO_GUIDE.md)
-- **Validating prerequisites?** Run [`scripts/validate_prerequisites.sh`](../scripts/validate_prerequisites.sh)
-- **Production readiness?** Review [DEMO_READINESS_REPORT.md](../DEMO_READINESS_REPORT.md)
-- **Customizing parameters?** See [docs/pipeline-parameters.md](../docs/pipeline-parameters.md)
+- **Build & deploy the pipeline?** Open [rag_pipeline_build.ipynb](build_rag_pipeline/rag_pipeline_build.ipynb)
+- **Test RAG queries?** Open [rag_query_test.ipynb](test/rag_query_test.ipynb)
+- **Streaming with OGX?** Open [rag_ogx_streaming.ipynb](ogx_test/rag_ogx_streaming.ipynb)
+- **Customizing parameters?** See [Configuration](#configuration) below
 
 ## Pipelines
 
@@ -18,7 +18,7 @@ This example provides **two pipeline variants**:
 
 All-in-one: parse, chunk, embed, and ingest into Milvus in a single RayJob. PVC is read-only. Best for simple deployments.
 
-```
+```text
 PDF (PVC) --> [RayJob: Docling + chunk + embed + Milvus insert] --> Deploy LLM
 ```
 
@@ -26,7 +26,7 @@ PDF (PVC) --> [RayJob: Docling + chunk + embed + Milvus insert] --> Deploy LLM
 
 Three reusable components with clear separation of concerns. Uses a local sentence-transformers model for embedding (no external embedding service needed). Best for production use and component reuse across pipelines.
 
-```
+```text
 Step 1: Parse & Chunk PDFs
     (RayJob: Docling + HybridChunker -> JSONL on S3/MinIO)
                 |
@@ -40,7 +40,7 @@ Steps run sequentially: parse, then ingest, then deploy.
 
 ## Architecture
 
-```
+```text
                     +-------------------+
                     |   PDF Documents   |
                     |      (PVC)        |
@@ -79,25 +79,16 @@ Steps run sequentially: parse, then ingest, then deploy.
 
 ## Directory Structure
 
-```
-rag-example/
-+-- components/
-|   +-- parse_and_chunk/         # Parse PDFs + chunk (RayJob -> JSONL on S3)
-|   +-- ingest_to_milvus/       # Embed chunks + insert into Milvus
-|   +-- pdf_to_milvus/          # Single-step: parse + chunk + embed + insert
-|   +-- model_deployment/       # Deploy LLM (vLLM InferenceService)
-+-- scripts/
-|   +-- docling_chunk_process.py    # Ray entrypoint: parse + chunk -> S3
-|   +-- milvus_ingest.py           # Standalone: read S3, embed, insert into Milvus
-|   +-- docling_milvus_process.py  # Ray entrypoint: single-step (parse -> Milvus)
-|   +-- rag_query.py               # RAG query CLI
-+-- pipeline.py                    # Single-step pipeline definition
+```text
+rag/
++-- build_rag_pipeline/
+|   +-- rag_pipeline_build.ipynb   # Setup, compile, and deploy the pipeline
+|   +-- rag_setup.py               # K8s helper utilities for the pipeline
++-- test/
+|   +-- rag_query_test.ipynb       # Test RAG queries against deployed services
++-- ogx_test/
+|   +-- rag_ogx_streaming.ipynb    # RAG with OpenGenAI Stack (OGX) streaming
 +-- pipeline_multistep.py          # Multi-step pipeline definition
-+-- rag_pipeline.yaml              # Compiled single-step pipeline (import via UI)
-+-- rag_multistep_pipeline.yaml    # Compiled multi-step pipeline (import via UI)
-+-- rag-pipeline.ipynb             # Interactive notebook
-+-- manifests/
-|   +-- rbac.yaml                  # RBAC for pipeline service account
 +-- README.md
 ```
 
@@ -107,7 +98,7 @@ rag-example/
 |---|---|---|
 | OpenShift cluster | 4.14+ | With OpenShift AI (RHOAI) installed |
 | KubeRay Operator | >= 1.1.0 | Manages RayJob / RayCluster CRDs |
-| Milvus | >= 2.4.0 | See `../milvus-ocp/` for OCP deployment guide |
+| Milvus | >= 2.4.0 | Via Milvus Operator on OpenShift |
 | MinIO / S3 | — | For intermediate chunk storage (multi-step pipeline) |
 | KServe | Included in RHOAI | For InferenceService / vLLM runtime |
 | GPU nodes | 1+ NVIDIA GPU | For vLLM model serving |
@@ -116,7 +107,7 @@ rag-example/
 
 ### Python packages (notebook host)
 
-```
+```text
 codeflare-sdk>=0.25.0
 kubernetes>=28.1.0
 ray[default]>=2.44.1
@@ -129,7 +120,7 @@ openai>=1.0.0
 
 The Ray worker image must have Docling pre-installed:
 
-```
+```text
 quay.io/rhoai-szaher/docling-ray:latest
 ```
 
@@ -151,6 +142,7 @@ oc apply -f manifests/rbac.yaml
 ```
 
 The Role grants:
+
 - `ray.io/rayjobs`, `ray.io/rayclusters` — create, get, patch, delete (for RayJob submission)
 - `serving.kserve.io/inferenceservices` — create, get, patch, delete (for model deployment)
 - `serving.kserve.io/servingruntimes` — get, list (to verify runtime availability)
@@ -194,6 +186,7 @@ cd /path/to/rag-ray
 ```
 
 This script checks:
+
 - ✓ Namespace exists
 - ✓ PVCs (data-pvc, model-cache-pvc) are bound
 - ✓ MinIO/S3 service and credentials
@@ -318,6 +311,7 @@ Check that the KubeRay operator is running and that the namespace has enough CPU
 ### Milvus connection refused
 
 Verify Milvus is running and reachable:
+
 ```bash
 oc exec -it <pod> -n <namespace> -- python -c "
 from pymilvus import MilvusClient
