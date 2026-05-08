@@ -189,7 +189,7 @@ If you are not using the leaderboard menu above (for example you only follow the
 
 For the notebook path and artifact layout per refitted model, see the [autogluon_models_training component](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/components/training/automl/autogluon_models_training). For the overall pipeline, see the [pipeline reference](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/automl/autogluon_tabular_training_pipeline). For creating and importing notebooks in the workbench, see [Creating and importing notebooks](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_in_your_data_science_ide/working_in_jupyterlab#creating-and-importing-jupyter-notebooks_ide) in the Red Hat OpenShift AI documentation.
 
-**Step ⑧ — Preview of the predictor notebook in Workbench**
+**Preview — predictor notebook in Workbench**
 
 ![Predictor notebook preview](images/predictor_notebook_preview.png)
 

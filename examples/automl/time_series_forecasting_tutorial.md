@@ -62,7 +62,7 @@ See also [data/timeseries/README.md](data/timeseries/README.md) for provenance a
 
 ## 💾 Create the S3 connections
 
-Create two S3-compatible connections in your project: one for **results** and one for **training data** (your time series CSV). The **results** connection is the artifact store for AutoML: the leaderboard and trained model artifacts are written to the bucket configured for the Pipeline Server, whether you start the run from the AutoML UI or from a pipeline definition. Attach the **results** connection to the workbench in [Create workbench with connections attached](#create-workbench-with-connections-attached) so you can access artifacts without a restart. The **training data** connection is what you select in the AutoML UI (or what you pass as `train_data_secret_name` in an [optional pipeline run](#run-timeseries-pipeline-with-required-inputs)).
+Create two S3-compatible connections in your project: one for **results** and one for **training data** (your time series CSV). The **results** connection is where AutoML run artifacts are stored (leaderboard, trained model artifacts, notebooks). Attach the **results** connection to the workbench in [Create workbench with connections attached](#create-workbench-with-connections-attached) so you can access artifacts without a restart. The **training data** connection is what you select in the AutoML UI (or what you pass as `train_data_secret_name` in an [optional pipeline run](#run-timeseries-pipeline-with-required-inputs)).
 
 **Results storage connection**
 
@@ -76,7 +76,7 @@ Create two S3-compatible connections in your project: one for **results** and on
 | **⑤** | Click **Create**.                                                                                                     |
 
 
-Use this **results** connection when configuring the **Pipeline Server** (see [Configure the Pipeline Server](#configure-the-pipeline-server)). The bucket configured there is where AutoML artifacts are stored. For exact UI steps and endpoint formatting, see [Using connections](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_on_projects/using-connections_projects) and [Creating an S3 client](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_data_in_an_s3-compatible_object_store/creating-an-s3-client_s3) in the Red Hat OpenShift AI documentation.
+Use this **results** connection when configuring the **Pipeline Server** (see [Configure the Pipeline Server](#configure-the-pipeline-server)) so artifacts are written to the expected bucket. For exact UI steps and endpoint formatting, see [Using connections](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_on_projects/using-connections_projects) and [Creating an S3 client](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_data_in_an_s3-compatible_object_store/creating-an-s3-client_s3) in the Red Hat OpenShift AI documentation.
 
 **Training data connection**
 
@@ -106,6 +106,8 @@ Configure the **Pipeline Server** for your project so AutoML runs (and pipeline 
 
 See [Working with data science pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_ai_pipelines/index).
 
+<a id="create-workbench-with-connections-attached"></a>
+
 ## 🔗 Create workbench with connections attached
 
 
@@ -118,11 +120,11 @@ See [Working with data science pipelines](https://docs.redhat.com/en/documentati
 
 **Step ① — Choose workbench image and size:**
 
-Workbench image selection
+![Workbench image selection](images/workbench_image.png)
 
 **Step ② — Attach existing connections:**
 
-Workbench connections
+![Workbench connections](images/workbench_connection.png)
 
 
 <a id="upload-the-time-series-dataset-to-s3"></a>
@@ -144,6 +146,8 @@ Workbench connections
 **Optional — multi-series sample:** [timeseries_sales.csv](data/timeseries/input_data/timeseries_sales.csv) includes `promo` as a **known covariate**; see [data/timeseries/README.md](data/timeseries/README.md) and the optional pipeline parameters below.
 
 
+
+<a id="run-automl-with-the-automl-ui"></a>
 
 ## 🤖 Run AutoML with the AutoML UI
 
@@ -208,7 +212,7 @@ If you train using a [pipeline definition](#optional-run-timeseries-via-pipeline
 
 ## 📓 Time series predictor notebook
 
-Each refitted top model can emit a **time series predictor notebook** (e.g. `automl_predictor_notebook.ipynb`) that loads the AutoGluon `TimeSeriesPredictor`. How you **first obtain** the file depends on AutoML UI vs artifacts; from **step ⑦** onward the workflow matches the tabular tutorial (upload to workbench, run, customize).
+Each refitted top model can emit a **time series predictor notebook** (e.g. `automl_predictor_notebook.ipynb`) that loads and uses the AutoGluon `TimeSeriesPredictor` for forecasts, evaluation, and exploration. You can download this notebook from the run artifacts, upload it to your workbench, run it, and customize it as needed.
 
 For each refitted model, the predictor notebook is written to your **results** S3 bucket (the object store used for Pipeline Server run artifacts—same connection as in [Create the S3 connections](#create-the-s3-connections) and [Configure the Pipeline Server](#configure-the-pipeline-server)). Under that bucket, paths look like `autogluon-timeseries-training-pipeline/<run_id>/autogluon-timeseries-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/notebooks/automl_predictor_notebook.ipynb` (see [autogluon_timeseries_models_full_refit](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/components/training/automl/autogluon_timeseries_models_full_refit)).
 
@@ -228,12 +232,12 @@ If you do not use that menu, use the **Notebook** column on the leaderboard HTML
 
 | Step  | Action                                                                                                                                                                                           |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **⑦** | Open your **workbench** from [Create workbench with connections attached](#create-workbench-with-connections-attached). In JupyterLab, **Upload** the downloaded `.ipynb` into the file browser. |
-| **⑧** | Run the notebook cell by cell. Ensure access to the **results** bucket (or paths in the notebook); if you attached the **results** connection at workbench creation, that storage is available.  |
-| **⑨** | **Customize** as needed: point to a specific refitted model (e.g. `WeightedEnsemble_FULL`), add plots or metrics, or adapt for your data.                                                        |
+| **①** | Open your **workbench** from [Create workbench with connections attached](#create-workbench-with-connections-attached). In JupyterLab, **Upload** the downloaded `.ipynb` into the file browser. |
+| **②** | Run the notebook cell by cell. Ensure access to the **results** bucket (or paths in the notebook); if you attached the **results** connection at workbench creation, that storage is available.  |
+| **③** | **Customize** as needed: point to a specific refitted model (e.g. `WeightedEnsemble_FULL`), add plots or metrics, or adapt for your data.                                                        |
 
 
-**Step ⑧ — Preview of the time series predictor notebook in Workbench**
+**Preview — time series predictor notebook in Workbench**
 
 ![Time series predictor notebook — JupyterLab: Setup (`autogluon.timeseries`), experiment run details (`autogluon-timeseries-training-pipeline`, run ID, model name), and download trained model](images/predictor_notebook_preview_timeseries.png)
 
@@ -241,27 +245,43 @@ For importing notebooks, see [Creating and importing notebooks](https://docs.red
 
 
 
+<a id="model-registry"></a>
+
 ## 📚 Model Registry
 
 An **AutoML optimization run** (and the equivalent [pipeline run](#run-timeseries-pipeline-with-required-inputs)) executes the [autogluon-timeseries-training-pipeline](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline/pipeline.py) data science pipeline. It performs model selection and **full refit** for top models and writes artifacts to your results storage; it does **not** auto-register models. Register manually in **Red Hat OpenShift AI Model Registry** when you want versioning or deployment.
 
 Predictor paths for time series look like: `.../<run_id>/autogluon-timeseries-models-full-refit/<task_id>/model_artifact/<model_name_FULL>/predictor`. The leaderboard **Predictor** column lists paths you can copy.
 
-**Creating a model registry (one-time, typically by an administrator)**
+### Creating a model registry (one-time, typically by an administrator)
 
-If your cluster does not yet have a model registry, an administrator creates one under **Settings** → **Model resources and operations** → **AI registry settings** and connects an external MySQL database. See [Creating a model registry](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_cloud_service/1/html/managing_model_registries/creating-a-model-registry_managing-model-registries).
+If your cluster does not yet have a model registry, an OpenShift AI administrator must create one and connect it to an external MySQL database.
 
-Model registry settings
+| Step  | Action |
+| ----- | ------ |
+| **①** | From the OpenShift AI dashboard, go to **Settings** → **Model resources and operations** → **AI registry settings**. |
+| **②** | Click **Create model registry**. In the dialog, enter a **Name** (and optionally a **Description**). Optionally edit the **Resource name** (must be lowercase alphanumeric with hyphens, max 253 characters). |
+| **③** | In **Connect to external MySQL database**, enter **Host**, **Port**, **Username**, **Password**, and **Database**. Add a CA certificate if the database uses TLS. |
+| **④** | Click **Create**. The new model registry appears on the AI registry settings page. |
 
-**Registering a refitted AutoGluon time series model**
+> [!tip]
+> You can also deploy a model from here; while doing so, the fields will already be filled.
+
+**Step ② — Create model registry settings**
+
+![Model registry settings](images/model_registry_settings.png)
+
+For full details and prerequisites (e.g. MySQL 5.x or 8.x), see [Creating a model registry](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_cloud_service/1/html/managing_model_registries/creating-a-model-registry_managing-model-registries) in the Red Hat OpenShift AI documentation.
+
+### Registering a refitted AutoGluon time series model
 
 When registering, the **path** must target the **predictor** root for one refitted `_FULL` model (often `.../model_artifact/<ModelName>_FULL/predictor`). For many setups this is in the **results** bucket from [Create the S3 connections](#create-the-s3-connections).
 
-### Register model — AutoML UI (after an optimization run)
+#### Register model — AutoML UI (after an optimization run)
 
 When your **optimization run** has finished and the [leaderboard](#view-the-leaderboard) is shown, choose the model row you want to register. Click **⋮**, then **Register model**. In the dialog, select a **Model registry**, confirm **Model name**, **Description**, and **Model artifact location** (often pre-filled under `autogluon-timeseries-training-pipeline/<run_id>/...`). Complete remaining required fields, then **Register**.
 
-### Register model — manually from AI Hub (or without the leaderboard shortcut)
+#### Register model — manually from AI Hub (or without the leaderboard shortcut)
 
 
 | Step  | Action                                                                                                                                                                                                                              |
@@ -466,6 +486,8 @@ Example response:
 - **API/reference:** see [AutoGluon TimeSeries forecasting quickstart](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) and [KServe V1 Protocol](https://kserve.github.io/website/docs/concepts/architecture/data-plane/v1-protocol).
 
 
+
+<a id="optional-run-timeseries-via-pipeline-definition"></a>
 
 ## (Optional) Run time series AutoML via pipeline definition
 
