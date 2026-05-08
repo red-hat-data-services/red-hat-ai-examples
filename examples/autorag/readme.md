@@ -50,7 +50,7 @@ AutoRAG is exposed as the **Documents RAG Optimization Pipeline** (Kubeflow Pipe
 | **Documents** | Stored in S3-compatible object storage (via RHOAI Connections). |
 | **Test data** | JSON file in S3 (e.g. `benchmark.json` or `benchmark_data.json`): list of items with `question`, `correct_answers`, and `correct_answer_document_ids` for evaluation. |
 | **RAG stack** | Llama-stack server with RAG stack (chat model, embedding model, vector store e.g. Milvus). See [Llama stack setup](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md). |
-| **Execution** | **AutoRAG UI** (streamlined interface, recommended) or [Documents RAG Optimization Pipeline](pipelines/pipeline.yaml) via Kubeflow Pipelines UI/API. |
+| **Execution** | **AutoRAG UI** (streamlined interface, recommended) or [Documents RAG Optimization Pipeline](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline/pipeline.yaml) via Kubeflow Pipelines UI/API. |
 | **What you get** | HTML leaderboard of RAG patterns, RAG pattern artifacts (pattern.json, evaluation results, indexing and inference notebooks). |
 
 ### How it works under the hood
@@ -70,7 +70,7 @@ flowchart LR
     style Answer fill:#2d8659,color:#fff,stroke-width:2px
 ```
 
-**Documents RAG optimization pipeline** — Kubeflow pipeline steps from the [documents RAG optimization pipeline](pipelines/pipeline.yaml); see [Pipeline flow](#pipeline-flow) below for the stage list.
+**Documents RAG optimization pipeline** — Kubeflow pipeline steps from the [documents RAG optimization pipeline](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline/pipeline.yaml); see [Pipeline flow](#pipeline-flow) below for the stage list.
 
 ```mermaid
 flowchart LR
@@ -137,7 +137,7 @@ flowchart LR
 
 ### Pipeline flow
 
-The [Documents RAG Optimization Pipeline](pipelines/pipeline.yaml) uses the [IBM ai4rag](https://github.com/IBM/ai4rag) optimization engine. In that flow:
+The [Documents RAG Optimization Pipeline](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline/pipeline.yaml) uses the [IBM ai4rag](https://github.com/IBM/ai4rag) optimization engine. In that flow:
 
 1. **Documents discovery** — Lists available documents from S3, performs sampling if applied and writes a JSON manifest as `documents_descriptor.json` file with metadata.
 2. **Test data loading** — Loads test data (questions, expected answers) based on `documents_descriptor.json` file.
@@ -231,7 +231,7 @@ Use the traditional **Kubeflow Pipelines** approach for advanced use cases or au
 
 1. Ensure the **Llama-stack RAG stack** is deployed and you have created a secret (or connection) with `LLAMA_STACK_CLIENT_BASE_URL` and `LLAMA_STACK_CLIENT_API_KEY`.
 2. Ensure the **sample documents** and **benchmark** file are uploaded to S3, and that you have S3 connections configured plus a Pipeline Server configured with a results connection for artifacts.
-3. Add the **Documents RAG Optimization Pipeline** as a Pipeline Definition (from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline), branch `autox`). You can find its compiled version [here](pipelines/pipeline.yaml).
+3. Add the **Documents RAG Optimization Pipeline** as a Pipeline Definition (from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline), branch `autox`). You can find its compiled version [here](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline/pipeline.yaml).
 4. Create a pipeline run and set the required parameters: use the same connection and bucket for test data and input documents (different object keys); Llama-stack secret name; embeddings_models and generation_models lists; optimization_metric.
 5. **View the results** in the run's Artifacts: leaderboard HTML and RAG pattern artifacts.
 
