@@ -40,7 +40,7 @@ The body of this document follows the **Option 1 (AutoML UI)** order. The **Opti
 
 ## 💾 Create the S3 connections
 
-Create two S3-compatible connections in your project: one for **results** (artifacts, leaderboard, and workbench access to those artifacts) and one for **training data** (the churn CSV). You attach the **results** connection to the workbench in [Create workbench with connections attached](#create-workbench-with-connections-attached). The **training data** connection is what you select in the AutoML UI (or what you pass as `train_data_secret_name` in an [optional pipeline run](#run-automl-with-the-required-inputs)). If you use the [optional pipeline flow](#optional-run-automl-via-pipeline-definition), you also configure the Pipeline Server to use the **results** bucket for pipeline artifacts.
+Create two S3-compatible connections in your project: one for **results** and one for **training data** (the churn CSV). The **results** connection is the artifact store for AutoML: the leaderboard and trained model artifacts are written to the bucket configured for the Pipeline Server, whether you start the run from the AutoML UI or from a pipeline definition. Attach the **results** connection to the workbench in [Create workbench with connections attached](#create-workbench-with-connections-attached) so you can access artifacts without a restart. The **training data** connection is what you select in the AutoML UI (or what you pass as `train_data_secret_name` in an [optional pipeline run](#run-automl-with-the-required-inputs)).
 
 **Results storage connection**
 
@@ -52,7 +52,7 @@ Create two S3-compatible connections in your project: one for **results** (artif
 | **④** | Fill in the connection details: **Endpoint** (S3-compatible bucket endpoint), **Bucket** (for pipeline results and Pipeline Server artifacts), **Region**, **Access key**, **Secret key**. |
 | **⑤** | Click **Create**. |
 
-Use this **results** connection when configuring the **Pipeline Server** (see [Configure the Pipeline Server](#configure-the-pipeline-server)). AutoML UI runs and pipeline runs store artifacts (leaderboard, trained models, notebooks) in the bucket configured there. For exact UI steps and endpoint formatting, see [Using connections](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_on_projects/using-connections_projects) and [Creating an S3 client](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_data_in_an_s3-compatible_object_store/creating-an-s3-client_s3) in the Red Hat OpenShift AI documentation.
+Use this **results** connection when configuring the **Pipeline Server** (see [Configure the Pipeline Server](#configure-the-pipeline-server)). The bucket configured there is where AutoML artifacts are stored. For exact UI steps and endpoint formatting, see [Using connections](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_on_projects/using-connections_projects) and [Creating an S3 client](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_data_in_an_s3-compatible_object_store/creating-an-s3-client_s3) in the Red Hat OpenShift AI documentation.
 
 **Training data connection**
 

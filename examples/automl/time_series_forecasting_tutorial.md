@@ -62,7 +62,7 @@ See also [data/timeseries/README.md](data/timeseries/README.md) for provenance a
 
 ## 💾 Create the S3 connections
 
-Create two S3-compatible connections in your project: one for **results** (artifacts, leaderboard, and workbench access to those artifacts) and one for **training data** (your time series CSV). You attach the **results** connection to the workbench in [Create workbench with connections attached](#create-workbench-with-connections-attached). The **training data** connection is what you select in the AutoML UI (or what you pass as `train_data_secret_name` in an [optional pipeline run](#run-timeseries-pipeline-with-required-inputs)). If you use the [optional pipeline flow](#optional-run-timeseries-via-pipeline-definition), you also configure the Pipeline Server to use the **results** bucket for pipeline artifacts.
+Create two S3-compatible connections in your project: one for **results** and one for **training data** (your time series CSV). The **results** connection is the artifact store for AutoML: the leaderboard and trained model artifacts are written to the bucket configured for the Pipeline Server, whether you start the run from the AutoML UI or from a pipeline definition. Attach the **results** connection to the workbench in [Create workbench with connections attached](#create-workbench-with-connections-attached) so you can access artifacts without a restart. The **training data** connection is what you select in the AutoML UI (or what you pass as `train_data_secret_name` in an [optional pipeline run](#run-timeseries-pipeline-with-required-inputs)).
 
 **Results storage connection**
 
@@ -76,7 +76,7 @@ Create two S3-compatible connections in your project: one for **results** (artif
 | **⑤** | Click **Create**.                                                                                                     |
 
 
-Use this **results** connection when configuring the **Pipeline Server** (see [Configure the Pipeline Server](#configure-the-pipeline-server)). AutoML UI runs and pipeline runs store artifacts (leaderboard, trained models, notebooks) in the bucket configured there. For exact UI steps and endpoint formatting, see [Using connections](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_on_projects/using-connections_projects) and [Creating an S3 client](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_data_in_an_s3-compatible_object_store/creating-an-s3-client_s3) in the Red Hat OpenShift AI documentation.
+Use this **results** connection when configuring the **Pipeline Server** (see [Configure the Pipeline Server](#configure-the-pipeline-server)). The bucket configured there is where AutoML artifacts are stored. For exact UI steps and endpoint formatting, see [Using connections](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_on_projects/using-connections_projects) and [Creating an S3 client](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_data_in_an_s3-compatible_object_store/creating-an-s3-client_s3) in the Red Hat OpenShift AI documentation.
 
 **Training data connection**
 
@@ -293,9 +293,15 @@ Reuse the same KServe **ServingRuntime** YAML and UI steps as in the tabular tut
 
 After the AutoGluon ServingRuntime exists, deploy from **Projects** → **Deployments** → **Deploy model**, or deploy a model registered in [Model Registry](#model-registry) via **AI Hub** → **Models** → **Registry** → **Actions** → **Deploy**. Choose **Predictive model**, framework **autogluon - 1**, runtime **AutoGluon ServingRuntime for KServe**. Configure routes and authentication as needed.
 
-> [!warning]
 > **Custom id or timestamp column names**  
-> Inference defaults to JSON keys `**item_id`** and `**timestamp**`. If your training data used different `**id_column**` / `**timestamp_column**`, set `**AUTOGLUON_TS_ID_COLUMN**` and `**AUTOGLUON_TS_TIMESTAMP_COLUMN**` under **Advanced settings** → **Configuration parameters** (same values as in training). Not needed if columns are already `item_id` and `timestamp`.
+> Inference defaults to JSON keys **`item_id`** and **`timestamp`**. If your training data used different column names (for example `id_column` / `timestamp_column`), set these environment variables under **Advanced settings** → **Configuration parameters** (same values as in training):
+>
+> | Role | Default JSON key | Environment variable | Value |
+> | --- | --- | --- | --- |
+> | Series id | `item_id` | `AUTOGLUON_TS_ID_COLUMN` | Your `id_column` (e.g. `d_id`) |
+> | Timestamp | `timestamp` | `AUTOGLUON_TS_TIMESTAMP_COLUMN` | Your `timestamp_column` (e.g. `date`) |
+>
+> No env vars are needed if your data already uses `item_id` and `timestamp`.
 
 See [churn_prediction_tutorial.md — Model Deployment](churn_prediction_tutorial.md#model-deployment) for step-by-step screenshots if you deploy from S3 path directly.
 
@@ -305,13 +311,13 @@ See [churn_prediction_tutorial.md — Model Deployment](churn_prediction_tutoria
 
 ## 🎯 Deployment Scoring
 
-After deployment is running, use the inference URL from deployment details. Time-series payloads differ from tabular; align with the predictor notebook and [AutoGluon Time Series quickstart](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html).
+After deployment is running, call the inference endpoint from deployment details. Time-series requests can differ from tabular payloads, so validate the request shape with the generated predictor notebook and `TimeSeriesPredictor` examples. If your `id_column` / `timestamp_column` were not `item_id` / `timestamp`, configure the environment variables from [Model Deployment](#model-deployment) when you deploy.
 
-Example request for this tutorial (`**item_id`**, `**timestamp**`, `**target**` in `instances`):
+Example request for this tutorial (**`item_id`**, **`timestamp`**, **`target`** in `instances`):
 
-- `**DEPLOYMENT_URL**` — Base inference URL from deployment details (sample appends `/v1/models/<MODEL_NAME>:predict`).
-- `**MODEL_NAME**` — Deployed model resource name.
-- `**YOUR_TOKEN**` — Only if token authentication is enabled; otherwise omit the `Authorization` header.
+- **`DEPLOYMENT_URL`** — Base inference URL from deployment details (sample appends `/v1/models/<MODEL_NAME>:predict`).
+- **`MODEL_NAME`** — Deployed model resource name.
+- **`YOUR_TOKEN`** — Only if token authentication is enabled; otherwise omit the `Authorization` header.
 
 ```bash
    curl -X POST \
@@ -456,8 +462,8 @@ Example response:
 }
 ```
 
-- **Notebook:** [Time series predictor notebook](#time-series-predictor-notebook).
-- **Protocol:** [KServe V1 Protocol](https://kserve.github.io/website/docs/concepts/architecture/data-plane/v1-protocol).
+- **Notebook source:** use the model-specific notebook from [Time series predictor notebook](#time-series-predictor-notebook).
+- **API/reference:** see [AutoGluon TimeSeries forecasting quickstart](https://auto.gluon.ai/stable/tutorials/timeseries/forecasting-quickstart.html) and [KServe V1 Protocol](https://kserve.github.io/website/docs/concepts/architecture/data-plane/v1-protocol).
 
 
 
@@ -555,6 +561,6 @@ For layout details, see [autogluon_timeseries_training_pipeline](https://github.
 
 ## Pipeline reference
 
-- **Branch:** [rhoai-3.4](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4)
+- **Branch:** [rhoai-3.4](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4) — [pipelines-components](https://github.com/red-hat-data-services/pipelines-components)
 - **Pipeline:** [autogluon_timeseries_training_pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/automl/autogluon_timeseries_training_pipeline) (name: `autogluon-timeseries-training-pipeline`)
-- **Stability:** see upstream README
+- **Stability:** beta (see upstream README)
