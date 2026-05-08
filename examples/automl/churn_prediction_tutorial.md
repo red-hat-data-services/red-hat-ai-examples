@@ -7,7 +7,7 @@ This tutorial walks you through that end-to-end in two ways:
 
 1. **Option 1: AutoML UI (recommended):** create a project, S3 connections for **results** and **training data**, a workbench with the **results** connection attached (so you can reach run artifacts without a restart), then run an **AutoML optimization** from **Develop & train** → **AutoML** (labeled **Tech Preview** in the UI). You can **optionally** copy the churn CSV into the training bucket first ([see below](#upload-the-training-dataset-to-s3)); otherwise, on the AutoML data step use **Upload file** to pass the same training file from your machine. After the run succeeds, view the leaderboard, use the predictor notebook, optionally register the model, deploy it with the AutoGluon serving runtime, and score the deployment.
 
-2. **Option 2: KFP Native Pipeline Approach (advanced):** configure the Pipeline Server, import the compiled [pipeline.yaml](pipelines/pipeline.yaml) as a **Pipeline Definition**, and create a **pipeline run** with the same kind of parameters (S3 training data, label column, task type). Use this when you need the explicit pipeline graph, reproducible YAML, or your organization standardizes on Kubeflow pipelines.
+2. **Option 2: KFP Native Pipeline Approach (advanced):** configure the Pipeline Server, import the compiled tabular AutoML pipeline YAML from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_tabular_training_pipeline/pipeline.yaml) as a **Pipeline Definition**, and create a **pipeline run** with the same kind of parameters (S3 training data, label column, task type). Use this when you need the explicit pipeline graph, reproducible YAML, or your organization standardizes on Kubeflow pipelines.
 
 The body of this document follows the **Option 1 (AutoML UI)** order. The **Option 2** pipeline flow is a single section at the end ([Run AutoML via pipeline definition](#optional-run-automl-via-pipeline-definition)).
 
@@ -413,7 +413,7 @@ Reference for more info about v1 protocol: [KServe V1 Protocol](https://kserve.g
 
 ## (Optional) Run AutoML via pipeline definition
 
-Use this path when you want a **Pipeline Definition** in the project, manual **Create run** with explicit parameters, or the same [pipeline.yaml](pipelines/pipeline.yaml) the product’s AutoML feature may run under the hood. Complete the shared setup ([project](#create-a-new-project), [S3 connections](#create-the-s3-connections), [workbench](#create-workbench-with-connections-attached)). Ensure the training CSV exists in the **training data** bucket at the key you pass as `train_data_file_key`—for example by performing the [(optional) upload to S3](#upload-the-training-dataset-to-s3) or another upload method. Then perform the subsections below in order (through viewing the leaderboard from the pipeline run).
+Use this path when you want a **Pipeline Definition** in the project, manual **Create run** with explicit parameters, or the same compiled YAML for `autogluon-tabular-training-pipeline` from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_tabular_training_pipeline/pipeline.yaml) that the product’s AutoML feature may run under the hood. Complete the shared setup ([project](#create-a-new-project), [S3 connections](#create-the-s3-connections), [workbench](#create-workbench-with-connections-attached)). Ensure the training CSV exists in the **training data** bucket at the key you pass as `train_data_file_key`—for example by performing the [(optional) upload to S3](#upload-the-training-dataset-to-s3) or another upload method. Then perform the subsections below in order (through viewing the leaderboard from the pipeline run).
 
 <a id="add-the-automl-pipeline-as-a-pipeline-definition"></a>
 
@@ -421,7 +421,7 @@ Use this path when you want a **Pipeline Definition** in the project, manual **C
 
 | Step | Action |
 |------|--------|
-| **①** | Get the compiled AutoML pipeline from the repository: [pipeline.yaml](pipelines/pipeline.yaml). |
+| **①** | Obtain the compiled YAML for `autogluon-tabular-training-pipeline` from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_tabular_training_pipeline/pipeline.yaml). |
 | **②** | In Red Hat OpenShift AI, go to **Pipelines** (or **Develop & train** → **Pipelines**) for your project. |
 | **③** | Upload the compiled pipeline as a new **Pipeline Definition** (or create a pipeline from the YAML), following [Managing AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines). |
 
