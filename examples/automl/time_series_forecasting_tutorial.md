@@ -32,6 +32,8 @@ The body of this document follows the **primary (AutoML UI)** order. The [option
 
 
 
+<a id="use-case-and-dataset"></a>
+
 ## 📈 Use case and dataset
 
 - **Use case:** **Industrial electricity demand forecasting** — predict future **industry A** usage from historical daily (or regular) readings, supporting planning and analytics workflows.
@@ -43,6 +45,8 @@ See also [data/timeseries/README.md](data/timeseries/README.md) for provenance a
 
 
 
+<a id="create-a-new-project"></a>
+
 ## 🏗️ Create a new project
 
 
@@ -53,6 +57,8 @@ See also [data/timeseries/README.md](data/timeseries/README.md) for provenance a
 
 
 
+
+<a id="create-the-s3-connections"></a>
 
 ## 💾 Create the S3 connections
 
@@ -119,6 +125,7 @@ Workbench image selection
 Workbench connections
 
 
+<a id="upload-the-time-series-dataset-to-s3"></a>
 
 ## ⬆️ (Optional) Upload the time series dataset to S3
 
@@ -144,7 +151,7 @@ Workbench connections
 
 If this is your first time running AutoML in the project, you might be prompted to configure the **Pipeline Server**. If so, complete [Configure the Pipeline Server](#configure-the-pipeline-server) (one-time per project), then return here.
 
-For the primary **[electricity_industry_a_forecasting.csv](data/timeseries/input_data/electricity_industry_a_forecasting.csv)** file, map `**target`** → column `target`, `**timestamp**` → `timestamp`, **ID** → `item_id`. Leave **Known covariates** empty for this file. Set **Prediction length** to an integer horizon (for example `7` or `14` days ahead). Set **Top models to consider** (or equivalent) as your cluster exposes—for example `3`.
+For the primary **[electricity_industry_a_forecasting.csv](data/timeseries/input_data/electricity_industry_a_forecasting.csv)** file, map **`target`** → column `target`, **`timestamp`** → `timestamp`, **ID** → `item_id`. Leave **Known covariates** empty for this file. Set **Prediction length** to an integer horizon (for example `7` or `14` days ahead). Set **Top models to consider** (or equivalent) as your cluster exposes—for example `3`.
 
 
 | Step  | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -177,13 +184,15 @@ Open **Develop & train** → **AutoML**. Confirm the **Project** dropdown matche
 | **ID column** | `item_id` — separates multiple series in one table. |
 | **Known covariates** | Leave empty for the electricity file. |
 | **Prediction length** | Integer count of future steps (e.g. `7` or `14`); the UI may default to `1` — set a horizon that matches your use case. |
-| **Top models to consider** | e.g. `3` — how many top models to refit and list; use **−** / **+** to change. Range: `1–10`. |
+| **Top models to consider** | e.g. `3` — how many top models to refit and list; use **−** / **+** to change. Range: `1–7`. |
 
 After validating these fields, click **Create run** (step **⑥**) and wait for the flow graph steps to finish.
 
 
 
 
+
+<a id="view-the-leaderboard"></a>
 
 ## 📊 View the leaderboard
 
@@ -194,6 +203,8 @@ When you follow [Run AutoML with the AutoML UI](#run-automl-with-the-automl-ui),
 If you train using a [pipeline definition](#optional-run-timeseries-via-pipeline-definition) instead, open the leaderboard from the completed pipeline run as described in [View the leaderboard from the pipeline run](#view-the-leaderboard-from-the-pipeline-run).
 
 
+
+<a id="time-series-predictor-notebook"></a>
 
 ## 📓 Time series predictor notebook
 
@@ -266,6 +277,8 @@ For more on registries, see [Working with model registries](https://docs.redhat.
 
 
 
+<a id="prepare-the-servingruntime-for-autogluon-with-kserve"></a>
+
 ## ⚙️ Prepare the ServingRuntime for AutoGluon with KServe
 
 Reuse the same KServe **ServingRuntime** YAML and UI steps as in the tabular tutorial (identical runtime for AutoGluon):
@@ -273,6 +286,8 @@ Reuse the same KServe **ServingRuntime** YAML and UI steps as in the tabular tut
 [Prepare the ServingRuntime for AutoGluon with KServe](churn_prediction_tutorial.md#prepare-the-servingruntime-for-autogluon-with-kserve).
 
 
+
+<a id="model-deployment"></a>
 
 ## 🚀 Model Deployment
 
@@ -285,6 +300,8 @@ After the AutoGluon ServingRuntime exists, deploy from **Projects** → **Deploy
 See [churn_prediction_tutorial.md — Model Deployment](churn_prediction_tutorial.md#model-deployment) for step-by-step screenshots if you deploy from S3 path directly.
 
 
+
+<a id="deployment-scoring"></a>
 
 ## 🎯 Deployment Scoring
 
@@ -452,6 +469,8 @@ Use this path for a **Pipeline Definition**, explicit **Create run** parameters,
 
 
 
+<a id="add-the-time-series-automl-pipeline-as-a-pipeline-definition"></a>
+
 ### 📋 Add the time series AutoML pipeline as a Pipeline Definition
 
 
@@ -466,6 +485,8 @@ Use this path for a **Pipeline Definition**, explicit **Create run** parameters,
 ![Pipeline configuration](images/pipeline_configuration_1.png)
 
 <a id="run-timeseries-pipeline-with-required-inputs"></a>
+
+<a id="run-the-pipeline-with-required-inputs"></a>
 
 ### ▶️ Run the pipeline with required inputs
 
