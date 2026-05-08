@@ -145,7 +145,7 @@ For advanced users or automation scenarios, you can use the traditional Kubeflow
 
 | Step | Action |
 |------|--------|
-| **①** | Get the compiled **Documents RAG Optimization Pipeline** from [here](pipelines/pipeline.yaml) and download it. |
+| **①** | Get the compiled **Documents RAG Optimization Pipeline** from [here](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline/pipeline.yaml) and download it. |
 | **②** | In Red Hat OpenShift AI, go to **Pipelines** (or **Develop & Train** → **Pipelines**) for your project and upload the compiled pipeline in YAML format. |
 
 **Pipeline creation:**
