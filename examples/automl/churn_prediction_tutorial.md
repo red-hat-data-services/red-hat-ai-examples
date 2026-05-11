@@ -150,8 +150,6 @@ Parameters on this screen (left **Documents**, right **Configure details**):
 
 After validating these fields, click **Create run** (step **⑥**) and wait for the flow graph steps to finish.
 
-
-
 <a id="view-the-leaderboard"></a>
 
 ## 📊 View the leaderboard
