@@ -105,4 +105,4 @@ LORA/QLORA supports:
 
 - From the workbench, clone this repository, i.e., `https://github.com/red-hat-data-services/red-hat-ai-examples.git`
   ![](./docs/06.png)
-- Navigate to the `examples/fine-tuning/lora` directory and open the [`lora_sft-interactive-notebook.ipynb`](./lora_sft-interactive-notebook.ipynb) notebook.
+- Navigate to the `examples/fine-tuning/rhoai-3.3/lora` directory and open the [`lora_sft-interactive-notebook.ipynb`](./lora_sft-interactive-notebook.ipynb) notebook.

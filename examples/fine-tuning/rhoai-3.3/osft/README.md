@@ -185,4 +185,4 @@ osft(..., use_processed_dataset=True)
 
 - From the workbench, clone this repository, i.e., `https://github.com/red-hat-data-services/red-hat-ai-examples.git`
   ![](./docs/06.png)
-- Navigate to the `examples/fine-tuning/osft` directory and open the [`osft-interactive-notebook.ipynb`](./osft-interactive-notebook.ipynb) notebook or [`osft-distributed.ipynb`](./osft-distributed.ipynb) as required
+- Navigate to the `examples/fine-tuning/rhoai-3.3/osft` directory and open the [`osft-interactive-notebook.ipynb`](./osft-interactive-notebook.ipynb) notebook or [`osft-distributed.ipynb`](./osft-distributed.ipynb) as required
