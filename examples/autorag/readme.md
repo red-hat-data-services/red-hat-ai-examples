@@ -231,7 +231,7 @@ Use the traditional **Kubeflow Pipelines** approach for advanced use cases or au
 
 1. Ensure the **Llama-stack RAG stack** is deployed and you have created a secret (or connection) with `LLAMA_STACK_CLIENT_BASE_URL` and `LLAMA_STACK_CLIENT_API_KEY`.
 2. Ensure the **sample documents** and **benchmark** file are uploaded to S3, and that you have S3 connections configured plus a Pipeline Server configured with a results connection for artifacts.
-3. Add the **Documents RAG Optimization Pipeline** as a Pipeline Definition (from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline), branch `autox`). You can find its compiled version [here](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline/pipeline.yaml).
+3. Add the **Documents RAG Optimization Pipeline** as a Pipeline Definition (from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline), branch `rhoai-3.4`). You can find its compiled version [here](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline/pipeline.yaml).
 4. Create a pipeline run and set the required parameters: use the same connection and bucket for test data and input documents (different object keys); Llama-stack secret name; embeddings_models and generation_models lists; optimization_metric.
 5. **View the results** in the run's Artifacts: leaderboard HTML and RAG pattern artifacts.
 
@@ -247,7 +247,7 @@ For a detailed step-by-step walkthrough of both approaches, see the [Tutorial: A
 
 ## References
 
-- [Documents RAG Optimization Pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline) — Pipeline definition, inputs, outputs, and artifact layout (branch `autox`)
+- [Documents RAG Optimization Pipeline](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline) — Pipeline definition, inputs, outputs, and artifact layout (branch `rhoai-3.4`)
 - [Llama stack setup](https://github.com/red-hat-data-services/red-hat-ai-examples/blob/llama-stack_sample/examples/llama-stack/SETUP.md) — Installation and configuration for the Llama-stack RAG server (prerequisite for AutoRAG)
 - [IBM ai4rag](https://github.com/IBM/ai4rag) — RAG templates and optimization engine used by the pipeline
 - [Deploying a RAG stack in a project (Red Hat OpenShift AI)](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.0/html/working_with_llama_stack/deploying-a-rag-stack-in-a-project_rag)
