@@ -1,12 +1,16 @@
-# RayCluster for RAG ingestion workloads (CPU + GPU)
+# RayCluster for RAG ingestion workloads — REFERENCE MANIFEST
+#
+# Preferred approach: Use the CodeFlare SDK to create the cluster
+# (see rag_ingestion.ipynb, "Create or Connect to RayCluster" section).
+# This manifest is kept as a reference for non-SDK deployments or
+# environments where the SDK is not available.
 #
 # Key settings:
-# - Image has Docling + Ray + vLLM required
 # - CPU workers: 4 CPU, 16Gi memory (for Docling parsing + Milvus writes)
 # - GPU workers: 1 GPU, 16Gi memory (for vLLM embedding)
 # - Head: object-store-memory set for Ray Data throughput
 #
-# Replace the image below with your container image you that has
+# Replace the image below with your container image that has
 # Docling + Ray + vLLM installed. See the below link for an example Dockerfile:
 # https://github.com/opendatahub-io/distributed-workloads/tree/main/images/runtime/examples/ray-data-rag
 ---
@@ -48,8 +52,6 @@ spec:
               - containerPort: 10001
                 name: client
             env:
-              - name: RAY_USE_TLS
-                value: "0"
               - name: RAY_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
                 value: "0.5"
             resources:
@@ -87,8 +89,6 @@ spec:
               image: <your-image>:latest
               imagePullPolicy: Always
               env:
-                - name: RAY_USE_TLS
-                  value: "0"
                 - name: RAY_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
                   value: "0.5"
               resources:
@@ -126,8 +126,6 @@ spec:
               image: <your-image>:latest
               imagePullPolicy: Always
               env:
-                - name: RAY_USE_TLS
-                  value: "0"
                 - name: RAY_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
                   value: "0.5"
               resources:

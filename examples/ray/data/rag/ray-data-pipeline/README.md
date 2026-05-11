@@ -61,6 +61,12 @@ Ray Data **streams** the three ingestion stages so they overlap — Docling
   (see `manifests/raycluster-rag-optimized.yaml`)
 - **Milvus** accessible from the Ray cluster (standalone or operator-managed)
 
+> [!NOTE]
+> If Milvus runs in a different namespace from the RayCluster, a
+> `NetworkPolicy` (or namespace label) must allow traffic from the Ray
+> namespace to the Milvus service port. Without this the pipeline will
+> silently hang at the Milvus connection step.
+
 ### Runtime image
 
 The RayCluster manifest and RayJob must use a container image that includes
@@ -188,24 +194,76 @@ All parameters are environment variables set in the ingestion notebook.
 | Parameter | Default | Description |
 | --------- | ------- | ----------- |
 | `VLLM_MODEL_SOURCE` | `intfloat/multilingual-e5-large` | Embedding model for vLLM |
-| `VLLM_BATCH_SIZE` | 4 | Batch size for embedding processor |
+| `VLLM_BATCH_SIZE` | 4 | Batch size for embedding processor. Higher values increase throughput but require more GPU memory; reduce to 1–2 on T4 (16 GB) if OOM occurs. |
 | `VLLM_CONCURRENCY` | 1 | GPU workers for embedding |
 | `VLLM_ENGINE_KWARGS_JSON` | `{}` | vLLM engine args (JSON); set for your GPU |
 | `EMBEDDING_DIM` | 1024 | Vector dimension (must match model) |
-| `NUM_ACTORS` | 8 | Docling parsing actors (CPU-heavy) |
+| `NUM_ACTORS` | 6 | Docling parsing actors (CPU-heavy). Too many actors vs total CPUs can stall streaming — see [Sizing for your hardware](#sizing-for-your-hardware). |
 | `CPUS_PER_ACTOR` | 4 | CPUs per Docling actor |
 | `NUM_MILVUS_ACTORS` | 2 | Milvus write actors (I/O-bound) |
 | `NUM_FILES` | 0 | PDFs to process (0 = all) |
 | `BATCH_SIZE` | 2 | PDFs per Docling actor batch |
+| `REPARTITION_FACTOR` | 2 | Multiplier applied when repartitioning before embedding. Higher spreads blocks across the cluster (can smooth hotspots) but increases shuffle cost; tune with dataset size and CPU budget. |
 | `CHUNK_MAX_TOKENS` | 256 | Max tokens per chunk |
 | `MILVUS_BATCH_SIZE` | 64 | Vectors per Milvus insert batch |
 
+### Sizing for your hardware
+
+Ray Data runs Docling (`NUM_ACTORS` CPU actors), vLLM on GPU, and Milvus writers at the same time. **Actor-based CPU stages are sensitive to how much of the cluster you reserve for Docling:** if those actors claim too large a share of total CPUs, the streaming executor can stall waiting for capacity — often mistaken for a deadlock unless you leave enough headroom for Ray, Milvus actors, GPU-worker CPUs, and the head node.
+
+**70% rule:** Aim to use at most about **70%** of **total cluster CPUs** for Docling (`NUM_ACTORS × CPUS_PER_ACTOR`), and leave roughly **30%** for scheduling, Milvus write actors, GPU-worker CPUs, object store, and other overhead.
+
+Use this as a **starting point** for `NUM_ACTORS`:
+
+```text
+max_actors = floor(total_cluster_cpus × 0.70 / CPUS_PER_ACTOR)
+```
+
+Example clusters with `CPUS_PER_ACTOR = 4` (total CPUs include worker pools plus typical head/GPU-worker CPU contributions as in the table labels):
+
+| Cluster | Total CPUs | 70% CPU budget | max NUM_ACTORS (formula) |
+| ------- | ----------- | -------------- | ------------------------ |
+| Small (4 workers × 4 CPU + head 2 CPU) | 18 | 12 | 3 |
+| Reference (8 workers × 4 CPU + 1 GPU × 2 CPU) | 34 | 23 | 5 |
+| Large (16 workers × 4 CPU + 2 GPU × 2 CPU) | 68 | 47 | 11 |
+
+On the **reference** cluster, the formula gives **5** actors (conservative). This example’s **default `NUM_ACTORS` of 6** was tested on that hardware and uses slightly more than the nominal 70% Docling share (~71% of cluster CPUs for Docling alone). Treat the formula as a safe baseline when porting to a new cluster; raise `NUM_ACTORS` gradually while watching Ray Dashboard CPU utilization and job progress.
+
+Also align **`REPARTITION_FACTOR`** with how much parallelism you want between Docling and embedding: higher factors create more blocks (and more shuffle) relative to Docling output — useful on larger clusters if stages otherwise bottleneck on partition count.
+
+### Repartition tuning
+
+`REPARTITION_FACTOR` controls how many blocks each actor's output is split
+into before the embedding stage (`target_blocks = NUM_ACTORS × REPARTITION_FACTOR`).
+
+- **When it helps:** Few large input blocks where each PDF produces many chunks.
+  Repartitioning spreads work evenly across embedding and Milvus-write stages.
+- **When it hurts:** The default workload is already well-distributed (many
+  small PDFs), or the cluster has limited CPU headroom. Each repartition
+  creates reduce tasks that compete for CPU slots; too many can trigger
+  deadlock on small clusters.
+
+The default `REPARTITION_FACTOR=2` produces `6 × 2 = 12` blocks, which
+schedules comfortably on the reference hardware's ~10-CPU headroom.
+
 ## Observability
 
-The **Ray Dashboard** is exposed on port 8265 of the head node. To access it:
+### Dashboard access
+
+**Primary (CodeFlare SDK):** After creating or connecting to the cluster in
+the notebook, the dashboard URL is available via:
+
+```python
+print(cluster.cluster_dashboard_uri())
+```
+
+This resolves automatically via HTTPRoute (RHOAI v3.0+), OpenShift Route,
+or Ingress depending on the platform.
+
+**Fallback (port-forward):** For non-RHOAI environments or manual access:
 
 ```bash
-oc port-forward svc/raytest-head-svc 8265:8265 -n <namespace>
+oc port-forward svc/<cluster-name>-head-svc 8265:8265 -n <namespace>
 # Open http://localhost:8265
 ```
 
@@ -256,6 +314,30 @@ Large/complex PDFs can require 2–4 Gi per Docling actor.
 If the RayJob submission fails with "Secret size exceeds 1MB limit", ensure
 the notebook's `working_dir` points to a minimal directory containing only
 `docling_milvus_process.py` (the notebook handles this automatically).
+
+### Pipeline stuck with no errors
+
+If the pipeline appears hung with no error messages, check for resource deadlock
+or backpressure using the Ray tasks API:
+
+```bash
+# Get task states from the Ray head node
+oc exec -it <head-pod> -n <namespace> -- \
+  curl -s http://localhost:8265/api/v0/tasks | python3 -m json.tool
+```
+
+Look for:
+
+- **`PENDING_NODE_ASSIGNMENT`** — tasks cannot be scheduled because all CPUs are
+  reserved by running actors. Reduce `NUM_ACTORS` (see "Sizing for your hardware").
+- **`backpressured:tasks(ResourceBudget)`** — Ray Data is throttling new tasks
+  because downstream stages are slower than upstream. This is normal behavior but
+  if throughput is near zero, reduce `REPARTITION_FACTOR` to lower the number of
+  concurrent reduce tasks competing for CPU headroom.
+
+With the default configuration (`NUM_ACTORS=6`, `REPARTITION_FACTOR=2`), the
+reference hardware (34 CPUs) has ~10 CPUs of headroom for scheduling overhead,
+MilvusWriteActors, repartition reduce tasks, and Ray Data executor.
 
 ## Related examples
 

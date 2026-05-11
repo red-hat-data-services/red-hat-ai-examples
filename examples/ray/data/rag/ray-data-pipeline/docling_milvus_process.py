@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s
 # Parameters (all from environment variables)
 # ---------------------------------------------------------------------------
 
-NUM_ACTORS = int(os.environ.get("NUM_ACTORS", "8"))
+NUM_ACTORS = int(os.environ.get("NUM_ACTORS", "6"))
 NUM_MILVUS_ACTORS = int(os.environ.get("NUM_MILVUS_ACTORS", "2"))
 CPUS_PER_ACTOR = int(os.environ.get("CPUS_PER_ACTOR", "4"))
 
@@ -60,7 +60,7 @@ EMBEDDING_DIM = int(os.environ.get("EMBEDDING_DIM", "1024"))
 
 CHUNK_MAX_TOKENS = int(os.environ.get("CHUNK_MAX_TOKENS", "256"))
 
-REPARTITION_FACTOR = int(os.environ.get("REPARTITION_FACTOR", "10"))
+REPARTITION_FACTOR = int(os.environ.get("REPARTITION_FACTOR", "2"))
 
 
 # ---------------------------------------------------------------------------
