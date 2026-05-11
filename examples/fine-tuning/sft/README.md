@@ -1,76 +1,23 @@
-# OSFT Continual Learning on Red Hat OpenShift AI
+# SFT Fine-Tuning with Training Hub
 
-This example provides an overview of the [OSFT algorithm from Training Hub](https://github.com/Red-Hat-AI-Innovation-Team/training_hub/tree/main?tab=readme-ov-file#orthogonal-subspace-fine-tuning-osft) and demonstrates how to use it with Red Hat OpenShift AI.
+This example provides an overview of the [SFT algorithm from Training Hub](https://github.com/Red-Hat-AI-Innovation-Team/training_hub?tab=readme-ov-file#supervised-fine-tuning-sft) and demonstrates how to use it with Red Hat OpenShift AI.
 
-## Overview
+## What is SFT?
 
-Fine-tuning language models is hard—you need good data, lots of resources, and even small changes can cause problems. This makes it tough to add new abilities to a model. This problem is called continual learning and is what our new training technique, orthogonal subspace fine-tuning (OSFT), solves.
+Supervised Fine-Tuning (SFT) is the standard approach for adapting a pre-trained language model to follow instructions or perform specific tasks. During SFT the model learns from labeled examples of input-output pairs:
 
-The OSFT algorithm implements Orthogonal Subspace Fine-Tuning based on Nayak et al. (2025), arXiv:2504.07097. This algorithm allows for continual training of pre-trained or instruction-tuned models without the need of a supplementary dataset to maintain the distribution of the original model/dataset that was trained.
+- Updates **all model weights** using instruction/response training data
+- Directly optimizes the model to produce desired outputs for given inputs
+- Supports multi-turn conversation formats with system, user, and assistant roles
 
-**Key Benefits:**
-
-- Enables continual learning without catastrophic forgetting
-- No need for supplementary datasets to maintain original model distribution
-- Significantly reduces data requirements for customizing instruction-tuned models
-- Memory requirements similar to standard SFT
-
-### Data Format Requirements
-
-Training Hub's OSFT algorithm supports both **processed** and **unprocessed** data formats via the [mini-trainer](https://github.com/Red-Hat-AI-Innovation-Team/mini_trainer/) backend.
-
-#### Option 1: Standard Messages Format (Recommended)
-
-Your training data should be a **JSON Lines (.jsonl)** file containing messages data:
-
-```json
-{"messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}, {"role": "assistant", "content": "Hi there! How can I help you?"}]}
-{"messages": [{"role": "user", "content": "What is OSFT?"}, {"role": "assistant", "content": "OSFT stands for Orthogonal Subspace Fine-Tuning..."}]}
-```
-
-#### Message Structure
-
-- **`role`**: One of `"system"`, `"user"`, `"assistant"`, or `"pretraining"`
-- **`content`**: The text content of the message
-- **`reasoning_content`** (optional): Additional reasoning traces
-
-#### Masking Control with `unmask_messages` Parameter
-
-Control training behavior during data processing:
-
-**Standard instruction tuning (default):**
-
-```python
-osft(..., unmask_messages=False)  # Only assistant responses used for loss
-```
-
-**Pretraining mode:**
-
-```python
-osft(..., unmask_messages=True)   # All content except system messages used for loss
-```
-
-#### Option 2: Pre-processed Dataset
-
-If you have pre-processed data with `input_ids` and `labels` fields:
-
-```json
-{"input_ids": [1, 2, 3, ...], "labels": [1, 2, 3, ...]}
-{"input_ids": [4, 5, 6, ...], "labels": [4, 5, 6, ...]}
-```
-
-Use with:
-
-```python
-osft(..., use_processed_dataset=True)
-```
+SFT is the most straightforward fine-tuning method and serves as the foundation that other techniques (LoRA, OSFT) build upon or optimize around.
 
 ## Execution modes
 
-OSFT supports two execution modes:
+SFT supports two execution modes:
 
-- **Interactive (single node fine tuning)**: training runs directly in a workbench on a single pod, demonstrated by `osft-interactive-notebook.ipynb`.
-- **Distributed (distributed fine tuning with Kubeflow Trainer)**: training runs as distributed jobs across multiple nodes/pods via Kubeflow Trainer, demonstrated by `osft-distributed.ipynb`.
+- **Interactive (single node fine tuning)**: training runs directly in a workbench on a single pod, demonstrated by `sft-interactive-notebook.ipynb`.
+- **Distributed (distributed fine tuning with Kubeflow Trainer)**: training runs as distributed jobs across multiple nodes/pods via Kubeflow Trainer, demonstrated by `sft-distributed.ipynb`.
 
 While workbench setup is similar for both, we highlight specific configuration differences below.
 
@@ -78,7 +25,7 @@ To learn more about these execution modes, see the [fine-tuning execution modes 
 
 ## RHOAI compatibility
 
-This example is compatible with RHOAI version 3.4. For a version compatible with RHOAI 3.3 see [this README](../rhoai-3.3/osft/README.md).
+This example is compatible with RHOAI version 3.4. For a version compatible with RHOAI 3.3 see [this README](../rhoai-3.3/training-hub/sft/README.md).
 
 ## Requirements
 
@@ -91,7 +38,8 @@ This example is compatible with RHOAI version 3.4. For a version compatible with
 ## Hardware requirements
 
 For the workbench image, the example was run on `Training | Jupyter | PyTorch | CUDA | Python` and `Training | Jupyter | PyTorch | CPU Python`.
-These images serve both as training runtime and jupyter notebook images and come with all required dependencies pre-installed to seamlessly run fine-tuning jobs.
+This is a single image serving both as training runtime and jupyter notebook and comes with pre-installed dependencies required
+to seamlessly run fine-tuning jobs.
 
 ### Workbench Requirements (Interactive example)
 
@@ -113,7 +61,6 @@ These images serve both as training runtime and jupyter notebook images and come
 > [!NOTE]
 >
 > - This example was tested on 2 nodes × 2 GPUs provided by L40S however, it will work on smaller/larger configurations.
-> - Flash Attention is required for efficient training with OSFT.
 > - CPU and Memory requirements scale with batch size and model size. Above suit the example as it is.
 > - Worker pods are configurable from the `client.create_job` call within the notebook.
 
@@ -193,12 +140,12 @@ These images serve both as training runtime and jupyter notebook images and come
 > - By default:
 >   - The distributed example goes through training on two nodes (2×L40/L40S) with two GPUs each (2×48GB). However, it can be tweaked to run on smaller configurations.
 >   - If you want to do model evaluation as part of the distributed example, ideally an accelerator is attached to the workbench.
->   - For the interactive example an accelerator is required for the workbench to execute the fine tuning with OSFT.
+>   - For the interactive example an accelerator is required for the workbench to execute the fine tuning with SFT.
 
 ### Running the example notebooks
 
 - From the workbench, clone this repository: `https://github.com/red-hat-data-services/red-hat-ai-examples.git`
-- Navigate to the `examples/fine-tuning/osft` directory and open the [`osft-interactive-notebook.ipynb`](./osft-interactive-notebook.ipynb) notebook or [`osft-distributed.ipynb`](./osft-distributed.ipynb) as required.
+- Navigate to the `examples/fine-tuning/sft` directory and open the [`sft-interactive-notebook.ipynb`](./sft-interactive-notebook.ipynb) notebook or [`sft-distributed.ipynb`](./sft-distributed.ipynb) as required.
 
 > [!NOTE]
 >
