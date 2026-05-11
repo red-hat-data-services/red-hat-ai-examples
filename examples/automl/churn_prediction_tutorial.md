@@ -5,7 +5,7 @@
 
 This tutorial walks you through that end-to-end in two ways:
 
-1. **Option 1: AutoML UI (recommended):** create a project, S3 connections for **results** and **training data**, a workbench with the **results** connection attached (so you can reach run artifacts without a restart), then run an **AutoML optimization** from **Develop & train** → **AutoML**. You can **optionally** copy the churn CSV into the training bucket first ([see below](#upload-the-training-dataset-to-s3)); otherwise, on the AutoML data step use **Upload file** to pass the same training file from your machine. After the run succeeds, view the leaderboard, use the predictor notebook, optionally register the model, deploy it with the AutoGluon serving runtime, and score the deployment.
+1. **Option 1: AutoML UI (recommended):** create a project, S3 connections for **results** and **training data**, [Configure the Pipeline Server](#configure-the-pipeline-server) (one-time per project—AutoML optimization runs store artifacts through the pipeline backend), a workbench with the **results** connection attached, then run an **AutoML optimization** from **Develop & train** → **AutoML**. You can **optionally** copy the churn CSV into the training bucket first ([see below](#upload-the-training-dataset-to-s3)); otherwise, on the AutoML data step use **Upload file** to pass the same training file from your machine. After the run succeeds, view the leaderboard, use the predictor notebook, optionally register the model, deploy it with the AutoGluon serving runtime, and score the deployment.
 
 2. **Option 2: KFP Native Pipeline Approach (advanced):** configure the Pipeline Server, import the compiled tabular AutoML pipeline YAML from [pipelines-components](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/automl/autogluon_tabular_training_pipeline/pipeline.yaml) as a **Pipeline Definition**, and create a **pipeline run** with the same kind of parameters (S3 training data, label column, task type). Use this when you need the explicit pipeline graph, reproducible YAML, or your organization standardizes on Kubeflow pipelines.
 
@@ -117,7 +117,7 @@ Configure the **Pipeline Server** for your project so that AutoML runs (and pipe
 
 **AutoML** in Red Hat OpenShift AI is available under **Develop & train** (it may show a **Tech Preview** badge). It walks you through naming the run, connecting training data from S3 or an upload, choosing the **prediction type** and **label** column, then creating the optimization run. For **Telco Customer Churn**, the target column is **Churn** (Yes/No), so the correct prediction type is **Binary classification**.
 
-If this is your first time running AutoML in the project, you might be prompted to configure the **Pipeline Server**. If so, complete [Configure the Pipeline Server](#configure-the-pipeline-server) (one-time per project), then return here.
+AutoML runs use the **Pipeline Server** to persist artifacts (leaderboard, models, notebooks). Complete [Configure the Pipeline Server](#configure-the-pipeline-server) in your project before you start if you have not already (one-time per project). If the UI prompts you during the wizard, use the same steps, then continue here.
 
 | Step | Action |
 |------|--------|
