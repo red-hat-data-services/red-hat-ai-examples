@@ -15,7 +15,7 @@ To learn more about execution modes, see the [fine-tuning execution modes overvi
 
 ## RHOAI compatibility
 
-This example is compatible with RHOAI version 3.3. For a version compatible with RHOAI 3.2 see [this README](../rhoai-3.2/training-hub/sft/README.md). For RHOAI 3.0 see [this README](../rhoai-3.0/training-hub/sft/README.md).
+This example is compatible with RHOAI version 3.3. For a version compatible with RHOAI 3.2 see [this README](../../rhoai-3.2/training-hub/sft/README.md). For RHOAI 3.0 see [this README](../../rhoai-3.0/training-hub/sft/README.md).
 
 > [!IMPORTANT]
 > This example has been tested with the configurations listed in the [validation](#validation) section.
@@ -76,7 +76,7 @@ This example is compatible with RHOAI version 3.3. For a version compatible with
 - From "Workbenches" page, click on _Open_ when the workbench you've just created becomes ready:
   ![](./images/05.png)
 - From the workbench, clone this repository, i.e., `https://red-hat-data-services/red-hat-ai-examples.git`
-- Navigate to the `examples/fine-tuning/training-hub/sft` directory and open the [`sft-interactive-notebook.ipynb`](./sft-interactive-notebook.ipynb) notebook or [`sft-distributed.ipynb`](./sft-distributed.ipynb) as required
+- Navigate to the `examples/fine-tuning/rhoai-3.3/training-hub/sft` directory and open the [`sft-interactive-notebook.ipynb`](./sft-interactive-notebook.ipynb) notebook or [`sft-distributed.ipynb`](./sft-distributed.ipynb) as required
 
 > [!IMPORTANT]
 >
