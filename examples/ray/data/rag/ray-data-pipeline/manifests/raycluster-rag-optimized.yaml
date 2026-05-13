@@ -1,18 +1,17 @@
-# RayCluster for RAG ingestion workloads — REFERENCE MANIFEST
+# Example RayCluster for RAG ingestion workloads.
 #
-# Preferred approach: Use the CodeFlare SDK to create the cluster
-# (see rag_ingestion.ipynb, "Create or Connect to RayCluster" section).
-# This manifest is kept as a reference for non-SDK deployments or
-# environments where the SDK is not available.
+# Resource values are sized for the reference hardware described in the README
+# (8 CPU workers + 1 GPU worker). Tune replicas, CPU/memory requests, GPU
+# resource limits, and image fields for your OpenShift cluster before applying.
 #
 # Key settings:
 # - CPU workers: 4 CPU, 16Gi memory (for Docling parsing + Milvus writes)
 # - GPU workers: 1 GPU, 16Gi memory (for vLLM embedding)
 # - Head: object-store-memory set for Ray Data throughput
 #
-# Replace the image below with your container image that has
-# Docling + Ray + vLLM installed. See the below link for an example Dockerfile:
-# https://github.com/opendatahub-io/distributed-workloads/tree/main/images/runtime/examples/ray-data-rag
+# The default image (quay.io/kryanbeane/docling:latest) includes Ray, Docling,
+# vLLM, and pymilvus. To use a custom image, see "Advanced: Custom Runtime
+# Image" in the README.
 ---
 apiVersion: ray.io/v1
 kind: RayCluster
@@ -42,7 +41,7 @@ spec:
       spec:
         containers:
           - name: ray-head
-            image: <your-image>:latest
+            image: quay.io/kryanbeane/docling:latest
             imagePullPolicy: Always
             ports:
               - containerPort: 6379
@@ -86,7 +85,7 @@ spec:
         spec:
           containers:
             - name: ray-worker
-              image: <your-image>:latest
+              image: quay.io/kryanbeane/docling:latest
               imagePullPolicy: Always
               env:
                 - name: RAY_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION
@@ -123,7 +122,7 @@ spec:
         spec:
           containers:
             - name: ray-gpu-worker
-              image: <your-image>:latest
+              image: quay.io/kryanbeane/docling:latest
               imagePullPolicy: Always
               env:
                 - name: RAY_DEFAULT_OBJECT_STORE_MEMORY_PROPORTION

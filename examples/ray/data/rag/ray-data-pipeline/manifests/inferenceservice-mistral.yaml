@@ -1,0 +1,64 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: mistral-7b-runtime
+  namespace: rag-example
+  annotations:
+    openshift.io/display-name: "Mistral 7B vLLM Runtime"
+spec:
+  annotations:
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+  multiModel: false
+  supportedModelFormats:
+    - autoSelect: true
+      name: vLLM
+  containers:
+    - name: kserve-container
+      image: quay.io/modh/vllm:rhoai-2.20-cuda
+      command:
+        - python
+        - -m
+        - vllm.entrypoints.openai.api_server
+      args:
+        - "--port=8080"
+        - "--model=/mnt/models"
+        - "--served-model-name=RedHatAI/Mistral-7B-Instruct-v0.3-quantized.w4a16"
+        - "--max-model-len=4096"
+        - "--enforce-eager"
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      resources:
+        requests:
+          cpu: "2"
+          memory: "8Gi"
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "4"
+          memory: "16Gi"
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - name: model-storage
+          mountPath: /mnt/models
+          readOnly: true
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: mistral-7b
+  namespace: rag-example
+  annotations:
+    serving.kserve.io/deploymentMode: RawDeployment
+spec:
+  predictor:
+    model:
+      runtime: mistral-7b-runtime
+      modelFormat:
+        name: vLLM
+      storage:
+        key: ""  # No secret needed for PVC storage type
+        path: "RedHatAI/Mistral-7B-Instruct-v0.3-quantized.w4a16"
+        parameters:
+          type: pvc
+          name: model-pvc

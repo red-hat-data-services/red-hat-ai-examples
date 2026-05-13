@@ -46,6 +46,9 @@ MILVUS_PORT = int(os.environ.get("MILVUS_PORT", "19530"))
 MILVUS_DB = os.environ.get("MILVUS_DB", "default")
 COLLECTION_NAME = os.environ.get("MILVUS_COLLECTION", "rag_documents")
 MILVUS_TEXT_MAX_CHARS = int(os.environ.get("MILVUS_TEXT_MAX_CHARS", "8192"))
+DROP_EXISTING_COLLECTION = (
+    os.environ.get("DROP_EXISTING_COLLECTION", "true").lower() == "true"
+)
 
 # vLLM embedding configuration
 VLLM_MODEL_SOURCE = os.environ.get(
@@ -354,8 +357,15 @@ def setup_milvus_collection():
     client = MilvusClient(uri=f"http://{MILVUS_HOST}:{MILVUS_PORT}", db_name=MILVUS_DB)
 
     if client.has_collection(COLLECTION_NAME):
-        print(f"Dropping existing collection '{COLLECTION_NAME}'")
-        client.drop_collection(COLLECTION_NAME)
+        if DROP_EXISTING_COLLECTION:
+            print(f"Dropping existing collection '{COLLECTION_NAME}'")
+            client.drop_collection(COLLECTION_NAME)
+        else:
+            raise RuntimeError(
+                f"Collection '{COLLECTION_NAME}' already exists. "
+                f"Set DROP_EXISTING_COLLECTION=true to drop and recreate it, "
+                f"or use a different MILVUS_COLLECTION name."
+            )
 
     schema = CollectionSchema(
         fields=[

@@ -5,6 +5,17 @@ Parse PDFs with Docling, generate embeddings with vLLM (via Ray Data's
 `vLLMEngineProcessorConfig`), and store vectors in Milvus — all running
 as a RayJob on an existing RayCluster.
 
+## Quick Links
+
+| Section | Description |
+|---------|-------------|
+| [Prerequisites](#prerequisites) | Versioned requirements and cluster setup |
+| [Runtime Image](#runtime-image) | Pre-built image (default) or build your own |
+| [Setup](#setup) | Cluster manifest, validation, data download |
+| [Configuration](#configuration) | Required vs optional parameters |
+| [Usage](#usage) | Running ingestion and query notebooks |
+| [Troubleshooting](#troubleshooting) | Common issues and fixes |
+
 ## Overview
 
 This example demonstrates a production-style RAG ingestion workflow using
@@ -54,6 +65,40 @@ Ray Data **streams** the three ingestion stages so they overlap — Docling
 
 ## Prerequisites
 
+| Component | Minimum Version | Notes |
+|-----------|----------------|-------|
+| OpenShift | 4.14+ | Cluster-admin or namespace-admin access |
+| RHOAI | 3.x | Red Hat OpenShift AI operator installed |
+| KubeRay | Bundled with RHOAI | RayCluster CRD must be available |
+| Milvus | >= 2.4 | Deployed and reachable from pipeline namespace |
+| Ray | >= 2.54 | Included in the pre-built runtime image |
+| Python | >= 3.11 | Workbench runtime (ships as 3.12 in the default workbench image) |
+
+### RBAC Permissions
+
+Your user or service account needs the following permissions in the pipeline namespace:
+
+- `create` on `rayjobs.ray.io` — to submit the ingestion pipeline
+- `get` on `pods/log` — to stream pipeline logs from the notebook
+- `get` on `rayjobs.ray.io` — to monitor job status
+
+If you don't have these permissions, contact your cluster administrator. See the [RHOAI documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self_managed/) for details on configuring RBAC.
+
+### Milvus Verification
+
+Before running the pipeline, verify Milvus is reachable from your namespace:
+
+```bash
+# Port-forward to Milvus and check health
+oc port-forward svc/milvus-milvus -n milvus 19530:19530 &
+curl -sf http://localhost:19530/v1/vector/collections && echo "Milvus is healthy"
+
+# Or check from within the cluster
+oc exec -n milvus deployment/milvus-milvus-proxy -- curl -sf http://localhost:19530/v1/vector/collections
+```
+
+If Milvus is not deployed, see the [Milvus Operator installation guide](https://milvus.io/docs/install_cluster-milvusoperator.md).
+
 ### Cluster
 
 - **Red Hat OpenShift AI** with the **KubeRay operator** installed
@@ -66,23 +111,6 @@ Ray Data **streams** the three ingestion stages so they overlap — Docling
 > `NetworkPolicy` (or namespace label) must allow traffic from the Ray
 > namespace to the Milvus service port. Without this the pipeline will
 > silently hang at the Milvus connection step.
-
-### Runtime image
-
-The RayCluster manifest and RayJob must use a container image that includes
-Ray 2.54+, Docling, vLLM, and pymilvus. A ready-to-build Dockerfile is
-available in the
-[distributed-workloads](https://github.com/opendatahub-io/distributed-workloads/tree/main/images/runtime/examples/ray-data-rag)
-repository:
-
-```bash
-cd images/runtime/examples/ray-data-rag
-podman build -t quay.io/<you>/ray-data-rag:latest -f Dockerfile .
-podman push quay.io/<you>/ray-data-rag:latest
-```
-
-Then update the `image:` fields in `manifests/raycluster-rag-optimized.yaml`
-to point to your pushed image before applying.
 
 ### Storage
 
@@ -99,6 +127,25 @@ to point to your pushed image before applying.
 
 The workbench only submits the RayJob — all heavy processing happens on
 the RayCluster.
+
+## Runtime Image
+
+The pre-built image `quay.io/kryanbeane/docling:latest` includes Ray 2.54+, Docling, vLLM, and pymilvus. The RayCluster manifest uses this image by default — no build step needed.
+
+### Advanced: Custom Runtime Image
+
+If you need to customize dependencies, build and push your own image. A ready-to-build Dockerfile is available in the
+[distributed-workloads](https://github.com/opendatahub-io/distributed-workloads/tree/main/images/runtime/examples/ray-data-rag)
+repository:
+
+```bash
+cd images/runtime/examples/ray-data-rag
+podman build -t quay.io/<you>/ray-data-rag:latest -f Dockerfile .
+podman push quay.io/<you>/ray-data-rag:latest
+```
+
+Then update the `image:` fields in `manifests/raycluster-rag-optimized.yaml`
+to point to your pushed image before applying.
 
 ## Hardware Requirements
 
@@ -122,19 +169,35 @@ the RayCluster.
 | ---- | ----------- |
 | `rag_ingestion.ipynb` | Main notebook — configure, review pipeline, submit RayJob |
 | `docling_milvus_process.py` | RayJob entrypoint (3-stage Ray Data pipeline) |
-| `manifests/raycluster-rag-optimized.yaml` | RayCluster spec (CPU + GPU workers) |
+| `manifests/raycluster-rag-optimized.yaml` | Example RayCluster spec — tune resources for your cluster |
+| `manifests/inferenceservice-mistral.yaml` | KServe InferenceService for Mistral 7B query LLM |
 | `rag_query.ipynb` | Optional query notebook — without-RAG vs with-RAG comparison |
 | `rag_helpers.py` | Query-side helpers (keeps notebook cells short) |
 | `fetch_sample_pdfs.sh` | Download all 1000 PDFs from the [Open RAG Benchmark](https://huggingface.co/datasets/deepmatics/open_ragbench) dataset |
+| `validate_prerequisites.sh` | Checks cluster prerequisites before running the pipeline |
 | `.env.example` | Template for environment variables |
 
 ## Setup
 
-1. **Build and push the runtime image** following the instructions in
-   [Runtime image](#runtime-image) above.
+### Validate Prerequisites
 
-2. **Update the RayCluster image** in `manifests/raycluster-rag-optimized.yaml`
-   with your container image, then apply:
+Run the validation script to check your cluster is ready:
+
+```bash
+./validate_prerequisites.sh          # uses default namespace 'rag-example'
+./validate_prerequisites.sh my-ns    # specify a different namespace
+```
+
+The script checks: authentication, namespace, KubeRay CRDs, RayCluster, PVC (RWX), GPU nodes, Milvus reachability, and RBAC permissions.
+
+1. **Runtime image (optional).** With the default manifest you use the pre-built image from [Runtime Image](#runtime-image). Build and push a custom image only if you need a different dependency set — see [Advanced: Custom Runtime Image](#advanced-custom-runtime-image).
+
+2. **Review and apply the RayCluster manifest.** Edit
+   `manifests/raycluster-rag-optimized.yaml` — if not using the default image,
+   update the `image:` fields with your container image, and adjust `replicas`, CPU/memory requests,
+   and GPU resource limits to match your OpenShift cluster. See
+   [Sizing for your hardware](#sizing-for-your-hardware) for guidance.
+   Then apply:
 
    ```bash
    oc apply -f manifests/raycluster-rag-optimized.yaml -n <namespace>
@@ -168,6 +231,27 @@ the RayCluster.
 3. **(Optional)** Open `rag_query.ipynb` to test retrieval quality — compare
    LLM answers without RAG vs with RAG.
 
+### Deploy Query LLM (Optional)
+
+If you don't have an LLM deployed for the query notebook, apply the included InferenceService manifest:
+
+> **Prerequisite:** The manifest expects a PVC named `model-pvc` containing the
+> model weights at `RedHatAI/Mistral-7B-Instruct-v0.3-quantized.w4a16/`. Download
+> the model from [Hugging Face](https://huggingface.co/RedHatAI/Mistral-7B-Instruct-v0.3-quantized.w4a16)
+> to the PVC before applying.
+
+```bash
+oc apply -f manifests/inferenceservice-mistral.yaml -n rag-example
+```
+
+This deploys `RedHatAI/Mistral-7B-Instruct-v0.3-quantized.w4a16` using KServe with vLLM. Wait for the InferenceService to be ready:
+
+```bash
+oc get inferenceservice -n rag-example -w
+```
+
+Skip this step if you already have an LLM endpoint available.
+
 ## Expected Outcomes
 
 After a successful ingestion run you should see:
@@ -180,6 +264,8 @@ After a successful ingestion run you should see:
 - **`rag_query.ipynb`** returns cited answers from the ingested papers when
   queried with RAG, compared to generic/incorrect answers without RAG.
 
+Note: Each pipeline run drops and recreates the Milvus collection by default. Set `DROP_EXISTING_COLLECTION=false` to prevent accidental drops — the job will abort if the collection already exists (see [Collection Management](#collection-management)).
+
 Typical performance on the reference hardware (8 CPU workers + 1 T4 GPU):
 
 | Workload | Wall clock | Throughput |
@@ -190,6 +276,16 @@ Typical performance on the reference hardware (8 CPU workers + 1 T4 GPU):
 ## Configuration
 
 All parameters are environment variables set in the ingestion notebook.
+
+### Collection Management
+
+> ⚠️ **Warning:** By default, the pipeline **drops and recreates** the Milvus collection on every run, destroying all existing data.
+
+Set `DROP_EXISTING_COLLECTION = "false"` in the notebook's Configure cell to fail gracefully if the collection already exists. This is recommended after your initial test run to prevent accidental data loss.
+
+### Embedding Model Note
+
+The ingestion pipeline generates embeddings via vLLM's embed endpoint, while the query notebook uses `SentenceTransformer` from the `sentence-transformers` library. Both use `intfloat/multilingual-e5-large` and produce compatible vectors, but the outputs are not bit-identical due to differences in preprocessing and pooling. This is expected and works well in practice — run a few queries with `rag_query.ipynb` after ingestion to verify retrieval quality on your data.
 
 | Parameter | Default | Description |
 | --------- | ------- | ----------- |
@@ -250,8 +346,8 @@ schedules comfortably on the reference hardware's ~10-CPU headroom.
 
 ### Dashboard access
 
-**Primary (CodeFlare SDK):** After creating or connecting to the cluster in
-the notebook, the dashboard URL is available via:
+**Primary (CodeFlare SDK):** After connecting to the cluster in the notebook,
+the dashboard URL is available via:
 
 ```python
 print(cluster.cluster_dashboard_uri())
@@ -343,3 +439,4 @@ MilvusWriteActors, repartition reduce tasks, and Ray Data executor.
 
 - **[Distributed PDF Processing with Docling](../../docling/)** — batch
   PDF-to-JSON/Markdown conversion without the RAG stack
+- [RAG Pipeline with KFP](../../../rag/) — A complementary approach using Kubeflow Pipelines for multi-step RAG ingestion (PR #78).
