@@ -53,18 +53,18 @@ The two notebooks in this folder validate the two major parts of this flow:
 
 ### OpenShift AI cluster
 
-* Red Hat OpenShift AI (RHOAI) 3.3+ with:
-  * `trainer` component enabled
-  * `workbenches` component enabled
-* NVIDIA GPU nodes for realistic GRPO validation
+- Red Hat OpenShift AI (RHOAI) 3.3+ with:
+  - `trainer` component enabled
+  - `workbenches` component enabled
+- NVIDIA GPU nodes for realistic GRPO validation
 
 ### Cluster runtime assumptions
 
 These notebooks assume the cluster already exposes a Trainer runtime suitable
 for distributed PyTorch jobs, such as:
 
-* `torch-distributed`
-* `torch-distributed-cuda130-torch291-py312`
+- `torch-distributed`
+- `torch-distributed-cuda130-torch291-py312`
 
 The notebooks use public model and dataset assets and do not require internal
 Training Hub packaging.
@@ -90,8 +90,8 @@ Training Hub packaging.
 
 The notebooks expect:
 
-* `OPENSHIFT_API_URL`
-* `NOTEBOOK_USER_TOKEN`
+- `OPENSHIFT_API_URL`
+- `NOTEBOOK_USER_TOKEN`
 
 These are commonly set automatically in OpenShift AI workbenches.
 
