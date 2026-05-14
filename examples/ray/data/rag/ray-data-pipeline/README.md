@@ -82,7 +82,7 @@ Your user or service account needs the following permissions in the pipeline nam
 - `get` on `pods/log` — to stream pipeline logs from the notebook
 - `get` on `rayjobs.ray.io` — to monitor job status
 
-If you don't have these permissions, contact your cluster administrator. See the [RHOAI documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self_managed/) for details on configuring RBAC.
+If you don't have these permissions, contact your cluster administrator. See the [RHOAI documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/managing_openshift_ai/managing-users-and-groups#overview-of-user-types-and-permissions_managing-rhoai) for details on configuring RBAC.
 
 ### Milvus Verification
 
