@@ -22,11 +22,16 @@ The ART backend time-shares a single GPU between vLLM (inference) and Unsloth (t
 
 The example uses the [Agent-Ark/Toucan-1.5M](https://huggingface.co/datasets/Agent-Ark/Toucan-1.5M) dataset, which contains tool-calling conversations. The reward function verifies that the model produces syntactically correct tool calls with the expected function name and arguments.
 
-## Execution mode
+## Execution Modes
 
-GRPO runs as a **single-GPU TrainJob** submitted via the Kubeflow SDK. ART is single-GPU by design and manages its own vLLM subprocess internally.
+This example provides two notebooks:
 
-The notebook submits a `TrainJob` from a lightweight workbench, and the training runs on a dedicated GPU pod managed by Kubeflow Trainer.
+| Mode            | Notebook                                                                        | Description                                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Interactive** | [`grpo_lora-interactive-notebook.ipynb`](./grpo_lora-interactive-notebook.ipynb) | Runs GRPO training directly on the workbench GPU. Best for exploration, prototyping, and quick iteration.                      |
+| **Distributed** | [`grpo_lora-kubeflow-trainjob.ipynb`](./grpo_lora-kubeflow-trainjob.ipynb)      | Submits a Kubeflow TrainJob from a lightweight workbench. Training runs on a dedicated GPU pod. Best for production workloads. |
+
+ART is single-GPU by design and manages its own vLLM subprocess internally.
 
 To learn more about execution modes for other algorithms, see the [fine-tuning execution modes overview](../README.md#execution-modes).
 
@@ -50,21 +55,21 @@ to seamlessly run fine-tuning jobs.
 
 ### Workbench Requirements
 
-| Image Type | Use Case | GPU | CPU | Memory |
-|------------|----------|-----|-----|--------|
-| Training \| Jupyter \| PyTorch \| CPU Python | Job submission and monitoring | None | 2 cores | 8Gi |
-| Training \| Jupyter \| PyTorch \| CUDA \| Python | Job submission + model evaluation | 1× GPU | 2 cores | 8Gi |
+| Image Type                                       | Use Case                                            | GPU                  | CPU     | Memory |
+| ------------------------------------------------ | --------------------------------------------------- | -------------------- | ------- | ------ |
+| Training \| Jupyter \| PyTorch \| CPU Python     | Distributed mode: job submission and monitoring     | None                 | 2 cores | 8Gi    |
+| Training \| Jupyter \| PyTorch \| CUDA \| Python | Interactive mode, or distributed + model evaluation | 1× GPU (40GB+ VRAM) | 8 cores | 64Gi   |
 
 > [!NOTE]
 >
-> - The workbench does not run the training itself — it submits a TrainJob and monitors progress.
-> - A GPU on the workbench is only needed if you want to load and test the fine-tuned LoRA adapter after training completes.
+> - **Distributed mode**: The workbench submits a TrainJob and monitors progress. A GPU on the workbench is only needed to test the fine-tuned LoRA adapter after training completes.
+> - **Interactive mode**: Training runs directly on the workbench GPU. The workbench needs an A100, H100, or L40S (40GB+ VRAM) with sufficient CPU and memory.
 
 ### Training Pod Requirements
 
-| Component | GPU | GPU Type | CPU | Memory |
-|-----------|-----|----------|-----|--------|
-| Training Pod | 1× GPU | NVIDIA A100, H100, or L40S (40GB+ VRAM) | 8 cores | 64Gi |
+| Component    | GPU    | GPU Type                                 | CPU     | Memory |
+| ------------ | ------ | ---------------------------------------- | ------- | ------ |
+| Training Pod | 1× GPU | NVIDIA A100, H100, or L40S (40GB+ VRAM) | 8 cores | 64Gi   |
 
 > [!NOTE]
 >
@@ -74,9 +79,9 @@ to seamlessly run fine-tuning jobs.
 
 ### Storage Requirements
 
-| Purpose | Size | Access Mode | Storage Class | Notes |
-|---------|------|-------------|---------------|-------|
-| Shared Storage (PVC) total | 50Gi (Example Default) | RWX | Dynamic provisioner required | Shared between workbench and training pod |
+| Purpose                    | Size                   | Access Mode | Storage Class                | Notes                                     |
+| -------------------------- | ---------------------- | ----------- | ---------------------------- | ----------------------------------------- |
+| Shared Storage (PVC) total | 50Gi (Example Default) | RWX         | Dynamic provisioner required | Shared between workbench and training pod |
 
 > [!NOTE]
 >
@@ -135,10 +140,12 @@ to seamlessly run fine-tuning jobs.
 
 ![](../images/05.png)
 
-### Running the example notebook
+### Running the example notebooks
 
 - From the workbench, clone this repository: `https://github.com/red-hat-data-services/red-hat-ai-examples.git`
-- Navigate to the `examples/fine-tuning/grpo` directory and open the [`grpo_lora-kubeflow-trainjob.ipynb`](./grpo_lora-kubeflow-trainjob.ipynb) notebook.
+- Navigate to the `examples/fine-tuning/grpo` directory and open the notebook for your preferred execution mode:
+  - **Interactive**: [`grpo_lora-interactive-notebook.ipynb`](./grpo_lora-interactive-notebook.ipynb) — runs training directly on the workbench GPU
+  - **Distributed**: [`grpo_lora-kubeflow-trainjob.ipynb`](./grpo_lora-kubeflow-trainjob.ipynb) — submits a TrainJob via Kubeflow Trainer
 
 > [!NOTE]
 >
