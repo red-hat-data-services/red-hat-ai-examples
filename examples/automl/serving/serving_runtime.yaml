@@ -17,7 +17,7 @@ spec:
     - v2
   containers:
     - name: kserve-container
-      image: quay.io/opendatahub/odh-kserve-autogluon-server@sha256:65776c9cbab26db52e0f48b6a59a0a371a4e53005ee39ba83da4eb0ae17c7a64
+      image: registry.redhat.io/rhoai/odh-kserve-autogluon-server-rhel9@sha256:ea631abd80563c786637b7471bce8271c465e08b3b5921d29ad48d00c84215b9
       args:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models

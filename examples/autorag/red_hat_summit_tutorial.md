@@ -12,7 +12,7 @@ This tutorial walks you through: creating a project, creating S3 connections for
 - [💾 Create S3 connections](#create-s3-connections)
 - [🔗 Create workbench with connections attached](#create-workbench-with-connections-attached)
 - [⬆️ Upload documents and test data to S3](#upload-documents-and-test-data-to-s3)
-- [📋 Add the Documents RAG Optimization Pipeline](#add-the-documents-rag-optimization-pipeline)
+- [📋 Create AutoRAG run](#add-the-documents-rag-optimization-pipeline)
 - [▶️ Run the pipeline with required inputs](#run-the-pipeline-with-required-inputs)
 - [📊 View the leaderboard and RAG patterns](#view-the-leaderboard-and-rag-patterns)
 - [📓 Work with the best RAG pattern notebooks](#work-with-the-best-rag-pattern-notebooks)
@@ -72,7 +72,7 @@ Create S3-compatible connections so the pipeline can read test data and input do
 
 | Step | Action |
 |------|--------|
-| **①** | Create one **S3 compatible object storage** connection pointing to the bucket (and credentials) where you will upload both the **benchmark file** (`data/rh_summit_2026/benchmark_data.json`) and the **input documents** (`data/rh_summit_2026/input_data/`). The connection must expose credentials that include `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT`, and `AWS_DEFAULT_REGION` (or equivalent) as expected by the pipeline. Use different object keys (paths) in that bucket for the benchmark file and for the input documents folder. |
+| **①** | Create one **S3 compatible object storage** connection pointing to the bucket (and credentials) where you store both the **benchmark file** (`data/rh_summit_2026/benchmark_data.json`) and the **input documents** (`data/rh_summit_2026/input_data/`). Alternatively you can upload them during knowledge base configuration. The connection must expose credentials that include `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT`, `AWS_DEFAULT_REGION`, and `AWS_S3_BUCKET`  (or equivalent) as expected by the AutoRAG. |
 
 **Note:** Use the same **Connection name** for both `test_data_secret_name` and `input_data_secret_name` in the pipeline run. Use the same **bucket name** for both `test_data_bucket_name` and `input_data_bucket_name`; set `test_data_key` to the path of the benchmark file and `input_data_key` to the path (prefix) of the input documents.
 
@@ -111,12 +111,42 @@ Sample data is provided in this repository under **`data/rh_summit_2026/`**: inp
 
 <a id="add-the-documents-rag-optimization-pipeline"></a>
 
-## 📋 Add the Documents RAG Optimization Pipeline
+## 📋 Create AutoRAG run
+
+You can create an AutoRAG optimization run using two approaches: the **AutoRAG UI** (streamlined interface) or the **KFP native pipeline** approach (traditional pipeline upload).
+
+### Option 1: AutoRAG UI (Recommended)
+
+Red Hat OpenShift AI provides a streamlined UI for creating AutoRAG optimization runs. This interface automatically tests and tunes retrieval, indexing, and model settings to improve RAG response quality.
 
 | Step | Action |
 |------|--------|
-| **①** | Get the compiled **Documents RAG Optimization Pipeline** from [here](pipelines/pipeline.yaml) and download it. |
-| **②** | In Red Hat OpenShift AI, go to **Pipelines** (or **Develop & Train** → **Pipelines**) for your project and upload the compiled pipeline in YAML format.|
+| **①** | In Red Hat OpenShift AI, navigate to **AutoRAG** from the left sidebar (under **Models**). Click to create a new **AutoRAG optimization run**. |
+| **②** | **Configure basic settings:** Enter a **Name** for your run (e.g., "AutoRAG optimization run") and optionally a **Description**. Select your **Llama Stack connection** from the dropdown (the connection you created in [Create Llama-stack connection](#create-llama-stack-connection-secret)). |
+| **③** | **Set up knowledge base and configuration:** Configure the **Knowledge setup** with your data connections (S3 connections for test data and input documents from [Create S3 connections](#create-s3-connections)). Select the **Vector DB provider** (e.g., `milvus`), configure **Evaluation queries** (your benchmark data), set the **Optimization metric** (e.g., `faithfulness`, `answer_correctness`, or `context_correctness`), and configure **Resource GPU settings** if needed. In the **Model configuration** section, select your **embedding models** and **generation models** to evaluate. |
+| **④** | Click **Next** to review your configuration and **Create** the run. The system will automatically execute the optimization pipeline, testing different combinations of retrieval, indexing, and model settings. In the end it generates the results table for each optimization run. |
+| **⑤** | You can download the indexing and inference notebook for each generated RAG pattern. |
+
+**Step ① & ② — Create AutoRAG run with basic configuration:**
+![Create AutoRAG run - Step 1 & 2](images/create_autorag_run_step_1.png)
+
+**Step ③ — Configure knowledge base, models, and optimization settings:**
+![Configure knowledge base - Step 3](images/create_autorag_run_step_2.png)
+
+**Step ④ — View AutoRAG optimization runs:**
+![View AutoRAG optimization runs - Step 4](images/create_autorag_run_step_3.png)
+
+**Step ⑤ — Download the results:**
+![Create AutoRAG run - Step 5](images/create_autorag_run_step_4.png)
+
+### Option 2: KFP Native Pipeline Approach
+
+For advanced users or automation scenarios, you can use the traditional Kubeflow Pipelines (KFP) approach:
+
+| Step | Action |
+|------|--------|
+| **①** | Get the compiled **Documents RAG Optimization Pipeline** from [here](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.4/pipelines/training/autorag/documents_rag_optimization_pipeline/pipeline.yaml) and download it. |
+| **②** | In Red Hat OpenShift AI, go to **Pipelines** (or **Develop & Train** → **Pipelines**) for your project and upload the compiled pipeline in YAML format. |
 
 **Pipeline creation:**
 ![S3 storage](images/pipeline_creation.png)
