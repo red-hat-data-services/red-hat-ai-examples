@@ -176,7 +176,19 @@ oc create secret generic minio-secret \
 
 The Secret name defaults to `minio-secret` and can be overridden via the `s3_secret_name` pipeline parameter.
 
-### 3. Verify prerequisites
+### 3. Create HuggingFace Token Secret (Optional)
+
+If you are deploying a **gated model** (e.g., Mistral, Llama), create a Secret with your HuggingFace API token. The pipeline mounts this token into the model-download pod — if the Secret is missing, the pod won't be able to pull the model weights.
+
+```bash
+oc create secret generic hf-token-secret \
+  --from-literal=token=<your-huggingface-token> \
+  -n ray-docling
+```
+
+The Secret name defaults to `hf-token-secret` and can be overridden via the `hf_secret_name` pipeline parameter. Skip this step if your model is public (non-gated).
+
+### 4. Verify prerequisites
 
 **Automated validation (RECOMMENDED):**
 

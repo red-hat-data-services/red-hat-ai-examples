@@ -287,7 +287,12 @@ class RAGSetup:
             else:
                 raise
 
-    def verify_prerequisites(self, secret_name: str, pvc_name: str):
+    def verify_prerequisites(
+        self,
+        secret_name: str,
+        pvc_name: str,
+        hf_secret_name: str | None = None,
+    ):
         """Print a summary of prerequisite resources."""
         from tabulate import tabulate
 
@@ -307,6 +312,18 @@ class RAGSetup:
             print(f"  {secret_name}: {len(s.data)} keys")
         except ApiException:
             print(f"  {secret_name}: NOT FOUND")
+
+        if hf_secret_name:
+            try:
+                s = self.v1.read_namespaced_secret(
+                    name=hf_secret_name, namespace=self.namespace
+                )
+                print(f"  {hf_secret_name}: {len(s.data)} keys")
+            except ApiException:
+                print(
+                    f"  {hf_secret_name}: NOT FOUND "
+                    "(required for gated models like Mistral/Llama)"
+                )
 
         print("\n=== RBAC ===")
         try:
