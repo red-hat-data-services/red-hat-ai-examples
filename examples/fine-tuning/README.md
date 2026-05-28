@@ -14,11 +14,12 @@ For detailed algorithm documentation and configuration options, see the upstream
 
 ## Execution Modes
 
-There are three ways to run fine tuning examples:
+There are four ways to run fine tuning examples:
 
 1. **Interactive (single node fine tuning)**
 2. **Distributed (distributed fine tuning with Kubeflow Trainer)**
-3. **Pipeline mode (automated training, model evaluation, and registration with Kubeflow Pipelines)**
+3. **Distributed on Ray (distributed fine tuning with KubeRay and CodeFlare SDK)**
+4. **Pipeline mode (automated training, model evaluation, and registration with Kubeflow Pipelines)**
 
 ### Interactive (single node fine tuning)
 
@@ -93,6 +94,35 @@ Training is offloaded to **dedicated training pods** managed by **Kubeflow Train
 - [SFT fine-tuning example](sft/README.md)
 - [OSFT fine-tuning example](osft/README.md)
 - [LoRA fine-tuning example](lora/README.md)
+
+---
+
+### Distributed on Ray (distributed fine tuning with KubeRay)
+
+**What it is**
+
+Training is offloaded to a **Ray cluster** managed by **KubeRay**, submitted via **CodeFlare SDK**:
+
+- **Multi-GPU training** using Ray-native distribution (FSDP, Ray Train `TorchTrainer`)
+- **Short-lived clusters** — the SDK creates a RayCluster for the job and tears it down on completion
+- **Integration with Kueue** for resource queueing and scheduling
+- **Ray Dashboard** visibility for job monitoring and debugging
+
+**Recommended for**
+
+- **GRPO/RLVR training** with the verl backend (Ray-native, multi-GPU)
+- Teams already using Ray for distributed workloads
+- Workloads that benefit from Ray's actor-based distribution model
+
+**Resource considerations**
+
+- **GPU(s) required** on the Ray head pod (verl uses `STRICT_PACK` — all GPUs co-located)
+- **No shared PVC required** — the RayCluster is ephemeral; persist results to S3 or external storage
+- The Workbench only submits and monitors the job
+
+**Learn more**
+
+- [GRPO fine-tuning on Ray](grpo_ray/README.md)
 
 ---
 
