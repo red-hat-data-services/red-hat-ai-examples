@@ -207,3 +207,7 @@ These images serve both as training runtime and jupyter notebook images and come
 >   You can skip the token if switching to non-gated models.
 
 You can now proceed with the instructions from the notebook. Enjoy!
+
+## MLflow Integration (Optional)
+
+The interactive notebook supports optional MLflow experiment tracking. See the [MLflow Integration guide](../mlflow.md) for setup instructions and details.
