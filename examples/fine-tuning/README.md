@@ -111,18 +111,24 @@ Training is offloaded to a **Ray cluster** managed by **KubeRay**, submitted via
 **Recommended for**
 
 - **GRPO/RLVR training** with the verl backend (Ray-native, multi-GPU)
+- **SFT, OSFT, and LoRA fine-tuning** via direct invocation on Ray
+- **Multi-GPU distributed LoRA** across workers via `TorchTrainer`
 - Teams already using Ray for distributed workloads
 - Workloads that benefit from Ray's actor-based distribution model
 
 **Resource considerations**
 
 - **GPU(s) required** on the Ray head pod (verl uses `STRICT_PACK` — all GPUs co-located)
-- **No shared PVC required** — the RayCluster is ephemeral; persist results to S3 or external storage
+- **No shared PVC required** for GRPO — the RayCluster is ephemeral; persist results to S3 or external storage
+- **PVC recommended** for SFT/OSFT/LoRA — model and dataset stored on a PVC accessible from Ray pods
 - The Workbench only submits and monitors the job
 
 **Learn more**
 
-- [GRPO fine-tuning on Ray](grpo_ray/README.md)
+- [SFT fine-tuning on Ray](sft_ray/README.md) — single GPU
+- [OSFT continual learning on Ray](osft_ray/README.md) — single GPU
+- [LoRA fine-tuning on Ray](lora_ray/README.md) — single GPU and multi-GPU distributed
+- [GRPO fine-tuning on Ray](grpo_ray/README.md) — multi-node with verl
 
 ---
 
