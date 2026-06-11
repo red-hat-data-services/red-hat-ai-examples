@@ -107,8 +107,8 @@ Source repository: `red-hat-data-services/pipelines-components`
 
    Run the following commands to install these required packages:
 
-   - `kfp==2.15.2`
-   - `kfp-kubernetes>=2.15.2`
+   - `kfp>=2.16.1`
+   - `kfp-kubernetes>=2.16.1`
    - `kfp-components @ git+https://github.com/red-hat-data-services/pipelines-components@main`
 
    ```bash

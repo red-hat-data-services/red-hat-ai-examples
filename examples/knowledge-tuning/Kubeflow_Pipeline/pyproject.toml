@@ -5,7 +5,7 @@ description = "Kubeflow pipeline for the Knowledge Tuning workflow"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "kfp-kubernetes>=2.15.2",
-    "kfp==2.15.2",
+    "kfp-kubernetes>=2.16.1",
+    "kfp>=2.16.1",
     "kfp-components @ git+https://github.com/red-hat-data-services/pipelines-components@main",
 ]
