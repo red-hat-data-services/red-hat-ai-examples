@@ -46,7 +46,7 @@ ds_config = {
 
 DeepSpeed provides three ZeRO stages with increasing memory optimization:
 
-| Stage | What it partitions | CPU offloading | Memory reduction | Communication overhead |
+| Stage | What it partitions | Offload support (optional) | Memory reduction | Communication overhead |
 | --- | --- | --- | --- | --- |
 | **Stage 1** | Optimizer states | Optimizer to CPU | ~4x | Same as data parallelism |
 | **Stage 2** (this example) | Optimizer states + gradients | Optimizer to CPU | ~8x | Same as data parallelism |
