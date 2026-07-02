@@ -65,6 +65,7 @@ The notebooks use two different mount conventions:
 
 * **Workbench mount (user-configured)**: when you attach a PVC named (for example) `shared` to the workbench, it is typically mounted at `/opt/app-root/src/<pvc-name>` (e.g. `/opt/app-root/src/shared`).
 * **Training pod mount (SDK, fixed)**: when you use `TransformersTrainer(output_dir="pvc://<pvc-name>/<path>")`, the SDK mounts that PVC at `/mnt/kubeflow-checkpoints` inside the training pods.
+* **Checkpoint convention**: model checkpoints are persisted by `TransformersTrainer(output_dir="pvc://<pvc-name>/<subpath>")`, which resolves in training pods to `/mnt/kubeflow-checkpoints/<subpath>`. The `TrainingArguments(output_dir="/tmp/output")` inside `train_func()` is a local placeholder and does not control where checkpoints are saved on the PVC.
 
 ## Setup
 
