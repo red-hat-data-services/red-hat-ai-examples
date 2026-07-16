@@ -93,12 +93,12 @@ A third-party scorer that compares called tools against expected tools using det
 
 ## Logging expectations
 
-Approaches 2 and 3 both require expected tool calls. We attach them to traces using `mlflow.log_expectation()` — this logs expectations directly on the trace objects in the MLflow server. Each scorer uses a different key:
+Approaches 2 and 3 both require expected tool calls. We attach them to traces using `mlflow.log_expectation()` with the name `expected_tool_calls`. Each scorer uses a different key format for arguments:
 
 - `ToolCallCorrectness`: `{"name": "get_weather", "arguments": {"location": "Paris"}}`
 - `ToolCorrectness`: `{"name": "get_weather", "input_parameters": {"location": "Paris"}}`
 
-Expectations are logged **after** Approach 1 runs to avoid affecting the ground-truth-free LLM judge mode.
+Since both use the same expectation name, each approach logs expectations and evaluates in the same cell — this ensures the correct format is always used. Expectations are logged **after** Approach 1 runs to avoid affecting the ground-truth-free LLM judge mode.
 
 ## Notebook
 

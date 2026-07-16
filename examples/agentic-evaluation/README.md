@@ -11,13 +11,21 @@ This repo covers both:
 
 ## Setup
 
-### 1. Install dependencies
+### 1. Navigate to the project directory
+
+All commands below assume you are in the `examples/agentic-evaluation/` directory:
+
+```bash
+cd examples/agentic-evaluation
+```
+
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Set up environment variables
+### 3. Set up environment variables
 
 Copy the example file and add your API key:
 
@@ -33,14 +41,13 @@ Edit `.env` and set the API key environment variable according to your model pro
 | Anthropic | `ANTHROPIC_API_KEY` | `model="anthropic:/claude-sonnet-5"` |
 | Google | `GOOGLE_API_KEY` | `model="google:/gemini-2.0-flash"` |
 
-### 3. Start an MLflow server
+### 4. Start an MLflow server
 
 ```bash
-cd examples/agentic-evaluation
 mlflow server --host 127.0.0.1 --port 5000
 ```
 
-Run the server from the `examples/agentic-evaluation/` directory so that MLflow artifacts are stored here (and covered by the project's `.gitignore`). The notebooks create synthetic traces on this server and evaluate them.
+The notebooks create synthetic traces on this server and evaluate them.
 
 ## Failure Modes
 

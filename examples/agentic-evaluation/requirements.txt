@@ -1,8 +1,11 @@
+# Core
 mlflow>=3.10.0
-litellm>=1.91.0
 openai>=2.44.0
+python-dotenv>=1.0
+
+# Third-party scorer integrations (used by upcoming failure mode notebooks)
+litellm>=1.91.0
 deepeval==3.9.9
 ragas==0.4.3
 langchain-community>=0.3,<0.4
 guardrails-ai>=0.10.0
-python-dotenv>=1.0
