@@ -117,7 +117,7 @@ Edit `.env` and set the API key environment variable according to your model pro
 mlflow server --host 127.0.0.1 --port 5000
 ```
 
-The notebooks create synthetic traces on this server and evaluate them.
+The notebooks create synthetic traces on this server and evaluate them. After running a notebook, you can view the traces and evaluation results in the MLflow UI at `http://localhost:5000`.
 
 ## Failure Modes
 
@@ -127,6 +127,7 @@ Each failure mode has its own self-contained notebook that creates traces, evalu
 |---|---|---|---|
 | 1 | [Tool Misuse](failure-modes/01_tool_misuse/) | `ToolCallCorrectness` (MLflow), `ToolCorrectness` (DeepEval) | [01_tool_misuse.ipynb](failure-modes/01_tool_misuse/01_tool_misuse.ipynb) |
 | 2 | [Goal Achievement](failure-modes/02_goal_achievement/) | `Correctness` (MLflow), `AgentGoalAccuracyWithReference` (RAGAS), `TaskCompletion` (DeepEval), `AgentGoalAccuracyWithoutReference` (RAGAS) | [02_goal_achievement.ipynb](failure-modes/02_goal_achievement/02_goal_achievement.ipynb) |
+| 3 | [Excessive Steps](failure-modes/03_excessive_steps/) | `ToolCallEfficiency` (MLflow) | [03_excessive_steps.ipynb](failure-modes/03_excessive_steps/03_excessive_steps.ipynb) |
 
 ## Project Structure
 
@@ -139,6 +140,7 @@ agentic-evaluation/
   failure-modes/
     01_tool_misuse/      — notebook + docs + README
     02_goal_achievement/ — notebook + docs + README
+    03_excessive_steps/  — notebook + docs + README
 ```
 
 `tools.py` contains the tool definitions (function name, description, parameters) used by the simulated agents in the notebooks. Each failure mode imports the tools it needs. You don't need to modify this file unless you're adding new failure modes.
