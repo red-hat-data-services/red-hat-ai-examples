@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "validators": {
+    "guardrails/detect_pii": {
+      "import_path": "guardrails_ai.detect_pii",
+      "exports": ["DetectPII"],
+      "package_name": "guardrails-ai-detect-pii"
+    }
+  }
+}
