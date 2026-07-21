@@ -56,6 +56,7 @@ Each failure mode has its own self-contained notebook that creates traces, evalu
 | # | Failure Mode | Scorers | Notebook |
 |---|---|---|---|
 | 1 | [Tool Misuse](failure-modes/01_tool_misuse/) | `ToolCallCorrectness` (MLflow), `ToolCorrectness` (DeepEval) | [01_tool_misuse.ipynb](failure-modes/01_tool_misuse/01_tool_misuse.ipynb) |
+| 7 | [Repeated Action Loop](failure-modes/07_repeated_action_loop/) | Custom `@scorer` (MLflow), custom `make_judge()` (MLflow) | [07_repeated_action_loop.ipynb](failure-modes/07_repeated_action_loop/07_repeated_action_loop.ipynb) |
 
 ## Project Structure
 
@@ -67,6 +68,7 @@ agentic-evaluation/
   utils.py              — shared evaluation helper
   failure-modes/
     01_tool_misuse/      — notebook + docs + README
+    07_repeated_action_loop/ — notebook + docs + README
 ```
 
 `tools.py` contains the tool definitions (function name, description, parameters) used by the simulated agents in the notebooks. Each failure mode imports the tools it needs. You don't need to modify this file unless you're adding new failure modes.

@@ -52,6 +52,25 @@ TRAVEL_AGENT_TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "search_alternative_routes",
+            "description": "Search for alternative flight routes or connection options between two cities on a given date",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "from_city": {"type": "string", "description": "Departure city"},
+                    "to_city": {"type": "string", "description": "Destination city"},
+                    "date": {
+                        "type": "string",
+                        "description": "Travel date (YYYY-MM-DD)",
+                    },
+                },
+                "required": ["from_city", "to_city", "date"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_flight_details",
             "description": "Get detailed information about a specific flight by its ID",
             "parameters": {
