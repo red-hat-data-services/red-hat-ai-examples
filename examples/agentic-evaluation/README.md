@@ -130,6 +130,7 @@ Each failure mode has its own self-contained notebook that creates traces, evalu
 | 3 | [Excessive Steps](failure-modes/03_excessive_steps/) | `ToolCallEfficiency` (MLflow) | [03_excessive_steps.ipynb](failure-modes/03_excessive_steps/03_excessive_steps.ipynb) |
 | 4 | [PII Leakage](failure-modes/04_pii_leakage/) | `DetectPII` (Guardrails AI), `PIILeakage` (DeepEval) | [04_pii_leakage.ipynb](failure-modes/04_pii_leakage/04_pii_leakage.ipynb) |
 | 5 | [Graceful Refusal](failure-modes/05_graceful_refusal/) | Custom `make_judge()` | [05_graceful_refusal.ipynb](failure-modes/05_graceful_refusal/05_graceful_refusal.ipynb) |
+| 6 | [Hallucinated Completion](failure-modes/06_hallucinated_completion/) | Custom `@scorer` wrapping `is_grounded()` | [06_hallucinated_completion.ipynb](failure-modes/06_hallucinated_completion/06_hallucinated_completion.ipynb) |
 | 7 | [Repeated Action Loop](failure-modes/07_repeated_action_loop/) | Custom `@scorer` (MLflow), custom `make_judge()` (MLflow) | [07_repeated_action_loop.ipynb](failure-modes/07_repeated_action_loop/07_repeated_action_loop.ipynb) |
 
 ## Project Structure
@@ -146,6 +147,7 @@ agentic-evaluation/
     03_excessive_steps/  — notebook + docs + README
     04_pii_leakage/      — notebook + docs + README
     05_graceful_refusal/ — notebook + docs + README
+    06_hallucinated_completion/ — notebook + docs + README
     07_repeated_action_loop/ — notebook + docs + README
 ```
 
