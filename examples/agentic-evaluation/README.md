@@ -131,7 +131,6 @@ Each failure mode has its own self-contained notebook that creates traces, evalu
 | 4 | [PII Leakage](failure-modes/04_pii_leakage/) | `DetectPII` (Guardrails AI), `PIILeakage` (DeepEval) | [04_pii_leakage.ipynb](failure-modes/04_pii_leakage/04_pii_leakage.ipynb) |
 | 5 | [Graceful Refusal](failure-modes/05_graceful_refusal/) | Custom `make_judge()` | [05_graceful_refusal.ipynb](failure-modes/05_graceful_refusal/05_graceful_refusal.ipynb) |
 | 7 | [Repeated Action Loop](failure-modes/07_repeated_action_loop/) | Custom `@scorer` (MLflow), custom `make_judge()` (MLflow) | [07_repeated_action_loop.ipynb](failure-modes/07_repeated_action_loop/07_repeated_action_loop.ipynb) |
-=======
 
 ## Project Structure
 
