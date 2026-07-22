@@ -7,6 +7,7 @@ All examples are built primarily on top of **Training Hub** algorithms running o
 - **SFT (Supervised Fine-Tuning)**
 - **OSFT (Orthogonal Subspace Fine-Tuning)**
 - **LoRA + SFT (Low-Rank Adaptation)**
+- **GRPO (Group Relative Policy Optimization)**
 
 For detailed algorithm documentation and configuration options, see the upstream [Training Hub documentation](https://github.com/Red-Hat-AI-Innovation-Team/training_hub/tree/main).
 
@@ -94,6 +95,7 @@ Training is offloaded to **dedicated training pods** managed by **Kubeflow Train
 - [SFT fine-tuning example](sft/README.md)
 - [OSFT fine-tuning example](osft/README.md)
 - [LoRA fine-tuning example](lora/README.md)
+- [GRPO fine-tuning example](grpo/README.md) (single-GPU TrainJob only)
 
 ---
 
