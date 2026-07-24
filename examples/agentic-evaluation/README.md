@@ -132,6 +132,7 @@ Each failure mode has its own self-contained notebook that creates traces, evalu
 | 5 | [Graceful Refusal](failure-modes/05_graceful_refusal/) | Custom `make_judge()` | [05_graceful_refusal.ipynb](failure-modes/05_graceful_refusal/05_graceful_refusal.ipynb) |
 | 6 | [Hallucinated Completion](failure-modes/06_hallucinated_completion/) | Custom `@scorer` wrapping `is_grounded()` | [06_hallucinated_completion.ipynb](failure-modes/06_hallucinated_completion/06_hallucinated_completion.ipynb) |
 | 7 | [Repeated Action Loop](failure-modes/07_repeated_action_loop/) | Custom `@scorer` (MLflow), custom `make_judge()` (MLflow) | [07_repeated_action_loop.ipynb](failure-modes/07_repeated_action_loop/07_repeated_action_loop.ipynb) |
+| 9 | [Verification Skipped](failure-modes/09_verification_skipped/) | Custom `make_judge()` | [09_verification_skipped.ipynb](failure-modes/09_verification_skipped/09_verification_skipped.ipynb) |
 
 ## Project Structure
 
@@ -149,6 +150,7 @@ agentic-evaluation/
     05_graceful_refusal/ — notebook + docs + README
     06_hallucinated_completion/ — notebook + docs + README
     07_repeated_action_loop/ — notebook + docs + README
+    09_verification_skipped/ — notebook + docs + README
 ```
 
 `tools.py` contains the tool definitions (function name, description, parameters) used by the simulated agents in the notebooks. Each failure mode imports the tools it needs. You don't need to modify this file unless you're adding new failure modes.
