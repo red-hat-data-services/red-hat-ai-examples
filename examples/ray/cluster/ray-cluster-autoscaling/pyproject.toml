@@ -1,0 +1,8 @@
+[project]
+name = "ray-cluster-autoscaling"
+version = "0.1.0"
+description = "Ray cluster in-tree autoscaling lifecycle on Red Hat OpenShift AI"
+requires-python = ">=3.11"
+dependencies = [
+    "codeflare-sdk>=0.37.0,<1.0",
+]

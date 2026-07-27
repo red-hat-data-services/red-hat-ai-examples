@@ -1,0 +1,27 @@
+metadata:
+  title: "Ray Cluster Autoscaling on Red Hat OpenShift AI"
+  description: >-
+    Demonstrate in-tree Ray cluster autoscaling on RHOAI using CodeFlare SDK
+    enable_autoscaling, min_workers, and max_workers. Create a cluster, drive
+    scale-up with a bursty CPU workload, observe scale-down when idle, and
+    tear the cluster down.
+  status: community
+
+  hardware:
+    gpu:
+      required: false
+    cpu:
+      cores: 4
+    memory: "16Gi"
+    multi_node: true
+
+  duration_estimate:
+    setup: "15 minutes"
+    execution: "30 minutes"
+    total: "45 minutes"
+
+  complexity: beginner
+
+  components:
+    rhoai:
+      - workbench

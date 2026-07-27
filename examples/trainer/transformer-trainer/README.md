@@ -10,7 +10,15 @@ This example demonstrates how to use the `TransformersTrainer` from the Kubeflow
 * **Simplified distributed training** — No manual configuration of PyTorch distributed settings
 * **Checkpointing (optional)** — Persist checkpoints to shared storage (PVC) using `output_dir="pvc://..."`
 
-This example fine-tunes a DistilBERT model on the IMDB sentiment classification dataset using distributed training across multiple GPUs.
+### Distributed training strategies
+
+This directory contains examples for different distributed training strategies:
+
+| Strategy | Best for | Example |
+| --- | --- | --- |
+| **DDP** | Models that fit in a single GPU | [ddp/](ddp/) |
+| **FSDP** | Large models that exceed single GPU memory | [fsdp/](fsdp/) |
+| **DeepSpeed** | Very large models, advanced memory optimization | [deepspeed/](deepspeed/) |
 
 ## Requirements
 
@@ -28,7 +36,7 @@ This example fine-tunes a DistilBERT model on the IMDB sentiment classification 
 | --- | --- | --- |
 | Training pods | 2 nodes x 1 GPU | Configurable in notebook |
 | GPU type | NVIDIA A100/L40/T4 or equivalent | Any CUDA-compatible GPU |
-| Memory | 16Gi per pod | Adjust based on model size |
+| Memory | 16–32Gi per pod | 16Gi for DDP/FSDP, 32Gi for DeepSpeed |
 
 #### Workbench
 
@@ -40,11 +48,11 @@ This example fine-tunes a DistilBERT model on the IMDB sentiment classification 
 
 | Purpose | Size | Access mode | Notes |
 | --- | --- | --- | --- |
-| Shared PVC | 5Gi+ | ReadWriteMany (RWX) | Required for multi-node training and persisting model/data/checkpoints |
+| Shared PVC | 20Gi+ | ReadWriteMany (RWX) | Required for multi-node training and persisting model/data/checkpoints |
 
 ## Environment variables
 
-The notebook uses these environment variables for API authentication:
+The notebooks use these environment variables for API authentication:
 
 * `OPENSHIFT_API_URL` — your OpenShift API URL
 * `NOTEBOOK_USER_TOKEN` — a token for API access
@@ -53,10 +61,11 @@ These are often auto-set in OpenShift AI workbenches.
 
 ## PVC mount paths (workbench vs training pods)
 
-The notebook uses two different mount conventions:
+The notebooks use two different mount conventions:
 
 * **Workbench mount (user-configured)**: when you attach a PVC named (for example) `shared` to the workbench, it is typically mounted at `/opt/app-root/src/<pvc-name>` (e.g. `/opt/app-root/src/shared`).
 * **Training pod mount (SDK, fixed)**: when you use `TransformersTrainer(output_dir="pvc://<pvc-name>/<path>")`, the SDK mounts that PVC at `/mnt/kubeflow-checkpoints` inside the training pods.
+* **Checkpoint convention**: model checkpoints are persisted by `TransformersTrainer(output_dir="pvc://<pvc-name>/<subpath>")`, which resolves in training pods to `/mnt/kubeflow-checkpoints/<subpath>`. The `TrainingArguments(output_dir="/tmp/output")` inside `train_func()` is a local placeholder and does not control where checkpoints are saved on the PVC.
 
 ## Setup
 
@@ -119,15 +128,15 @@ From your workbench, clone this repository:
 git clone https://github.com/red-hat-data-services/red-hat-ai-examples.git
 ```
 
-Navigate to `examples/trainer/transformer-trainer` and open the notebook.
+Navigate to the strategy folder of your choice under `examples/trainer/transformer-trainer/` and open the notebook.
 
 ## Running the example
 
-The notebook walks you through:
+Each strategy notebook walks you through:
 
 1. **Installing dependencies** — Kubeflow SDK and required packages
 2. **Configuring authentication and paths** — API access + PVC mount paths
-3. **Staging model and dataset to the PVC** — Download DistilBERT + an IMDB subset from the workbench
+3. **Staging model and dataset to the PVC** — Download model + dataset from the workbench
 4. **Defining the training function** — A `transformers.Trainer` training loop that loads inputs from the PVC
 5. **Configuring and submitting TransformersTrainer** — Distributed training + `output_dir="pvc://..."` for persisted checkpoints
 6. **Monitoring progress** — View progress in the OpenShift AI Dashboard (**Training Jobs**)
@@ -151,7 +160,7 @@ You can **pause** (suspend) a running job to free up resources. When paused, JIT
 
 ![](./images/pause_job.png)
 
-The notebook demonstrates:
+The notebooks demonstrate:
 
 * Configuring PVC storage for checkpoints
 * Using the `pvc://` URI scheme
@@ -159,16 +168,16 @@ The notebook demonstrates:
 
 ## Customization
 
-You can modify the example for your use case:
+You can modify any example for your use case:
 
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `num_nodes` | 2 | Number of training nodes |
-| `resources_per_node` | 1 GPU | GPUs per node |
-| Model | `distilbert-base-uncased` | Any HuggingFace model |
-| Dataset | `stanfordnlp/imdb` | Any HuggingFace dataset repo |
-| `num_train_epochs` | 1 | Training epochs |
-| PVC | `shared` | Update `PVC_NAME` in the notebook if you use a different PVC name |
+| `NUM_NODES` | 2 | Number of training nodes |
+| `GPUS_PER_NODE` | 1 | GPUs per node |
+| `MODEL_NAME` | `distilbert-base-uncased` / `bert-base-uncased` | Any HuggingFace model |
+| `DATASET_NAME` | `stanfordnlp/imdb` | Any HuggingFace dataset |
+| `num_train_epochs` | 1 | Training epochs (in `train_func`) |
+| `PVC_NAME` | `shared` | Update if you use a different PVC name |
 
 ## Troubleshooting
 
