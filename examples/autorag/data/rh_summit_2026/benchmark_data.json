@@ -1,0 +1,93 @@
+[
+  {
+    "question": "Who is the President and CEO of Red Hat, and what strategic AI initiatives has he led?",
+    "correct_answers": [
+      "Matt Hicks is the President and CEO of Red Hat. He has led the company's investment in AI, launching OpenShift AI and Red Hat Inference Server for scalable, enterprise-ready AI platforms. He also led the strategic acquisition of NeuralMagic."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260512.md"]
+  },
+  {
+    "question": "What is vLLM and what role does it play in AI inference?",
+    "correct_answers": [
+      "vLLM is an open source engine for serving large language models (LLMs) that makes high-performance inference easier to adopt and operate. It has become a default tool for many teams, delivering speed and efficiency with rapid support for new models and hardware."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260511.md"]
+  },
+  {
+    "question": "Which Canadian bank built the largest private financial industry GPU farm in the country, and what technologies does it use?",
+    "correct_answers": [
+      "The Royal Bank of Canada (RBC) built the largest private financial industry GPU farm in Canada. It uses Red Hat OpenShift to host NVIDIA run:ai and provide training and inference frameworks, supporting multitenant AI clusters with dedicated storage from Pure Storage FlashArray and FlashBlade."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260514.md"]
+  },
+  {
+    "question": "What is the Model Context Protocol (MCP) used for in the context of Red Hat Enterprise Linux management?",
+    "correct_answers": [
+      "MCP server implementations for Red Hat Enterprise Linux management unify Red Hat Lightspeed, Red Hat Satellite, and RHEL through a common interface built for AI tools. They enable large language models and AI assistants to interact with RHEL management workflows including vulnerability assessment, patch planning, image building, performance troubleshooting, and digital transformation roadmapping."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260513.md"]
+  },
+  {
+    "question": "How did Banco Bradesco improve its deployment capabilities using a hub-spoke GitOps architecture?",
+    "correct_answers": [
+      "Banco Bradesco adopted a hub-spoke model for Kubernetes continuous delivery, supported by Microsoft Azure Red Hat OpenShift, Red Hat Advanced Cluster Management for Kubernetes, and the ArgoCD Operator. With this approach, the bank can now support 60% more applications and 62% more monthly deployments compared to its previous solution."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260514.md"]
+  },
+  {
+    "question": "What is the role of Matthew Jones at Red Hat and what is his background?",
+    "correct_answers": [
+      "Matthew Jones is a Distinguished Engineer and Chief Architect of Red Hat Ansible Automation Platform. He is one of the original developers for Ansible, working on Ansible Tower, and has more than 20 years of experience building highly scalable software systems across startups and enterprises."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260511.md"]
+  },
+  {
+    "question": "How is T-Mobile using AI and 5G edge computing with Red Hat?",
+    "correct_answers": [
+      "T-Mobile uses AI-native architectures running on Red Hat AI to deliver agility, automation, and performance within the 5G network. They integrate distributed edge compute, network programmability, and operational machine learning models to orchestrate network behaviors in real time, improving energy efficiency, service quality, and customer experience at scale."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260514.md"]
+  },
+  {
+    "question": "What is the AgentOps lab about at Red Hat Summit and what will attendees learn?",
+    "correct_answers": [
+      "The AgentOps lab shows how to make multi-agent AI systems observable end-to-end on Red Hat AI. Attendees learn to monitor the stack using Red Hat AI's observability tools, trace multi-agent executions across frameworks like LangGraph and LangChain with MCP tools, diagnose and fix distributed failures, and combine tracing with LLM evaluations in MLflow."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260513.md"]
+  },
+  {
+    "question": "I'm interested in AutoRAG—what session should I attend at Red Hat Summit 2026?",
+    "correct_answers": [
+      "Attend the Thursday breakout \"Stop guessing, start shipping: Automated RAG pattern discovery with Red Hat AI\" (session code BO2036). It is a 40-minute breakout from 09:45 AM to 10:25 AM in room B404 - Level 4, covering AutoRAG and AutoML in Red Hat AI, including how AutoRAG explores the configuration space with your documents and test data to deliver ranked, production-ready RAG code."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260514.md"]
+  },
+  {
+    "question": "I want to learn about multilingual RAG and improving a corporate RAG chatbot on OpenShift AI—which session fits?",
+    "correct_answers": [
+      "Choose the Thursday breakout \"Retrieval-augmented generation (RAG) in a real multilingual scenario: Challenges and solutions using Red Hat OpenShift AI\" (BO2847), 09:45 AM to 10:25 AM in B407 - Level 4. BBVA and Red Hat cover multilingual RAG challenges, agentic RAG, evaluation with RAGAS, GPU-as-a-Service, and testing llm-d for efficiency."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260514.md"]
+  },
+  {
+    "question": "I'm focused on observability for multi-agent AI with MCP and LangChain—what hands-on session should I book?",
+    "correct_answers": [
+      "Book the Wednesday lab \"AgentOps in production: Agentic end-to-end observability with Red Hat AI\" (LB2144), 10:30 AM to 12:00 PM in A315 - Level 3. It is a 90-minute lab on observing and tracing multi-agent apps on Red Hat AI, including LangGraph/LangChain with MCP tools, MLflow tracing, and LLM evaluations."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260513.md"]
+  },
+  {
+    "question": "I need a lab on llm-d and scalable LLM inference on Kubernetes—which session should I attend?",
+    "correct_answers": [
+      "Attend the Wednesday lab \"Introducing llm-d: Your production-ready path to scalable LLM inference\" (LB2861), 01:00 PM to 02:30 PM in A311 - Level 3. The 90-minute workshop covers llm-d with vLLM, Inference Gateway routing, Kubernetes patterns for large models, and hands-on deployment and optimization."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260513.md"]
+  },
+  {
+    "question": "I'm looking for a short talk on scaling RAG with Postgres on OpenShift—any recommendations?",
+    "correct_answers": [
+      "Attend the Wednesday lightning talk \"Building Scalable RAG Architectures with EnterpriseDB, OpenShift, and OpenShift AI\" (LT2808), 11:40 AM to 12:00 PM in the Developer Zone. It covers EnterpriseDB Postgres for Kubernetes as a vector store with OpenShift AI for inference and includes a live end-to-end demo."
+    ],
+    "correct_answer_document_ids": ["rh_summit_2026_20260513.md"]
+  }
+]

@@ -1,0 +1,40 @@
+metadata:
+  title: "RAG Ingestion with Ray Data, Docling, and vLLM"
+  description: >-
+    Build a distributed RAG ingestion pipeline on Red Hat OpenShift AI.
+    Parse PDFs with Docling, generate embeddings with vLLM via Ray Data's
+    vLLMEngineProcessorConfig, and store vectors in Milvus — all running
+    as a streaming RayJob on an existing RayCluster.
+  status: community
+
+  hardware:
+    gpu:
+      required: true
+      type: "NVIDIA T4 or A10G"
+      count: 1
+      memory_per_gpu: "16GB"
+    cpu:
+      cores: 34
+    memory: "154Gi"
+    storage: "50Gi RWX"
+    multi_node: true
+
+  duration_estimate:
+    setup: "30 minutes"
+    execution: "3 hours (1000 PDFs)"
+    total: "3.5 hours"
+
+  tags:
+    - RAG
+    - pipeline
+    - inference
+  use_case: domain-customization
+  complexity: intermediate
+
+  components:
+    rhoai:
+      - workbench
+      - kserve
+    external:
+      - milvus
+      - huggingface-hub

@@ -13,10 +13,10 @@ The pipelines are built using modular, reusable KFP components that can be integ
 
 There are four flavours of the pipelines:
 
-- **OSFT** - Expert-level pipeline with extensive parameters for fine-grained control over OSFT-based fine-tuning.
-- **OSFT-minimal** - Entry-level pipeline with a single required parameter for OSFT-based fine-tuning.
-- **SFT** - Expert-level pipeline with extensive parameters for fine-grained control over SFT-based fine-tuning.
-- **SFT-minimal** - Entry-level pipeline with a single required parameter for SFT-based fine-tuning.
+- **[OSFT](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/osft)** - Expert-level pipeline with extensive parameters for fine-grained control over OSFT-based fine-tuning.
+- **[OSFT-minimal](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/osft_minimal)** - Entry-level pipeline with a single required parameter for OSFT-based fine-tuning.
+- **[SFT](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/sft)** - Expert-level pipeline with extensive parameters for fine-grained control over SFT-based fine-tuning.
+- **[SFT-minimal](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/sft_minimal)** - Entry-level pipeline with a single required parameter for SFT-based fine-tuning.
 
 Each of the pipelines consists of **four** components:
 

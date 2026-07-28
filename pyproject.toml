@@ -16,6 +16,8 @@ test = [
     "jupyter>=1.1.0",
     "ipykernel>=6.29.0",
     "polars>=1.17.0",
+    "pyyaml>=6.0",
+    "tomli>=2.0.0; python_version < '3.11'",
 ]
 
 dev = [

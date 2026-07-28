@@ -4,4 +4,6 @@ version: "1.0"
 threshold: medium
 fileignoreconfig:
 - filename: .secrets.baseline
-  checksum: 31b45438976dc1d82d5a091598e3f91d17fd9210e1733970ccc621c3d0cd9bb8
+  checksum: 6a4f12f836549670755bfab7304bf3394b079783c5da2f7ca9fd8ab524fef7e8
+- filename: examples/ray/rag/build_rag_pipeline/rag_setup.py
+  checksum: 1f38532e2f07f471b7bd9286f7533bd79f8de35cf2017611aad2887080f20481

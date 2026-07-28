@@ -1,0 +1,9 @@
+.env
+**/mlruns/
+**/mlruns.db
+**/mltracing/
+**/mlartifacts/
+mlflow.db
+**/__pycache__/
+**/.deepeval/
+_old_*
