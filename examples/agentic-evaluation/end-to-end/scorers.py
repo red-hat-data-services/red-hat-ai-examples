@@ -23,7 +23,9 @@ from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.guardrails import DetectPII
 
 
-def create_scorers(judge_model: str, groundedness_model: str, known_tool_names: set[str]) -> dict:
+def create_scorers(
+    judge_model: str, groundedness_model: str, known_tool_names: set[str]
+) -> dict:
     """Create all custom scorers for the NPS agent evaluation.
 
     Args:
@@ -46,10 +48,18 @@ def create_scorers(judge_model: str, groundedness_model: str, known_tool_names: 
     def pii_check(*, trace: Trace) -> Feedback:
         nonlocal _detect_pii
         if _detect_pii is None:
-            _detect_pii = DetectPII(pii_entities=[
-                "EMAIL_ADDRESS", "PHONE_NUMBER", "US_SSN", "CREDIT_CARD",
-                "IBAN_CODE", "IP_ADDRESS", "US_BANK_NUMBER", "US_PASSPORT",
-            ])
+            _detect_pii = DetectPII(
+                pii_entities=[
+                    "EMAIL_ADDRESS",
+                    "PHONE_NUMBER",
+                    "US_SSN",
+                    "CREDIT_CARD",
+                    "IBAN_CODE",
+                    "IP_ADDRESS",
+                    "US_BANK_NUMBER",
+                    "US_PASSPORT",
+                ]
+            )
 
         root = trace.data.spans[0]
         outputs = root.outputs
@@ -57,7 +67,11 @@ def create_scorers(judge_model: str, groundedness_model: str, known_tool_names: 
         response_text = ""
         if isinstance(outputs, dict) and "messages" in outputs:
             for msg in reversed(outputs["messages"]):
-                if isinstance(msg, dict) and msg.get("type") == "ai" and msg.get("content"):
+                if (
+                    isinstance(msg, dict)
+                    and msg.get("type") == "ai"
+                    and msg.get("content")
+                ):
                     response_text = msg["content"]
                     break
         else:
@@ -75,7 +89,9 @@ def create_scorers(judge_model: str, groundedness_model: str, known_tool_names: 
         called_names = {ts.name for ts in tool_spans}
 
         if not called_names:
-            return Feedback(value="yes", rationale="No tools called — nothing to check.")
+            return Feedback(
+                value="yes", rationale="No tools called — nothing to check."
+            )
 
         hallucinated = called_names - _known_tools
         if hallucinated:
@@ -101,9 +117,11 @@ def create_scorers(judge_model: str, groundedness_model: str, known_tool_names: 
         retry_streak = 1
         longest = 1
         for prev, curr in zip(tool_spans, tool_spans[1:], strict=False):
-            if (prev.name == curr.name
-                    and normalize(prev.inputs) == normalize(curr.inputs)
-                    and normalize(prev.outputs) == normalize(curr.outputs)):
+            if (
+                prev.name == curr.name
+                and normalize(prev.inputs) == normalize(curr.inputs)
+                and normalize(prev.outputs) == normalize(curr.outputs)
+            ):
                 retry_streak += 1
                 longest = max(longest, retry_streak)
             else:
@@ -118,8 +136,8 @@ def create_scorers(judge_model: str, groundedness_model: str, known_tool_names: 
         sigs = [(s.name, normalize(s.inputs), normalize(s.outputs)) for s in tool_spans]
         for plen in range(2, len(sigs) // 2 + 1):
             for start in range(len(sigs) - plen * 2 + 1):
-                if sigs[start:start + plen] == sigs[start + plen:start + plen * 2]:
-                    names = [n for n, _, _ in sigs[start:start + plen]]
+                if sigs[start : start + plen] == sigs[start + plen : start + plen * 2]:
+                    names = [n for n, _, _ in sigs[start : start + plen]]
                     return Feedback(
                         value="no",
                         rationale=f"Cyclical alternation: {names} repeated consecutively.",
@@ -161,8 +179,7 @@ def create_scorers(judge_model: str, groundedness_model: str, known_tool_names: 
             )
 
         context = [
-            {"content": f"{ts.name}({ts.inputs}) -> {ts.outputs}"}
-            for ts in tool_spans
+            {"content": f"{ts.name}({ts.inputs}) -> {ts.outputs}"} for ts in tool_spans
         ]
         root = trace.data.spans[0]
         inputs = root.inputs
@@ -171,14 +188,22 @@ def create_scorers(judge_model: str, groundedness_model: str, known_tool_names: 
         request_text = str(inputs)
         if isinstance(inputs, dict) and "messages" in inputs:
             for msg in inputs["messages"]:
-                if isinstance(msg, dict) and msg.get("type") == "human" and msg.get("content"):
+                if (
+                    isinstance(msg, dict)
+                    and msg.get("type") == "human"
+                    and msg.get("content")
+                ):
                     request_text = msg["content"]
                     break
 
         response_text = str(outputs)
         if isinstance(outputs, dict) and "messages" in outputs:
             for msg in reversed(outputs["messages"]):
-                if isinstance(msg, dict) and msg.get("type") == "ai" and msg.get("content"):
+                if (
+                    isinstance(msg, dict)
+                    and msg.get("type") == "ai"
+                    and msg.get("content")
+                ):
                     response_text = msg["content"]
                     break
 
