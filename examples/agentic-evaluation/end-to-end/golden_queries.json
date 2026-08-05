@@ -1,0 +1,27 @@
+[
+  {
+    "query": "What national parks are in California?",
+    "expected_tool_calls": [{"name": "search_parks"}],
+    "expected_facts": ["Channel Islands National Park", "Death Valley National Park"]
+  },
+  {
+    "query": "What are the campgrounds and visitor centers at Yellowstone?",
+    "expected_tool_calls": [{"name": "get_park_campgrounds"}, {"name": "get_visitor_centers"}],
+    "expected_facts": ["Bridge Bay Campground", "Canyon Campground", "Fishing Bridge RV Park"]
+  },
+  {
+    "query": "Book me a hotel near Grand Canyon",
+    "expected_tool_calls": null,
+    "expected_facts": null
+  },
+  {
+    "query": "Plan me a 3-day trip to Yellowstone with campgrounds and visitor centers, and save the itinerary",
+    "expected_tool_calls": null,
+    "expected_facts": null
+  },
+  {
+    "query": "What are the opening hours for the visitor centers at Acadia?",
+    "expected_tool_calls": [{"name": "get_visitor_centers"}],
+    "expected_facts": ["Hulls Cove Visitor Center", "8:30AM - 4:30PM"]
+  }
+]

@@ -1,5 +1,10 @@
 # Agentic Evaluation with MLflow
 
+A hands-on guide to evaluating AI agents using [MLflow](https://mlflow.org/docs/latest/llms/tracing/index.html). This repo covers 9 failure modes — the ways agents break in production — and teaches you how to detect each one using MLflow scorers (both built-in and custom).
+
+- **9 failure mode notebooks** — each focused on one failure mode, showing how to catch it using MLflow's built-in and custom scorers against synthetic traces — no live agent or API keys needed
+- **1 end-to-end notebook** — builds a real National Parks trip planning agent with LangGraph, traces it with MLflow, and evaluates it across all 9 failure modes using a two-tier scoring strategy (deterministic checks → LLM judges)
+
 ## Background
 
 ### What is an agent?
@@ -12,7 +17,7 @@ But if the agent is doing all of this on its own, how do you know it's doing it 
 
 Evaluating an LLM on its own is about measuring response quality — metrics like perplexity, BLEU, ROUGE, or human preference scores tell you how good the output text is. But once that LLM is wrapped in an agent, the response is only one piece of the puzzle. The agent also selects tools, passes arguments, interprets results, and decides what to do next. A correct final response doesn't mean the agent took the right path to get there — and a plausible-looking response can hide serious mistakes made along the way.
 
-To evaluate what happened along the way, you need to see what the agent did throughout the lifecycle of a request. This is where MLflow tracing comes in.
+To evaluate what happened along the way, you need to see it. This is where MLflow tracing comes in.
 
 ### Traces — capturing the workflow
 
@@ -31,7 +36,7 @@ Agents fail in ways that are specific to their tool-using, decision-making natur
 - Saying "your flight is booked!" when the booking tool actually failed (hallucinated completion)
 - Attempting a task it has no tools for, or refusing one it can handle (graceful refusal)
 
-Some failure modes are universal — any agent that has access to personal information can leak PII or hallucinate a response regardless of its domain. Others are domain-specific — a medical agent giving a partial diagnosis is a critical failure, while a weather agent omitting humidity is a minor inconvenience. Same failure mode, different severity depending on the use case.
+Some failure modes are universal — any agent can leak PII or hallucinate a response regardless of its domain. Others are domain-specific — a medical agent giving a partial diagnosis is a critical failure, while a weather agent omitting humidity is a minor inconvenience. Same failure mode, different severity depending on the use case.
 
 Detecting these failure modes manually by reading traces doesn't scale. You need automated checks — this is what MLflow scorers provide.
 
@@ -63,7 +68,7 @@ Each notebook in this repo demonstrates scorers — some with expectations, some
 
 These notebooks use synthetic traces to demonstrate how each scorer works — hardcoded mock functions that produce the same trace structure a real agent would, with predetermined tool calls and responses. No LLM or API keys are needed to create them.
 
-With a real agent, you would skip trace creation entirely — MLflow's autolog captures traces automatically, and you'd run the same scorers against those real traces.
+With a real agent, you would skip trace creation entirely — MLflow's autolog captures traces automatically, and you'd run the same scorers against those real traces. The [end-to-end notebook](end-to-end/agent_evaluation_end_to_end.ipynb) demonstrates exactly this — it builds a real National Parks trip planning agent with LangGraph, traces it with `mlflow.langchain.autolog()`, and evaluates the traces across all 9 failure modes.
 
 ### How to use these notebooks
 
@@ -77,7 +82,7 @@ Every notebook follows the same structure:
 4. **Evaluate** — runs one or more scorers against the traces and prints results
 5. **Interpret** — explains what the scores mean and when to use each scorer
 
-The notebooks can be run in any order, but there's a natural learning path: notebooks 1–4 use existing MLflow scorers (built-in and third-party integrations), then notebooks 5+ introduce custom scorers built with `@scorer` and `make_judge()`. If you're new to agent evaluation, start with notebook 1 (Tool Misuse) and work through them in order.
+The notebooks can be run in any order, but there's a natural learning path: notebooks 1–4 use existing MLflow scorers (built-in and third-party integrations), then notebooks 5–9 introduce custom scorers built with `@scorer` and `make_judge()`. After working through the failure modes, the [end-to-end notebook](end-to-end/agent_evaluation_end_to_end.ipynb) brings them all together — evaluating a real agent across all 9 failure modes with a two-tier scoring strategy.
 
 ## Setup
 
@@ -108,10 +113,8 @@ Edit `.env` and set the API key environment variable according to your model pro
 | Provider | API key env var | Model parameter example |
 |---|---|---|
 | OpenAI | `OPENAI_API_KEY` | `model="openai:/gpt-4o"` |
-| Anthropic | `ANTHROPIC_API_KEY` | `model="anthropic:/claude-sonnet-4"` |
+| Anthropic | `ANTHROPIC_API_KEY` | `model="anthropic:/claude-sonnet-5"` |
 | Google | `GOOGLE_API_KEY` | `model="google:/gemini-2.0-flash"` |
-| AWS Bedrock | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `model="bedrock:/anthropic.claude-sonnet-4"` |
-| xAI | `XAI_API_KEY` | `model="xai:/grok-2-latest"` |
 
 ### 4. Start an MLflow server
 
@@ -137,6 +140,17 @@ Each failure mode has its own self-contained notebook that creates traces, evalu
 | 8 | [Hallucinated Tool Call](failure-modes/08_hallucinated_tool_call/) | Custom `@scorer` (deterministic) | [08_hallucinated_tool_call.ipynb](failure-modes/08_hallucinated_tool_call/08_hallucinated_tool_call.ipynb) |
 | 9 | [Verification Skipped](failure-modes/09_verification_skipped/) | Custom `make_judge()` | [09_verification_skipped.ipynb](failure-modes/09_verification_skipped/09_verification_skipped.ipynb) |
 
+## End-to-end evaluation
+
+The failure mode notebooks above teach individual scorers using synthetic traces. The [end-to-end notebook](end-to-end/agent_evaluation_end_to_end.ipynb) applies them all together on a real agent:
+
+- **Builds a real agent** — a National Parks trip planning assistant using LangGraph, with 7 tools (5 NPS API + 2 custom)
+- **Traces automatically** — `mlflow.langchain.autolog()` captures every tool call and decision
+- **Evaluates across all 9 failure modes** — using 11 scorers organized into a two-tier strategy (Tier 1 deterministic → gating → Tier 2 LLM judges)
+- **Custom scorers** — defined in [`end-to-end/scorers.py`](end-to-end/scorers.py) using MLflow's `@scorer` decorator and `make_judge()` function, tailored to the NPS agent
+
+See the [end-to-end README](end-to-end/README.md) for setup details and the full scorer breakdown.
+
 ## Cost-effective evaluation strategy
 
 Not all scorers cost the same to run. Structure your evaluation as two tiers — cheap deterministic checks on everything, then LLM judges only where the deterministic checks didn't find issues.
@@ -150,7 +164,7 @@ No LLM calls, no API cost, milliseconds per trace. Run these on every trace as y
 | `DetectPII` | PII Leakage |
 | `tool_existence_check` | Hallucinated Tool Call |
 | `repeated_action_loop` | Repeated Action Loop |
-| `ToolCallCorrectness(should_exact_match=True)` | Tool Misuse (requires `expected_tool_calls`) |
+| `ToolCallCorrectness(should_exact_match=True)` | Tool Misuse |
 
 ### Tier 2 — LLM judges (run on a sampled subset)
 
@@ -163,19 +177,22 @@ Each trace costs one or more LLM calls. Run these on a representative sample to 
 | `ToolCallCorrectness` | Tool Misuse |
 | `ToolCallEfficiency` | Excessive Steps |
 | `Correctness` | Goal Achievement |
+| `AgentGoalAccuracyWithoutReference` | Goal Achievement |
 | `graceful_refusal` | Graceful Refusal |
 | `grounded_in_tools` | Hallucinated Completion |
 | `verification_check` | Verification Skipped |
 
 ### In practice
 
+The Tier 1 and Tier 2 tables above list all scorers taught across the failure mode notebooks. The [end-to-end notebook](end-to-end/agent_evaluation_end_to_end.ipynb) uses a subset of these — see its [scorer table](end-to-end/README.md#scorers-used) for the exact set.
+
 1. **Run Tier 1 on 100% of traces** — fast, free, catches obvious failures.
-2. **For failure modes covered by both tiers** (PII Leakage, Repeated Action Loop, Tool Misuse): if Tier 1 finds failures, the capability gap is already identified — skip the corresponding LLM judge entirely and focus on fixing the agent. Only run the LLM judge if Tier 1 passed clean, to check for subtler issues the deterministic check can't catch.
+2. **For failure modes covered by both tiers** (PII Leakage, Repeated Action Loop, Tool Misuse): if Tier 1 finds failures on multiple traces (e.g., ≥2), the problem is confirmed — skip the corresponding LLM judge and fix the agent. A single failure could be noise, so you may still want the LLM judge to investigate. The end-to-end notebook uses `GATE_THRESHOLD=2` for this decision.
 3. **For failure modes with no Tier 1 scorer** (Excessive Steps, Goal Achievement, Graceful Refusal, Hallucinated Completion, Verification Skipped): run the LLM judge on a sampled subset.
 
 ### Why this is cost-effective
 
-The goal is to identify whether the agent has a capability gap — not to find every instance of failure. If `DetectPII` catches PII leakage, the answer is clear: the agent has a PII leakage problem. Running `PIILeakage` to find more instances doesn't change the diagnosis — fix the agent first, then re-evaluate. LLM judges only add value when deterministic checks pass clean, because then you're asking: "the obvious patterns look good, but are there subtler issues?"
+The goal is to confirm whether the agent has a capability gap — not to find every instance. If Tier 1 catches failures on multiple traces, the problem is confirmed — skip the LLM judge and fix the agent. Running an LLM judge to find more instances doesn't change the diagnosis. LLM judges only add value when deterministic checks pass clean, because then you're asking: "the obvious patterns look good, but are there subtler issues?"
 
 ## Project Structure
 
@@ -183,7 +200,7 @@ The goal is to identify whether the agent has a capability gap — not to find e
 agentic-evaluation/
   .env.example          — environment variable template
   requirements.txt      — pinned dependencies
-  tools.py              — shared tool definitions
+  tools.py              — shared tool definitions (failure mode notebooks)
   utils.py              — shared evaluation helper
   failure-modes/
     01_tool_misuse/      — notebook + docs + README
@@ -194,7 +211,11 @@ agentic-evaluation/
     06_hallucinated_completion/ — notebook + docs + README
     07_repeated_action_loop/ — notebook + docs + README
     08_hallucinated_tool_call/ — notebook + docs + README
-    09_verification_skipped/ — notebook + docs + README
+    09_verification_skipped/  — notebook + docs + README
+  end-to-end/
+    agent_evaluation_end_to_end.ipynb — real agent + two-tier evaluation
+    scorers.py           — custom scorers for the NPS agent
+    golden_queries.json  — 5 evaluation queries with expectations
 ```
 
 `tools.py` contains the tool definitions (function name, description, parameters) used by the simulated agents in the notebooks. Each failure mode imports the tools it needs. You don't need to modify this file unless you're adding new failure modes.

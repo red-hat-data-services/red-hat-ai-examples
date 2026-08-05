@@ -5,5 +5,7 @@
 **/mlartifacts/
 mlflow.db
 **/__pycache__/
+**/trip_plans/
 **/.deepeval/
+**/.guardrails/
 _old_*
