@@ -100,7 +100,7 @@ def create_scorers(judge_model: str, groundedness_model: str, known_tool_names: 
 
         retry_streak = 1
         longest = 1
-        for prev, curr in zip(tool_spans, tool_spans[1:]):
+        for prev, curr in zip(tool_spans, tool_spans[1:], strict=False):
             if (prev.name == curr.name
                     and normalize(prev.inputs) == normalize(curr.inputs)
                     and normalize(prev.outputs) == normalize(curr.outputs)):
