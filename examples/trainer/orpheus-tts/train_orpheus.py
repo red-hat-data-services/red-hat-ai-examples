@@ -49,16 +49,19 @@ def train(
 
     # ── Heavy ML imports ──────────────────────────────────────────────────────
     import warnings
+
     import urllib3
+
     warnings.filterwarnings("ignore", category=urllib3.exceptions.InsecureRequestWarning)
 
     import librosa
-    import numpy as np
-    import torch
-    import mlflow
-    import soundfile as sf
     import matplotlib.pyplot as plt
-    from datasets import load_dataset, load_from_disk
+    import mlflow
+    import numpy as np
+    import soundfile as sf
+    import torch
+    from datasets import load_from_disk
+    from peft import LoraConfig, TaskType, get_peft_model
     from transformers import (
         AutoModelForCausalLM,
         AutoTokenizer,
@@ -67,7 +70,6 @@ def train(
         TrainerCallback,
         TrainingArguments,
     )
-    from peft import LoraConfig, get_peft_model, TaskType
 
     # ── Constants (Orpheus / SNAC token spec) ─────────────────────────────────
     LLAMA_VOCAB    = 128_256
@@ -377,9 +379,12 @@ def train(
                     log.warning(f"UTMOS failed for {label}: {e}")
 
         # Aggregate means
-        if rtfs:   metrics["rtf/mean"]   = sum(rtfs)   / len(rtfs)
-        if wers:   metrics["wer/mean"]   = sum(wers)   / len(wers)
-        if cers:   metrics["cer/mean"]   = sum(cers)   / len(cers)
+        if rtfs:
+            metrics["rtf/mean"] = sum(rtfs) / len(rtfs)
+        if wers:
+            metrics["wer/mean"] = sum(wers) / len(wers)
+        if cers:
+            metrics["cer/mean"] = sum(cers) / len(cers)
         if utmos_scores:
             metrics["utmos/mean"] = sum(utmos_scores) / len(utmos_scores)
 
@@ -586,8 +591,6 @@ def train(
         torch_dtype=torch.bfloat16,
         attn_implementation=attn_impl,
     )
-    total_params = model.num_parameters()
-
     lora_cfg = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         r=lora_r,
@@ -738,8 +741,12 @@ def preprocess(
     Tokenise raw Turkish TTS audio into Orpheus token sequences and save to PVC.
     Invoked as: python train_orpheus.py --preprocess  (node 0 only, before torchrun)
     """
-    import io, math, logging, os
+    import io
+    import logging
+    import math
+    import os
     from pathlib import Path as _Path
+
     import numpy as np
     import soundfile as sf
     import torch
@@ -790,12 +797,14 @@ def preprocess(
     log.info("Node %d shard: samples %d–%d (%d total)", node_rank, start, end-1, len(shard))
 
     def _encode(wav_np, src_sr):
-        if wav_np.ndim == 2: wav_np = wav_np.mean(axis=1)
+        if wav_np.ndim == 2:
+            wav_np = wav_np.mean(axis=1)
         if src_sr != SNAC_SR:
             gcd = math.gcd(int(src_sr), SNAC_SR)
-            wav_np = resample_poly(wav_np, SNAC_SR//gcd, src_sr//gcd).astype(np.float32)
+            wav_np = resample_poly(wav_np, SNAC_SR // gcd, src_sr // gcd).astype(np.float32)
         wav = torch.tensor(wav_np).unsqueeze(0).unsqueeze(0).to(device)
-        with torch.inference_mode(): codes = snac_model.encode(wav)
+        with torch.inference_mode():
+            codes = snac_model.encode(wav)
         return codes[0][0].tolist(), codes[1][0].tolist(), codes[2][0].tolist()
 
     def _interleave(l0, l1, l2):
@@ -822,7 +831,9 @@ def preprocess(
             l0, l1, l2 = _encode(wav, sr)
             seq = ([TOK_SOH] + t_ids + [TOK_EOT, TOK_EOH, TOK_SOA, TOK_SOS]
                    + _interleave(l0, l1, l2) + [TOK_EOA])
-            if len(seq) > max_seq_len: skipped += 1; continue
+            if len(seq) > max_seq_len:
+                skipped += 1
+                continue
             sos_idx = seq.index(TOK_SOS)
             labels = [-100] * (sos_idx + 1) + seq[sos_idx + 1:]
             rows.append({
@@ -831,7 +842,8 @@ def preprocess(
                 "attention_mask": [1] * len(seq),
             })
         except Exception as e:
-            log.warning("node%d sample %d skipped: %s", node_rank, i, e); skipped += 1
+            log.warning("node%d sample %d skipped: %s", node_rank, i, e)
+            skipped += 1
 
     log.info("node%d done: %d kept, %d skipped", node_rank, len(rows), skipped)
 
@@ -860,7 +872,8 @@ def preprocess(
 
 
 if __name__ == "__main__":
-    import os, sys  # noqa: E401,E811
+    import os  # noqa: E401
+    import sys  # noqa: E401
     from pathlib import Path
     def _e(k, d, cast=str): return cast(os.environ.get(k, d))
 
