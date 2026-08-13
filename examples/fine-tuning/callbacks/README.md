@@ -4,7 +4,7 @@ This example demonstrates using unified Training Hub callbacks when submitting T
 
 ## Note
 
-This example is compatible with RHOAI version 3.3+ and requires a Training Hub build with unified callback support.
+This example is compatible with RHOAI **3.6.EA1+** only. Unified Training Hub callbacks are not available on earlier RHOAI releases.
 
 ## Overview
 
@@ -36,7 +36,7 @@ You define the callback once. The same class runs on any supported backend witho
 
 ## Prerequisites
 
-- OpenShift cluster with OpenShift AI (RHOAI 3.3+) and the **trainer** component enabled
+- OpenShift cluster with OpenShift AI (**RHOAI 3.6.EA1+**) and the **trainer** component enabled
 - `training-hub` ClusterTrainingRuntime available in the cluster
 - Kubeflow SDK with `callbacks=` support ([RHOAIENG-79848](https://redhat.atlassian.net/browse/RHOAIENG-79848))
 - `training_hub` with unified callbacks ([#128](https://github.com/Red-Hat-AI-Innovation-Team/training_hub/pull/128), [#141](https://github.com/Red-Hat-AI-Innovation-Team/training_hub/pull/141))
