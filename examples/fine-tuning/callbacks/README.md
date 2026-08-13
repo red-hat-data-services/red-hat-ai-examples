@@ -4,7 +4,7 @@ This example demonstrates using unified Training Hub callbacks when submitting T
 
 ## Note
 
-This example is compatible with RHOAI **3.6.EA1+** only. Unified Training Hub callbacks are not available on earlier RHOAI releases.
+This example is compatible with RHOAI **3.6.EA1+**. Unified Training Hub callbacks are not available on earlier RHOAI releases.
 
 ## Overview
 
