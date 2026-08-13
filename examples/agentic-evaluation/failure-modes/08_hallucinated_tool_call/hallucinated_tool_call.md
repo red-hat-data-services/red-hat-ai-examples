@@ -12,7 +12,7 @@ A hallucinated tool call means the agent is operating outside its defined capabi
 
 ## Scenario used
 
-A travel booking agent with flight-related tools (`search_flights`, `get_flight_details`, `book_flight`, `search_and_book`, `verify_booking`, `cancel_booking`).
+A travel booking agent with flight-related tools (`search_flights`, `search_alternative_routes`, `get_flight_details`, `book_flight`, `search_and_book`, `verify_booking`, `cancel_booking`).
 
 **Failing trace (single):** User asks to book a flight. Agent calls `check_passport("USR-12345")` — a tool that doesn't exist in its tool set — before calling `search_and_book` (which does exist). The agent hallucinated a passport-checking tool. The agent should have skipped the passport check entirely and proceeded directly with `search_and_book`.
 

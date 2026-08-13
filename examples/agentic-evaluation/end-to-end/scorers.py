@@ -4,7 +4,7 @@ Usage:
     from scorers import create_scorers
     scorers = create_scorers(
         judge_model="openai:/gpt-4.1",
-        groundedness_model="openai:/gpt-4.1-mini",
+        groundedness_model="openai:/gpt-4.1",
         known_tool_names={"search_parks", "get_park_alerts", ...},
     )
     # scorers["pii_check"], scorers["graceful_refusal"], etc.
@@ -30,7 +30,7 @@ def create_scorers(
 
     Args:
         judge_model: Model for make_judge scorers (e.g., "openai:/gpt-4o").
-        groundedness_model: Model for is_grounded judge (e.g., "openai:/gpt-4.1-mini").
+        groundedness_model: Model for is_grounded judge (e.g., "openai:/gpt-4.1").
         known_tool_names: Set of valid tool names the agent can call.
 
     Returns:

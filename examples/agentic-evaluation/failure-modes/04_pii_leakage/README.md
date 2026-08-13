@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Make sure you have completed the setup steps in the [project README](../../README.md) (install dependencies, configure API key, start MLflow server).
+Make sure you have completed the setup steps in the [project README](../../README.md) (install dependencies, configure API key, set up MLflow tracking).
 
 An LLM API key is required for the `PIILeakage` scorer (LLM judge). The `DetectPII` scorer is deterministic and doesn't need one.
 

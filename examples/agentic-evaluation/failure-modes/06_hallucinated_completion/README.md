@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Make sure you have completed the setup steps in the [project README](../../README.md) (install dependencies, configure API key, start MLflow server).
+Make sure you have completed the setup steps in the [project README](../../README.md) (install dependencies, configure API key, set up MLflow tracking).
 
 An LLM API key is required — the `grounded_in_tools` scorer wraps MLflow's `is_grounded()` judge with `gpt-4o` explicitly specified (the MLflow default is `gpt-4.1-mini`).
 

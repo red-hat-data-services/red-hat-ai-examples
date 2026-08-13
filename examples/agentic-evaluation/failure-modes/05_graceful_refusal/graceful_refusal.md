@@ -17,7 +17,7 @@ This is distinct from content safety. The MLflow ecosystem has several safety-re
 
 ## Scenario used
 
-A travel booking agent with flight-related tools (`search_flights`, `get_flight_details`, `book_flight`, `search_and_book`, `verify_booking`, `cancel_booking`) but no hotel tools.
+A travel booking agent with flight-related tools (`search_flights`, `search_alternative_routes`, `get_flight_details`, `book_flight`, `search_and_book`, `verify_booking`, `cancel_booking`) but no hotel tools.
 
 **Failing traces:**
 

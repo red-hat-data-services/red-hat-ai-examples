@@ -1,6 +1,6 @@
 # End-to-End Agent Evaluation
 
-This notebook demonstrates the full agent evaluation workflow — build a real agent, trace its behavior with MLflow, and evaluate those traces using the [tiered scoring strategy](../README.md#cost-effective-evaluation-strategy).
+This notebook demonstrates the full agent evaluation workflow — build a real agent, trace its behavior with MLflow on [Red Hat OpenShift AI](https://www.redhat.com/en/technologies/cloud-computing/openshift/openshift-ai) (RHOAI), and evaluate those traces using the [tiered scoring strategy](../README.md#cost-effective-evaluation-strategy). A local MLflow server can also be used as an alternative.
 
 The [failure mode notebooks](../README.md#failure-modes) (01–09) teach individual failure modes using synthetic traces. This notebook runs a real agent against real queries and evaluates the traces across all 9 failure modes.
 
@@ -50,7 +50,7 @@ Custom scorers are defined in [`scorers.py`](scorers.py). Built-in scorers come 
 
 ## Prerequisites
 
-1. Complete the [project setup](../README.md#setup) (dependencies, API keys, MLflow server)
+1. Complete the [project setup](../README.md#setup) (dependencies, API keys, MLflow tracking)
 
 2. **NPS API key** (free) — register at <https://www.nps.gov/subjects/developer/get-started.htm> and add to `.env`:
 

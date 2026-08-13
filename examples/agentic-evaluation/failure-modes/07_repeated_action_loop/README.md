@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Make sure you have completed the setup steps in the [project README](../../README.md) (install dependencies, configure API key, start MLflow server).
+Make sure you have completed the setup steps in the [project README](../../README.md) (install dependencies, configure API key, set up MLflow tracking).
 
 An LLM API key is required for the `make_judge()` approach. The deterministic `@scorer` approach does not need one.
 

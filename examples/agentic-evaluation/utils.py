@@ -5,6 +5,11 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
+if os.environ.get("MLFLOW_TRACKING_INSECURE_TLS", "").lower() == "true":
+    import urllib3
+
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 def print_eval_results(results, scorer_name, eval_experiment_id):
     """Print per-trace results with rationale from evaluation run assessments."""
@@ -37,9 +42,10 @@ def print_eval_results(results, scorer_name, eval_experiment_id):
         trace_id = row.get("trace_id", "")
         for et in eval_traces:
             if et.info.trace_id == trace_id:
-                for a in et.info.assessments:
-                    if a.name == scorer_name and a.rationale:
-                        print(f"  Rationale: {a.rationale}")
+                for a in et.info.assessments or []:
+                    if a.name == scorer_name and a.run_id == results.run_id:
+                        if a.rationale:
+                            print(f"  Rationale: {a.rationale}")
                         break
                 break
         print()

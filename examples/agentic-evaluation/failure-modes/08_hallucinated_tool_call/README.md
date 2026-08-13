@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Make sure you have completed the setup steps in the [project README](../../README.md) (install dependencies, configure API key, start MLflow server).
+Make sure you have completed the setup steps in the [project README](../../README.md) (install dependencies, configure API key, set up MLflow tracking).
 
 No LLM API key needed — this scorer is fully deterministic.
 
