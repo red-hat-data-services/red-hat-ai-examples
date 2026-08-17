@@ -38,12 +38,12 @@ You define the callback once. The same class runs on any supported backend witho
 
 - OpenShift cluster with OpenShift AI (**RHOAI 3.6.EA1+**) and the **trainer** component enabled
 - `training-hub` ClusterTrainingRuntime available in the cluster
-- Kubeflow SDK with `callbacks=` support ([RHOAIENG-79848](https://redhat.atlassian.net/browse/RHOAIENG-79848))
-- `training_hub` with unified callbacks ([#128](https://github.com/Red-Hat-AI-Innovation-Team/training_hub/pull/128), [#141](https://github.com/Red-Hat-AI-Innovation-Team/training_hub/pull/141))
+- Kubeflow SDK with `callbacks=` support
+- `training_hub` with unified callbacks
 
-### Pinning Training Hub
+### Installing Training Hub from source
 
-Until the cluster runtime image ships unified callbacks, pin via `packages_to_install`:
+Until the cluster runtime image ships unified callbacks, install from source via `packages_to_install`:
 
 ```python
 packages_to_install=[
@@ -51,7 +51,7 @@ packages_to_install=[
 ]
 ```
 
-For OSFT, also pin Mini-Trainer:
+For OSFT, also install Mini-Trainer from source:
 
 ```python
 packages_to_install=[
@@ -89,6 +89,8 @@ from kubeflow.trainer.rhai import TrainingHubAlgorithms, TrainingHubTrainer
 
 from my_callbacks import LossLogger
 
+# Same LossLogger works with any supported algorithm:
+# SFT, OSFT, LORA_SFT, LORA_GRPO
 trainer = TrainingHubTrainer(
     algorithm=TrainingHubAlgorithms.LORA_SFT,
     func_args={
@@ -153,9 +155,9 @@ jupyter notebook training_hub_callbacks_smoke.ipynb
 
 | Symptom | Fix |
 |---------|-----|
-| `callbacks` not on `TrainingHubTrainer` | Upgrade SDK (RHOAIENG-79848) |
+| `callbacks` not on `TrainingHubTrainer` | Upgrade SDK to a version with callbacks support |
 | SDK markers OK, no hook output | Verify `training_hub` version has callbacks |
-| OSFT crashes `is_main_process` | Pin `mini_trainer@main` in `packages_to_install` |
+| OSFT crashes `is_main_process` | Add `mini_trainer@main` to `packages_to_install` |
 | `inspect.getsource` error | Move callback to a `.py` file |
 | `defines unsupported hooks` | Remove non-unified hook methods |
 | `must use a no-argument constructor` | Remove required `__init__` params |
@@ -164,7 +166,5 @@ jupyter notebook training_hub_callbacks_smoke.ipynb
 
 | Resource | Link |
 |----------|------|
-| SDK Jira | [RHOAIENG-79848](https://redhat.atlassian.net/browse/RHOAIENG-79848) |
-| Unified callbacks epic | [RHAISTRAT-1256](https://redhat.atlassian.net/browse/RHAISTRAT-1256) |
-| Training Hub callbacks PR | [#128](https://github.com/Red-Hat-AI-Innovation-Team/training_hub/pull/128) |
-| SDK PR | [kubeflow-sdk #137](https://github.com/opendatahub-io/kubeflow-sdk/pull/137) |
+| Training Hub | [Red-Hat-AI-Innovation-Team/training_hub](https://github.com/Red-Hat-AI-Innovation-Team/training_hub) |
+| Kubeflow SDK | [opendatahub-io/kubeflow-sdk](https://github.com/opendatahub-io/kubeflow-sdk) |
