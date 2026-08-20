@@ -96,6 +96,7 @@ Training is offloaded to **dedicated training pods** managed by **Kubeflow Train
 - [OSFT fine-tuning example](osft/README.md)
 - [LoRA fine-tuning example](lora/README.md)
 - [GRPO fine-tuning example](grpo/README.md) (single-GPU TrainJob only)
+- [Training Hub callbacks example](rhoai-3.6/callbacks/README.md) — unified callbacks across backends (RHOAI 3.6.EA1+)
 
 ---
 
