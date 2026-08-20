@@ -6,9 +6,15 @@ This example demonstrates using unified Training Hub callbacks when submitting T
 
 This example is compatible with RHOAI **3.6.EA1+**. Unified Training Hub callbacks are not available on earlier RHOAI releases.
 
+## What is a Callback?
+
+A callback is a hook class you attach to a training job to run custom logic at key points in the training loop — for example, logging metrics, saving checkpoints, or sending compliance events. Instead of modifying the training library source, you define a class with methods like `on_log` or `on_train_end` and the framework calls them automatically.
+
+Training Hub provides a unified `TrainingHubCallback` interface so the same callback class works across all supported backends without backend-specific rewrites.
+
 ## Overview
 
-Training Hub provides a unified callback interface (`TrainingHubCallback`) that works across InstructLab Training, Mini-Trainer, and Unsloth backends. The Kubeflow SDK exposes this through `TrainingHubTrainer(..., callbacks=[MyCallback])`.
+Training Hub provides a unified callback interface (`TrainingHubCallback`) that works across [InstructLab Training](https://github.com/instructlab/training), [Mini-Trainer](https://github.com/Red-Hat-AI-Innovation-Team/mini_trainer), and [Unsloth](https://github.com/unslothai/unsloth) backends via [Training Hub](https://github.com/Red-Hat-AI-Innovation-Team/training_hub). The Kubeflow SDK exposes this through `TrainingHubTrainer(..., callbacks=[MyCallback])`.
 
 The SDK:
 
@@ -167,4 +173,7 @@ jupyter notebook training_hub_callbacks_smoke.ipynb
 | Resource | Link |
 |----------|------|
 | Training Hub | [Red-Hat-AI-Innovation-Team/training_hub](https://github.com/Red-Hat-AI-Innovation-Team/training_hub) |
+| InstructLab Training | [instructlab/training](https://github.com/instructlab/training) |
+| Mini-Trainer | [Red-Hat-AI-Innovation-Team/mini_trainer](https://github.com/Red-Hat-AI-Innovation-Team/mini_trainer) |
+| Unsloth | [unslothai/unsloth](https://github.com/unslothai/unsloth) |
 | Kubeflow SDK | [opendatahub-io/kubeflow-sdk](https://github.com/opendatahub-io/kubeflow-sdk) |
