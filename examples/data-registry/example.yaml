@@ -1,0 +1,19 @@
+metadata:
+  title: "Getting started with the Data Registry in RHOAI 3.6"
+  description: >-
+    Enable the Technology Preview Data Registry, register a data asset, and
+    grant project-scoped access without exposing unrelated OpenShift resources.
+  status: community
+
+  duration_estimate:
+    setup: "20 minutes"
+    execution: "20 minutes"
+    total: "40 minutes"
+
+  complexity: intermediate
+
+  components:
+    rhoai:
+      - data-registry
+    external:
+      - postgresql

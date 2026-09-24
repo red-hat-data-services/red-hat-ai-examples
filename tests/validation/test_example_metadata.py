@@ -44,6 +44,7 @@ VALID_RHOAI_COMPONENTS = {
     "training-operator",
     "model-serving",
     "kserve",
+    "data-registry",
 }
 
 

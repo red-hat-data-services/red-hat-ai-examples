@@ -140,6 +140,7 @@ All metadata files MUST include:
 - `training-operator` - Kubeflow Training Operator
 - `model-serving` - Model serving infrastructure
 - `kserve` - KServe model serving
+- `data-registry` - Data Registry metadata catalog
 
 ---
 

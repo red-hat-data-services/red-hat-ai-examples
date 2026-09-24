@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: data-registry-viewer-example-user
+  namespace: example-project
+subjects:
+  - kind: User
+    apiGroup: rbac.authorization.k8s.io
+    name: example-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: data-registry-viewer

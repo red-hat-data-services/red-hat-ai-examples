@@ -1,0 +1,28 @@
+apiVersion: feast.dev/v1
+kind: FeatureStore
+metadata:
+  name: data-registry
+  namespace: rhoai-data-registry
+  annotations:
+    dataregistry.opendatahub.io/enabled: "true"
+spec:
+  feastProject: catalog
+  authz:
+    kubernetes: {}
+  services:
+    onlineStore:
+      disabled: true
+    registry:
+      local:
+        persistence:
+          store:
+            type: sql
+            secretRef:
+              name: data-registry-database
+            secretKeyName: dsn # pragma: allowlist secret
+        server:
+          envFrom:
+            - secretRef:
+                name: data-registry-database
+          grpc: true
+          restAPI: true
