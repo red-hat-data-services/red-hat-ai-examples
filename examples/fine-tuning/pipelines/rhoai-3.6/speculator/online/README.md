@@ -23,6 +23,31 @@ The completed draft is written to `pvc://<p01_persistent_pvc>/final_model`. Each
 
 `p01_persistent_pvc` is an existing ReadWriteMany PVC in the pipeline namespace, mounted at `/mnt/persistent`. It must also be available in `p08_serving_namespace`. With `p01_persistent_pvc="shared"`, `p12_output_dir="speculator-output"` resolves to `pvc://shared/speculator-output`.
 
+## The pipeline run from start to finish
+
+With `p04_download_model=true` and registration enabled, the run graph looks like this:
+
+```text
+download model ──> online draft model training ──> evaluate draft model ──> register to model registry ──> serve draft model
+                  (one Trainer job: extraction sidecar + training)
+```
+
+The defining feature is the **second node**: a single Trainer job that does extraction and training together. Stage by stage:
+
+| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B smoke test) |
+| --- | --- | --- | --- |
+| **download model** | (Only when `p04_download_model=true`) Pulls `p02_verifier_model` onto the PVC | Download progress in the node logs | ~1–2 minutes |
+| **online draft model training** | One Trainer job (`vllm-extract-cuda` CTR): a vLLM sidecar serves the verifier and produces hidden states on the fly while the training worker consumes them | The longest node. Logs are quiet for the first few minutes while the sidecar loads the verifier, then training loss starts streaming. What looks like a hang at minute two is the sidecar loading | ~10–30 minutes |
+| **evaluate draft model** | Starts a vLLM server with speculative decoding and runs the GuideLLM sweep | Slow start (server load), then results publish as **metrics artifacts** | ~5–15 minutes |
+| **register to model registry** | (Skipped entirely when `p43_model_registry_address` is empty) Registers `final_model` | Seconds; fails fast on wrong address or missing RoleBinding | Seconds |
+| **serve draft model** | Creates the KServe InferenceService and waits for readiness | ServingRuntime + InferenceService creation, predictor rollout | ~2–5 minutes |
+
+What the cluster side looks like during the run is covered next, in [What a running job looks like](#what-a-running-job-looks-like).
+
+![Completed online run graph](../docs/speculator-online-run.png)
+
+![Online training node logs](../docs/speculator-online-training-logs.png)
+
 ## What a running job looks like
 
 While the Trainer job runs, the project namespace contains **one TrainJob with two GPU containers**: the training worker and the vLLM sidecar (`vllm-extract-cuda` CTR). You can watch it with:
@@ -51,7 +76,17 @@ Work through the [shared prerequisites](../README.md#prerequisites):
 - Pipeline server configured for the project
 - `kubernetes-credentials` secret (required)
 - CTR `vllm-extract-cuda` (`p34_job_runtime` default)
-- Model Registry + RoleBinding + serving namespace permissions — only if you keep registration enabled
+- Model Registry + RoleBinding + serving namespace permissions — only if you keep registration enabled. To register, use the registry's `-rest` route URL (`https://...`, scheme included) with port `443` in `p44_model_registry_port`; see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)
+
+The three setup steps this mode depends on, as they look in the dashboard:
+
+![Project storage view with the RWX PVC](../docs/speculator-storage-pvc.png)
+
+![Configure pipeline server dialog](../docs/speculator-pipeline-server.png)
+
+![Model registry creation with REST URL](../docs/speculator-model-registry.png)
+
+All are covered step by step — with verification commands — in the [common prerequisites](../README.md#prerequisites).
 
 Set `PIP_INDEX_URL`/`PIP_EXTRA_INDEX_URL` via `p36_job_envs` if you need a custom package index for `p35_packages_to_install`.
 
@@ -94,10 +129,9 @@ This writes `pipelines/training/speculator/online/pipeline.yaml`.
 
 **Step 3 — create a run.** Open the pipeline definition, click **Create run**, and fill in the parameters from the table below. Leave everything not listed at its default. Use a new `p46_model_registry_version` per revision if registering.
 
-![Create run dialog with online parameters](../docs/rhoai-create-run.png)
-> **Screenshot needed:** `docs/rhoai-create-run.png` — the **Create run** dialog with the online parameter form (see the common guide's slot; one shared parameter-form screenshot is used across modes).
+![Create run dialog with online parameters](../docs/speculator-online-create-run.png)
 
-**Step 4 — start the run and watch it.** Click **Start** and follow it as [described in the common guide](../README.md#5-watch-the-run). The graph runs download (optional) → train (with sidecar) → evaluate → register (optional) → serve.
+**Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
 
 ### Example: Qwen3-0.6B
 
@@ -108,9 +142,14 @@ This writes `pipelines/training/speculator/online/pipeline.yaml`.
 | `p04_download_model` | `true` | Cache the verifier on the PVC |
 | `p05_target_layer_ids` | `2,14,25,28` | **Required** |
 | `p06_dataset_name` | `ultrachat` | Built-in dataset |
-| `p07_evaluation_dataset_uri` | `HuggingFaceH4/ultrachat_200k` | HF dataset ID or PVC JSONL |
+| `p07_evaluation_dataset_uri` | `RedHatAI/speculator_benchmarks` | HuggingFace evaluation dataset with built-in subsets |
 | `p08_serving_namespace` | `<pvc-namespace>` | Must access the PVC |
-| `p43_model_registry_address` | `""` | Empty skips registration |
+| `p09_data_extraction_max_samples` | `16` | Smoke test; set `0` for the full dataset |
+| `p35_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the online Trainer job |
+| `p37_evaluation_max_samples` | `10` | Reduced for quick testing; default `80` for full runs |
+| `p38_evaluation_max_tokens` | `64` | Reduced for quick testing; default `256` for full runs |
+| `p43_model_registry_address` | `""` | Empty skips registration; to register, use `https://<registry-name>-rest.apps.<cluster-domain>` |
+| `p44_model_registry_port` | `443` | Set alongside a non-empty registry address — the default `8080` only fits the in-cluster service |
 
 Training/evaluation/resource parameters can keep their defaults for a first run.
 
@@ -118,9 +157,21 @@ Training/evaluation/resource parameters can keep their defaults for a first run.
 
 Same evaluation task and metrics as the train-only pipeline — see [Interpreting the evaluation results](../train-only/README.md#interpreting-the-evaluation-results) in that guide for the full metric table and how to read it. The short version: check `acceptance_length` (mean tokens per verifier pass; higher is better, 1 means the draft contributes nothing), and remember the pipeline emits **no speedup ratio** — only absolute throughput numbers.
 
+The evaluation task's metrics in the Red Hat OpenShift AI UI:
+
+![Online run evaluation metrics](../docs/speculator-online-evaluation.png)
+
+If you kept registration enabled (`p43_model_registry_address` set), the draft appears in the Model Registry afterwards under `p45_model_registry_name` / `p46_model_registry_version` — find it via **AI Hub > Models > Model registries > your registry**:
+
+![Online run registry entry](../docs/speculator-online-model-registry.png)
+
 ## Testing the served endpoint
 
 Follow [Testing the served endpoint](../README.md#testing-the-served-endpoint) in the common guide. One online-specific note: KServe may scale the predictor to zero after a period of idleness — the first request after a quiet period can take a while or be refused while the predictor wakes. Check `oc get inferenceservice -n <p08_serving_namespace>` shows `True` before concluding something is broken.
+
+The deployed endpoint in the Red Hat OpenShift AI UI:
+
+![Online run deployed endpoint](../docs/speculator-online-deployment.png)
 
 ## Iterating / customization
 
@@ -133,10 +184,10 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | `p01_persistent_pvc` | `str` | `None` | Required name of the existing ReadWriteMany PVC in the pipeline namespace. Stores the downloaded verifier, Trainer outputs, and final draft; KServe must also access it in `p08_serving_namespace`. Mounted at `/mnt/persistent`. |
 | `p05_target_layer_ids` | `str` | `None` | Required. Four comma-separated layer IDs matching the verifier; cannot be auto-detected in online mode. |
 | `p06_dataset_name` | `str` | `None` | Required built-in dataset name (`magpie`, `ultrachat`, `gsm8k`) or PVC URI to a JSON/JSONL file. |
-| `p07_evaluation_dataset_uri` | `str` | `None` | Required Hugging Face dataset ID or local JSON/JSONL file. `pvc://` URIs must reference `p01_persistent_pvc`. |
+| `p07_evaluation_dataset_uri` | `str` | `None` | Required evaluation dataset. Use `RedHatAI/speculator_benchmarks` (HuggingFace) or a `pvc://` URI pointing to a local JSONL file on `p01_persistent_pvc`. See [Preparing the evaluation dataset](../train-only/README.md#preparing-the-evaluation-dataset). |
 | `p08_serving_namespace` | `str` | `None` | Required KServe namespace; must access the PVC. |
 | `p02_verifier_model` | `str` | `""` | Optional HuggingFace model ID used for downloading or resolving the default cached directory. |
-| `p03_verifier_model_pvc` | `str` | `""` | Optional existing verifier directory on the shared PVC. Used when `p04_download_model` is false. |
+| `p03_verifier_model_pvc` | `str` | `""` | Optional existing verifier directory on the shared PVC. Use the on-disk directory name (`models/Qwen--Qwen3-0.6B`), not the HuggingFace model ID — the download task replaces `/` with `--`. Used when `p04_download_model` is false. |
 | `p04_download_model` | `bool` | `False` | Download the model specified by `p02_verifier_model` to the shared PVC. |
 | `p09_data_extraction_max_samples` | `int` | `0` | Maximum training examples extracted by the sidecar; `0` processes the full dataset. |
 | `p10_data_extraction_regenerate_responses` | `bool` | `False` | Regenerate assistant responses with the verifier; built-in datasets only. |
@@ -172,8 +223,8 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | `p40_evaluation_num_speculative_tokens` | `int` | `5` | Draft tokens proposed per step in evaluation and serving. |
 | `p41_evaluation_gpu_memory_utilization` | `float` | `0.9` | GPU memory fraction for evaluation and serving, in `(0, 1]`. |
 | `p42_evaluation_startup_timeout_seconds` | `int` | `900` | Maximum wait for the evaluation vLLM server to become ready. |
-| `p43_model_registry_address` | `str` | `""` | Model Registry hostname only. Empty (default) skips registration. |
-| `p44_model_registry_port` | `int` | `8080` | HTTP REST service port of the registry endpoint. |
+| `p43_model_registry_address` | `str` | `""` | Model Registry REST endpoint: the registry's `https://<name>-rest.apps.<cluster-domain>` route URL (scheme included), or the in-cluster service hostname. Empty (default) skips registration. |
+| `p44_model_registry_port` | `int` | `8080` | Registry REST port: `443` for the `-rest` route, `8080` for the in-cluster service. |
 | `p45_model_registry_name` | `str` | `speculator-online-draft` | Name assigned to the registered draft model. |
 | `p46_model_registry_version` | `str` | `1.0.0` | Version label for this registration; new value per revision. |
 | `p47_serving_endpoint_name` | `str` | `speculator-online` | DNS-compatible name for the KServe InferenceService. |
@@ -185,10 +236,11 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | --- | --- | --- |
 | Run fails waiting for the vLLM sidecar | Sidecar crashed or verifier too large for `p32` | Check Trainer pod logs; raise `p33_vllm_readiness_timeout_minutes`; verify GPU memory |
 | Training pod OOM-killed | Defaults too small for the verifier | Raise `p30_training_resource_memory` |
-| Registry task fails | Wrong host/port split or missing RoleBinding | Hostname only in `p43`; port in `p44`; add the RoleBinding — or leave the address empty to skip |
+| Registry task fails | Wrong registry address or missing RoleBinding | Use the `-rest` route URL with `https://` and port `443` in `p44` (or the in-cluster service with `8080`); add the RoleBinding — or leave the address empty to skip |
 | Serving task fails with forbidden | ServiceAccount lacks KServe permissions | Grant ServingRuntime/InferenceService manage rights in `p08_serving_namespace` |
 | First request to the endpoint hangs or is refused | KServe scaled the predictor to zero, or vLLM is still loading | Check `oc get inferenceservice` shows `True`; wait and retry |
 | Older registry versions break after re-run | `final_model` overwritten each run | Separate PVC per revision |
+| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p03_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. Check with `ls $PVC_MOUNT/models/` |
 | Slow extraction on shared storage | Concurrent I/O saturating NFS | Keep `p11_data_extraction_concurrency=1` |
 
 Compile-time problems and endpoint-access problems are covered in the [common troubleshooting table](../README.md#troubleshooting).

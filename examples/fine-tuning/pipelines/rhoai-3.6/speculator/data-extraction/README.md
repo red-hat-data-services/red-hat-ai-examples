@@ -25,6 +25,37 @@ Relative storage paths resolve against `p01_persistent_pvc`. For example, with `
 >
 > The zero-padded `pNN_` parameter prefixes exist only to preserve a logical order in the KFP UI, which sorts inputs alphabetically.
 
+## The pipeline run from start to finish
+
+With `p10_vllm_mode=managed` and `p04_download_model=true` (the example configuration below), the run graph looks like this:
+
+```text
+download model ──> managed vLLM branch ──> extract hidden states
+                        (Trainer job with vLLM sidecar)
+```
+
+Stage by stage:
+
+| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B smoke test) |
+| --- | --- | --- | --- |
+| **download model** | Pulls `p02_verifier_model` from HuggingFace onto the PVC at `models/<org>--<model>` | Node logs show the download progress; a `hf-token` note appears if the model is gated | ~1–2 minutes |
+| **managed vLLM** branch | The graph takes one of two branches depending on `p10_vllm_mode`; the unused branch is skipped | Exactly one branch lights up | — |
+| **extract hidden states** | One Trainer job (`vllm-extract-cuda` CTR) with a vLLM sidecar serving the verifier; the worker requests hidden states for the dataset samples and writes them to the PVC | Logs sit quiet for the first few minutes while the sidecar loads the verifier into GPU — this is normal, not a hang. Then extraction progress streams: samples processed, tensors written | ~1–3 min sidecar startup + a few minutes extraction |
+
+While the Trainer job runs, you can also watch the pods it created:
+
+```bash
+oc get trainjobs,pods -n <project-namespace>
+```
+
+You'll see one TrainJob with the extraction worker and the vLLM sidecar containers. Both disappear when the run completes.
+
+When every node is green, the run is done — but "green" only means the pipeline finished. Confirm the output is real before moving on to the train-only pipeline: [Verifying the output on the PVC](#verifying-the-output-on-the-pvc).
+
+![Extraction task logs](../docs/speculator-data-extraction-logs.png)
+
+![Completed data-extraction run graph](../docs/speculator-data-extraction-run.png)
+
 ## Hardware requirements (Qwen3-0.6B)
 
 | Mode | GPUs needed |
@@ -43,6 +74,14 @@ Work through the [shared prerequisites](../README.md#prerequisites) first:
 - `kubernetes-credentials` secret (required)
 - CTR: `vllm-extract-cuda` for managed mode, `speculator-model-opt-cuda` for remote mode — check with `oc get clustertrainingruntimes`
 
+The two setup steps this mode depends on, as they look in the dashboard:
+
+![Project storage view with the RWX PVC](../docs/speculator-storage-pvc.png)
+
+![Configure pipeline server dialog](../docs/speculator-pipeline-server.png)
+
+Both are covered step by step — with verification commands — in the [common prerequisites](../README.md#prerequisites). This mode does not need the Model Registry.
+
 ## Running the pipeline
 
 **Step 1 — generate the pipeline YAML.** Follow [Generate the pipeline YAML](../README.md#1-generate-the-pipeline-yaml) in the common guide, compiling the `data_extraction` mode:
@@ -57,10 +96,9 @@ This writes `pipelines/training/speculator/data_extraction/pipeline.yaml`.
 
 **Step 3 — create a run.** Open the pipeline definition, click **Create run**, and fill in the parameters from the table below. Leave everything not listed at its default.
 
-![Create run dialog with data-extraction parameters](../docs/rhoai-create-run.png)
-> **Screenshot needed:** `docs/rhoai-create-run.png` — the **Create run** dialog with the data-extraction parameter form filled for a Qwen3-0.6B smoke test (see the common guide's slot; one shared parameter-form screenshot is used across modes).
+![Create run dialog with data-extraction parameters](../docs/speculator-data-extraction-create-run.png)
 
-**Step 4 — start the run and watch it.** Click **Start**, then follow the run in the UI as [described in the common guide](../README.md#5-watch-the-run). With the smoke-test values below (16 samples, Qwen3-0.6B, managed vLLM), expect the run to complete in minutes — most of it is the vLLM sidecar loading the verifier.
+**Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough of what the graph does and how long each node takes is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run. With the smoke-test values below (16 samples, Qwen3-0.6B, managed vLLM), expect the run to complete in minutes — most of it is the vLLM sidecar loading the verifier.
 
 ### Example: Qwen3-0.6B
 
@@ -75,6 +113,7 @@ Minimal managed-mode parameter set for a smoke-test run:
 | `p08_max_samples` | `16` | Smoke test; set `0` for the full dataset |
 | `p10_vllm_mode` | `managed` | Sidecar vLLM |
 | `p18_target_layer_ids` | `2,14,25,28` | **Required** — download mode cannot infer layer IDs |
+| `p20_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the extraction job |
 
 Everything else can keep its default. For remote mode instead, see [Managed vs remote vLLM](#managed-vs-remote-vllm).
 
@@ -102,7 +141,7 @@ What you should see:
 
 - **`speculator-output/hidden_states/`** containing `.safetensors` files — one per target layer of the four in `p18_target_layer_ids`. Each file should be non-trivially sized (tens of MB for the smoke test; more with `p08_max_samples=0`).
 - **Processed dataset files** under `speculator-output/` — the preprocessed training data the train-only pipeline reads.
-- **`models/Qwen--Qwen3-0.6B/`** — the cached verifier (this path is what `p06_verifier_model_pvc` needs in the train-only run).
+- **`models/Qwen--Qwen3-0.6B/`** — the cached verifier. The download task replaces `/` with `--` in the model ID to form the directory name: `Qwen/Qwen3-0.6B` becomes `Qwen--Qwen3-0.6B`. This exact directory name is what `p06_verifier_model_pvc` needs in the train-only run — using the HuggingFace model ID (`models/Qwen3-0.6B` without the `Qwen--` prefix) causes an `HFValidationError` at training time.
 
 If `hidden_states/` is empty or missing, the extraction did not do what you expected — see [Troubleshooting](#troubleshooting) before re-running.
 
@@ -159,7 +198,7 @@ The IDs are **verifier-specific** — for any other model (e.g. Llama-3.2-1B-Ins
 | --------- | ---- | ------- | ----------- |
 | `p01_persistent_pvc` | `str` | `None` | Name of the existing PVC in the pipeline namespace, mounted at `/mnt/persistent`, that stores models, datasets, and extraction outputs. Required. |
 | `p02_verifier_model` | `str` | `""` | Hugging Face Hub model ID. Set when `p04_download_model` is true to download to the PVC. In managed mode with downloads disabled and no PVC path set, this ID is passed directly to vLLM. |
-| `p03_verifier_model_pvc` | `str` | `""` | Optional verifier directory on `p01_persistent_pvc`. Managed mode with downloads disabled reuses it if set. Remote mode always requires this PVC-backed path. Relative path or `pvc://` URI. |
+| `p03_verifier_model_pvc` | `str` | `""` | Optional verifier directory on `p01_persistent_pvc`. Use the on-disk directory name (`models/Qwen--Qwen3-0.6B`), not the HuggingFace model ID — the download task replaces `/` with `--`. Managed mode with downloads disabled reuses it if set. Remote mode always requires this PVC-backed path. Relative path or `pvc://` URI. |
 | `p04_download_model` | `bool` | `False` | Download `p02_verifier_model` to the PVC. |
 | `p05_dataset_name` | `str` | `ultrachat` | `magpie`, `ultrachat`, or `gsm8k`; or a JSON/JSONL file on the PVC. Arbitrary HuggingFace dataset IDs are not supported. |
 | `p06_output_dir` | `str` | `speculator-output` | Directory on `p01_persistent_pvc` where extraction outputs are written. |
