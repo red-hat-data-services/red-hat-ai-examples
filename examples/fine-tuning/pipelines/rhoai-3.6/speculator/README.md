@@ -8,7 +8,7 @@ This guided example walks through training a custom Eagle3 draft model for specu
 
 > [!TIP]
 >
-> Prefer driving TrainJobs directly from a notebook instead of pipelines? See the SDK-based examples at [`../../rhoai-3.6/speculator/`](../../rhoai-3.6/speculator/) — same four training modes, executed via the Kubeflow SDK `SpeculativeDecodingTrainer`.
+> Prefer driving TrainJobs directly from a notebook instead of pipelines? See the SDK-based examples at [`../../../rhoai-3.6/speculator/`](../../../rhoai-3.6/speculator/) — same four training modes, executed via the Kubeflow SDK `SpeculativeDecodingTrainer`.
 
 ## What is Speculative Decoding?
 
@@ -16,7 +16,7 @@ Large language models generate tokens one at a time during inference. Each token
 
 Speculative decoding exploits a key insight: verifying multiple tokens at once costs almost the same as generating one, because the expensive part (reading the model from memory) is identical and the GPU's compute units are idle anyway. A small, fast **draft model** (~1.2 GB with Qwen3-0.6B) quickly guesses the next several tokens, then the large **verifier model** checks all guesses at once in a single forward pass. Correct guesses become output; at the first rejected guess, the verifier's own token is used and the draft model starts guessing again. The output is mathematically identical to normal decoding — no quality loss.
 
-For more background — why custom draft models matter after fine-tuning, and how the Eagle3 architecture reads hidden states from four intermediate verifier layers — see the [SDK example README](../../rhoai-3.6/speculator/README.md#what-is-speculative-decoding).
+For more background — why custom draft models matter after fine-tuning, and how the Eagle3 architecture reads hidden states from four intermediate verifier layers — see the [SDK example README](../../../rhoai-3.6/speculator/README.md#what-is-speculative-decoding).
 
 ## Pipelines Overview
 
@@ -103,8 +103,7 @@ spec:
 EOF
 ```
 
-![Project storage view with the RWX PVC](docs/rhoai-storage-pvc.png)
-> **Screenshot needed:** `docs/rhoai-storage-pvc.png` — the project's **Storage** tab showing the newly created `shared` PVC with RWX access mode and its size.
+![Project storage view with the RWX PVC](docs/speculator-storage-pvc.png)
 
 Verify it's bound:
 
@@ -118,8 +117,7 @@ Expected: `STATUS Bound`.
 
 The pipeline server must be running for your project before you can import or run pipelines. In the Red Hat OpenShift AI dashboard, open your project, choose the **Pipelines** tab, and click **Configure pipeline server** if it is not already configured. Provide the object storage connection details it asks for (an S3-compatible bucket — the same kind used for any pipeline work; artifacts land there).
 
-![Configure pipeline server dialog](docs/rhoai-pipeline-server.png)
-> **Screenshot needed:** `docs/rhoai-pipeline-server.png` — the **Configure pipeline server** dialog with object storage fields filled.
+![Configure pipeline server dialog](docs/speculator-pipeline-server.png)
 
 For the official documentation, see [configuring a pipeline server](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.6/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines#configuring-a-pipeline-server_ai-pipelines).
 
@@ -172,7 +170,7 @@ oc get clustertrainingruntimes
 | `vllm-extract-cuda` | data-extraction (managed mode), online |
 | `speculator-model-opt-cuda` | train-only, offline, data-extraction (remote mode) |
 
-If missing, follow the [SDK example's CTR instructions](../../rhoai-3.6/speculator/README.md) or deploy them from the Kubeflow Trainer runtime definitions.
+If missing, follow the [SDK example's CTR instructions](../../../rhoai-3.6/speculator/README.md) or deploy them from the Kubeflow Trainer runtime definitions.
 
 ### Model Registry and KServe (train-only / online / offline)
 
@@ -180,10 +178,26 @@ The train-only pipeline **always** registers the draft — registry setup is man
 
 **1. Create or select a registry.** In the Red Hat OpenShift AI dashboard, open **AI Hub > Models > Model registries** and create or select a registry.
 
-![Model registry creation with REST URL](docs/rhoai-model-registry-create.png)
-> **Screenshot needed:** `docs/rhoai-model-registry-create.png` — the **Model registries** view showing the created registry and its REST URL.
+![Model registry creation with REST URL](docs/speculator-model-registry.png)
 
-**2. Copy its HTTP REST service URL and split it.** Pipelines take host and port separately: for `http://registry-service.registry-namespace.svc:8080/api/model_registry/v1alpha3`, use hostname `registry-service.registry-namespace.svc` for `p02_model_registry_address` (train-only) and `8080` for `p45_model_registry_port`. No scheme, no `/api` path.
+**2. Find the registry's REST route.** Red Hat OpenShift AI gives each model registry its own dedicated REST route, named after the registry. Find yours with:
+
+```bash
+oc get routes -A | grep rest
+```
+
+For a registry named `bu-registry`, the route host looks like `bu-registry-rest.apps.<cluster-domain>`. The pipeline parameters are then the route URL **including the `https://` scheme** and the HTTPS port:
+
+| Parameter (train-only names) | Value |
+| --- | --- |
+| `p02_model_registry_address` | `https://bu-registry-rest.apps.<cluster-domain>` |
+| `p45_model_registry_port` | `443` |
+
+> [!IMPORTANT]
+>
+> - Include the scheme in the address, matching how the endpoint is served — `https://` for Red Hat OpenShift AI routes, which is the normal case. Without a scheme the pipeline falls back to plain HTTP, which the route does not serve. If your endpoint is plain HTTP (a custom ingress without TLS, or a route with an insecure-edge policy), use `http://` and that endpoint's port; the same rules apply.
+> - Do **not** paste the dashboard's REST URL (`https://<dashboard-host>/model-registry/<name>/api/model_registry/v1alpha3`). The pipeline appends the `/api/...` path itself, and the extra `/model-registry/<name>` prefix breaks the request. Always use the dedicated `-rest` route.
+> - Alternative, in-cluster: the registry's Service works too — address `model-registry-<name>.<namespace>.svc` (no scheme), port `8080`. Find it with `oc get svc -A | grep model-registry`.
 
 **3. Grant the pipeline ServiceAccount access.** The pipeline runs under your project's default ServiceAccount (`default` in the project namespace unless configured otherwise). Grant it read access to the registry:
 
@@ -258,13 +272,11 @@ Work through [Prerequisites](#prerequisites): PVC, pipeline server, `kubernetes-
    - **Pipeline file**: select **Upload a file** and choose the `pipeline.yaml` you compiled in step 1.
 6. Click **Import**.
 
-![Import pipeline dialog](docs/rhoai-import-pipeline.png)
-> **Screenshot needed:** `docs/rhoai-import-pipeline.png` — the **Import pipeline** dialog with **Upload a file** selected and the compiled `pipeline.yaml` chosen. Crop to the dialog.
+![Import pipeline dialog](docs/speculator-import-pipeline.png)
 
 **Expected result:** the pipeline appears in the **Pipeline definitions** list. The definition name is taken from the YAML: `speculator-hidden-state-extraction-pipeline` (data-extraction), `speculator-training-pipeline` (train-only), `speculator-online-pipeline` (online), `speculator-offline-pipeline` (offline).
 
-![Pipeline definitions list](docs/rhoai-pipeline-definitions.png)
-> **Screenshot needed:** `docs/rhoai-pipeline-definitions.png` — the **Pipeline definitions** list after importing, showing the imported speculator pipelines.
+![Pipeline definitions list](docs/speculator-pipeline-definitions.png)
 
 ### 4. Create a run and set parameters
 
@@ -276,8 +288,7 @@ Work through [Prerequisites](#prerequisites): PVC, pipeline server, `kubernetes-
    - **Parameters**: fill in the values from the mode's example table (linked below). Parameters appear in `p01…` order — booleans render as toggles, and everything with a default can be left alone unless the table says otherwise.
 4. Click **Start**.
 
-![Create run dialog with parameters](docs/rhoai-create-run.png)
-> **Screenshot needed:** `docs/rhoai-create-run.png` — the **Create run** dialog with the parameter form visible, showing the `p01…` ordering and a few values filled in.
+![Create run dialog with parameters](docs/speculator-create-run.png)
 
 The ready-to-copy parameter tables:
 
@@ -293,8 +304,7 @@ The ready-to-copy parameter tables:
 3. Click any node to open its detail pane — **Logs** for stdout/stderr, **Artifacts** for its outputs.
 4. Tasks run sequentially in these pipelines (extraction before training, training before evaluation, etc.), so a failure early in the graph stops everything downstream. The failing node's logs are the first place to look.
 
-![Running pipeline graph](docs/rhoai-run-graph.png)
-> **Screenshot needed:** `docs/rhoai-run-graph.png` — a running (or completed) pipeline run with a node selected and its detail/logs pane open.
+![Running pipeline graph](docs/speculator-run-graph.png)
 
 When the run succeeds, continue with the mode's guide — for the two-step workflow that means [verifying the output on the PVC](data-extraction/README.md#verifying-the-output-on-the-pvc) and then the [train-only pipeline](train-only/README.md), whose guide covers [interpreting the evaluation results](train-only/README.md#interpreting-the-evaluation-results).
 
@@ -366,7 +376,7 @@ For an interactive session (repeated questions, or a conversation that keeps his
 
 These examples standardize on **`Qwen/Qwen3-0.6B`** with `target_layer_ids = "2,14,25,28"` (the four intermediate verifier layers Eagle3 reads). **`meta-llama/Llama-3.2-1B-Instruct`** has also been run end-to-end successfully on Red Hat OpenShift AI 3.6 with these pipelines.
 
-The layer IDs are **verifier-specific**: they name four layers *of the verifier model*, and a wrong set fails at training time with a tensor shape mismatch. For Qwen3-0.6B use `2,14,25,28`; for any other verifier, look up that model's four Eagle3 target layers (see the [SDK example's guidance](../../rhoai-3.6/speculator/README.md#speculator-specific-considerations)) — do not reuse Qwen's IDs for a different architecture.
+The layer IDs are **verifier-specific**: they name four layers *of the verifier model*, and a wrong set fails at training time with a tensor shape mismatch. For Qwen3-0.6B use `2,14,25,28`; for any other verifier, look up that model's four Eagle3 target layers (see the [SDK example's guidance](../../../rhoai-3.6/speculator/README.md#speculator-specific-considerations)) — do not reuse Qwen's IDs for a different architecture.
 
 ## Customizing before you compile
 
@@ -396,7 +406,8 @@ Compile and run-time problems, ordered roughly by when you'd hit them:
 | Trainer submit task fails with 401/403 | `kubernetes-credentials` secret missing or token lacks Trainer permissions | Recreate the secret; scope the token to Trainer job creation |
 | Run fails with ClusterTrainingRuntime not found | CTR from `pNN_job_runtime` not deployed | `oc get clustertrainingruntimes`; deploy the missing runtime |
 | Training pod OOM-killed | Verifier too large for defaults, or `gpu_memory_utilization` too high | Raise `pNN_training_resource_memory`; lower `gpu_memory_utilization` |
-| Registry task fails with connection refused | Wrong registry host/port split, or missing RoleBinding | Hostname only in the address param (no scheme/path); add the RoleBinding per [Prerequisites](#model-registry-and-kserve-train-only--online--offline) |
+| Registry task fails with connection refused or 404 | Wrong registry address/port, or missing RoleBinding | Use the registry's `-rest` route with the `https://` scheme and port `443` (or the in-cluster service with port `8080`); add the RoleBinding per [Prerequisites](#model-registry-and-kserve-train-only--online--offline) |
+| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. Check with `ls $PVC_MOUNT/models/` |
 | Model download fails with 401 | Gated model without `hf-token` secret | Create the `hf-token` secret |
 | `curl: Could not resolve host: <name>-predictor.<ns>.svc.cluster.local` | The URL is cluster-local; you are off-cluster (e.g. your laptop) | Run the request from inside the cluster via `oc exec`, or use `oc port-forward` — see [Testing the served endpoint](#testing-the-served-endpoint) |
 | `connection refused` when port-forwarding to port 80 | The predictor container listens on **8080**; port-forward does no Service port translation | Forward to the container port: `oc port-forward ... 5000:8080` |
