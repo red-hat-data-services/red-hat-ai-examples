@@ -2,7 +2,7 @@
 
 > [!WARNING]
 >
-> **Stability: alpha** — this pipeline may change. Re-generate the YAML after pulling upstream changes.
+> This pipeline may change. Re-generate the YAML after pulling upstream changes.
 
 This guide covers the **speculator-online-pipeline** — the simplest one-run path to a trained Eagle3 draft. A single Trainer job extracts hidden states with a managed vLLM sidecar **and** trains the draft, then the pipeline evaluates, optionally registers, and serves it.
 
@@ -34,13 +34,13 @@ download model ──> online draft model training ──> evaluate draft model 
 
 The defining feature is the **second node**: a single Trainer job that does extraction and training together. Stage by stage:
 
-| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B smoke test) |
+| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B example run) |
 | --- | --- | --- | --- |
-| **download model** | (Only when `p04_download_model=true`) Pulls `p02_verifier_model` onto the PVC | Download progress in the node logs | ~1–2 minutes |
-| **online draft model training** | One Trainer job (`vllm-extract-cuda` CTR): a vLLM sidecar serves the verifier and produces hidden states on the fly while the training worker consumes them | The longest node. Logs are quiet for the first few minutes while the sidecar loads the verifier, then training loss starts streaming. What looks like a hang at minute two is the sidecar loading | ~10–30 minutes |
-| **evaluate draft model** | Starts a vLLM server with speculative decoding and runs the GuideLLM sweep | Slow start (server load), then results publish as **metrics artifacts** | ~5–15 minutes |
-| **register to model registry** | (Skipped entirely when `p43_model_registry_address` is empty) Registers `final_model` | Seconds; fails fast on wrong address or missing RoleBinding | Seconds |
-| **serve draft model** | Creates the KServe InferenceService and waits for readiness | ServingRuntime + InferenceService creation, predictor rollout | ~2–5 minutes |
+| **download model** | (Only when `p04_download_model=true`) Pulls `p02_verifier_model` onto the PVC | Download progress in the node logs | ~5–10 minutes |
+| **online draft model training** | One Trainer job (`vllm-extract-cuda` CTR): a vLLM sidecar serves the verifier and produces hidden states on the fly while the training worker consumes them | The longest node. Logs are quiet for the first few minutes while the sidecar loads the verifier, then training loss starts streaming. What looks like a hang at minute two is the sidecar loading | ~15–45 minutes |
+| **evaluate draft model** | Starts a vLLM server with speculative decoding and runs the GuideLLM sweep | Slow start (server load), then results publish as **metrics artifacts** | ~15–30 minutes |
+| **register to model registry** | (Skipped entirely when `p43_model_registry_address` is empty) Registers `final_model` | Model version appears in the Model Registry UI; it can fail fast on wrong address or missing RoleBinding | Up to a few minutes |
+| **serve draft model** | Creates the KServe InferenceService and waits for readiness | ServingRuntime + InferenceService creation, predictor rollout | ~5–15 minutes |
 
 What the cluster side looks like during the run is covered next, in [What a running job looks like](#what-a-running-job-looks-like).
 
@@ -129,6 +129,10 @@ This writes `pipelines/training/speculator/online/pipeline.yaml`.
 
 **Step 3 — create a run.** Open the pipeline definition, click **Create run**, and fill in the parameters from the table below. Leave everything not listed at its default. Use a new `p46_model_registry_version` per revision if registering.
 
+> [!WARNING]
+>
+> Leave the **ML experiment** checkbox unticked. These pipelines have not been tested with an MLflow experiment association, and enabling it may cause the run to fail or behave unexpectedly.
+
 ![Create run dialog with online parameters](../docs/speculator-online-create-run.png)
 
 **Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
@@ -144,7 +148,7 @@ This writes `pipelines/training/speculator/online/pipeline.yaml`.
 | `p06_dataset_name` | `ultrachat` | Built-in dataset |
 | `p07_evaluation_dataset_uri` | `RedHatAI/speculator_benchmarks` | HuggingFace evaluation dataset with built-in subsets |
 | `p08_serving_namespace` | `<pvc-namespace>` | Must access the PVC |
-| `p09_data_extraction_max_samples` | `16` | Smoke test; set `0` for the full dataset |
+| `p09_data_extraction_max_samples` | `16` | Example run; set `0` for the full dataset |
 | `p35_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the online Trainer job |
 | `p37_evaluation_max_samples` | `10` | Reduced for quick testing; default `80` for full runs |
 | `p38_evaluation_max_tokens` | `64` | Reduced for quick testing; default `256` for full runs |
@@ -188,7 +192,7 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | `p08_serving_namespace` | `str` | `None` | Required KServe namespace; must access the PVC. |
 | `p02_verifier_model` | `str` | `""` | Optional HuggingFace model ID used for downloading or resolving the default cached directory. |
 | `p03_verifier_model_pvc` | `str` | `""` | Optional existing verifier directory on the shared PVC. Use the on-disk directory name (`models/Qwen--Qwen3-0.6B`), not the HuggingFace model ID — the download task replaces `/` with `--`. Used when `p04_download_model` is false. |
-| `p04_download_model` | `bool` | `False` | Download the model specified by `p02_verifier_model` to the shared PVC. |
+| `p04_download_model` | `bool` | `False` | Download the model specified by `p02_verifier_model` to the shared PVC. When `false`, the verifier must already be on the PVC — supply it via `p03_verifier_model_pvc` (e.g. from a previous run). |
 | `p09_data_extraction_max_samples` | `int` | `0` | Maximum training examples extracted by the sidecar; `0` processes the full dataset. |
 | `p10_data_extraction_regenerate_responses` | `bool` | `False` | Regenerate assistant responses with the verifier; built-in datasets only. |
 | `p11_data_extraction_concurrency` | `int` | `1` | vLLM request concurrency and training `datagen_concurrency`. Use `1` on shared/NFS PVCs. |
@@ -206,7 +210,7 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | `p23_training_scheduler_type` | `str` | `linear` | LR scheduler: `linear`, `cosine`, or `none`. |
 | `p24_training_scheduler_warmup_steps` | `int` | `0` | Warmup steps; `0` lets the SDK calculate them. |
 | `p25_training_scheduler_total_steps` | `int` | `0` | Total scheduler steps; `0` lets the SDK calculate them. |
-| `p26_training_save_best` | `bool` | `False` | Save the best checkpoint by validation loss. |
+| `p26_training_save_best` | `bool` | `False` | Save only the best checkpoint by validation loss. |
 | `p27_training_resume_from_checkpoint` | `bool` | `False` | Resume from a saved checkpoint when supported by the runtime. |
 | `p28_training_resource_cpu` | `str` | `4` | CPU request for the main Trainer worker. |
 | `p29_training_resource_gpu` | `int` | `1` | GPUs for the main Trainer worker. The sidecar always requests one more. |

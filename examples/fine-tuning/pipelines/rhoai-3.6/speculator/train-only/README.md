@@ -2,7 +2,7 @@
 
 > [!WARNING]
 >
-> **Stability: alpha** — this pipeline may change. Re-generate the YAML after pulling upstream changes.
+> This pipeline may change. Re-generate the YAML after pulling upstream changes.
 
 This guide covers the **speculator-training-pipeline** — the second step of the two-step speculator workflow. It trains, evaluates, registers, and serves an Eagle3 draft model from artifacts already on the PVC.
 
@@ -34,12 +34,12 @@ train draft model ──> evaluate draft model ──> register to model registr
 
 Stage by stage:
 
-| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B smoke test) |
+| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B example run) |
 | --- | --- | --- | --- |
-| **train draft model** | One Trainer job (`speculator-model-opt-cuda` CTR) trains the Eagle3 draft from the hidden states on the PVC | Logs show per-step training loss decreasing and checkpoint saves. The draft is copied to `final_model` on the PVC at the end | A few minutes (16 extraction samples, 3 epochs) |
-| **evaluate draft model** | Starts its own vLLM server with speculative decoding enabled and runs a GuideLLM benchmark sweep against it | Slow to start — the vLLM server takes minutes to load verifier + draft before the sweep begins. Results are published as **metrics artifacts**, not plain logs | ~5–15 minutes |
-| **register to model registry** | Registers `final_model` to the Model Registry under `p03_model_registry_name` / `p46_model_registry_version` | The fastest node in the graph — seconds. Fails immediately if the registry address is wrong or the RoleBinding is missing | Seconds |
-| **serve draft model** | Creates the KServe InferenceService in `p04_serving_namespace` and waits for it to become ready | Logs show the ServingRuntime and InferenceService being created, then the predictor rollout. The node succeeds only once the endpoint answers | ~2–5 minutes |
+| **train draft model** | One Trainer job (`speculator-model-opt-cuda` CTR) trains the Eagle3 draft from the hidden states on the PVC | Logs show per-step training loss decreasing and checkpoint saves. The draft is copied to `final_model` on the PVC at the end | ~10–20 minutes (16 extraction samples, 3 epochs) |
+| **evaluate draft model** | Starts its own vLLM server with speculative decoding enabled and runs a GuideLLM benchmark sweep against it | Slow to start — the vLLM server takes minutes to load verifier + draft before the sweep begins. Results are published as **metrics artifacts**, not plain logs | ~15–30 minutes |
+| **register to model registry** | Registers `final_model` to the Model Registry under `p03_model_registry_name` / `p46_model_registry_version` | Model version appears in the Model Registry UI; it can fail fast on wrong address or missing RoleBinding | Up to a few minutes |
+| **serve draft model** | Creates the KServe InferenceService in `p04_serving_namespace` and waits for it to become ready | Logs show the ServingRuntime and InferenceService being created, then the predictor rollout. The node succeeds only once the endpoint answers | ~5–15 minutes |
 
 A failure at any node stops everything after it, and that node's logs are where to look. The two nodes that fail most often in practice are **evaluate** (vLLM startup timeout — raise `p43_evaluation_startup_timeout_seconds`) and **register** (wrong host/port split or missing RoleBinding — see [Troubleshooting](#troubleshooting)).
 
@@ -54,7 +54,7 @@ A failure at any node stops everything after it, and that node's logs are where 
 | Training worker | 1 | 4 cores | 64Gi |
 | Evaluation / serving | ~1 | — | — |
 
-Expect roughly 10–30 minutes end-to-end for the smoke-test configuration, depending on cluster load — most of it is the evaluation step spinning up its own vLLM server.
+Expect roughly 10–30 minutes end-to-end for the example-run configuration, depending on cluster load — most of it is the evaluation step spinning up its own vLLM server.
 
 ## Setup
 
@@ -124,6 +124,10 @@ This writes `pipelines/training/speculator/train_only/pipeline.yaml`.
 
 **Step 3 — create a run.** Open the pipeline definition, click **Create run**, and fill in the parameters from the table below. Leave everything not listed at its default. Use a **new** `p46_model_registry_version` for every trained revision — re-using a version number overwrites the registry entry's meaning.
 
+> [!WARNING]
+>
+> Leave the **ML experiment** checkbox unticked. These pipelines have not been tested with an MLflow experiment association, and enabling it may cause the run to fail or behave unexpectedly.
+
 ![Create run dialog with train-only parameters](../docs/speculator-train-only-create-run.png)
 
 **Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough — what each of the four tasks does and how long it takes — is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
@@ -147,7 +151,7 @@ Assumes a completed data-extraction run with defaults, and the verifier cached b
 | `p39_evaluation_max_tokens` | `64` | Reduced for quick testing; default `256` for full runs |
 | `p45_model_registry_port` | `443` | **Required with a route address** — the default `8080` only fits the in-cluster service |
 
-The `evaluation_max_samples` and `evaluation_max_tokens` values above are reduced to speed up a smoke-test run. For production evaluation, leave them at their defaults (`80` and `256`).
+The `evaluation_max_samples` and `evaluation_max_tokens` values above are reduced to speed up an example run. For production evaluation, leave them at their defaults (`80` and `256`).
 
 ## What gets trained
 
@@ -189,7 +193,7 @@ One more thing to set expectations before you judge a first run:
 
 > [!IMPORTANT]
 >
-> Smoke-test settings (e.g. 16 extraction samples, default epochs) produce a **weak draft on purpose** — the point is to prove the plumbing. Expect poor acceptance numbers on a first smoke run; see [Iterating on hyperparameters](#iterating-on-hyperparameters) for what to change.
+> Example-run settings (e.g. 16 extraction samples, default epochs) produce a **weak draft on purpose** — the point is to prove the plumbing. Expect poor acceptance numbers on a first example run; see [Iterating on hyperparameters](#iterating-on-hyperparameters) for what to change.
 
 ### Checking the registry entry
 
@@ -227,7 +231,7 @@ A note on reading the result: with speculative decoding the output is still **co
 
 Because extraction is reused, iterating is cheap — re-run **only this pipeline** with a new `p46_model_registry_version` and adjusted parameters:
 
-- More data (the first thing to fix after a smoke test): re-run **extraction** with `p08_max_samples=0` for the full dataset, then train-only again.
+- More data (the first thing to fix after an example run): re-run **extraction** with `p08_max_samples=0` for the full dataset, then train-only again.
 - More training: raise `p14_training_epochs` or tune `p15_training_lr`.
 - Bigger draft: raise `p17_training_num_layers`.
 - Different speculation depth: `p41_num_speculative_tokens` (affects evaluation and serving).

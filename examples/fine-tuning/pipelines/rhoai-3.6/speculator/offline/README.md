@@ -2,7 +2,7 @@
 
 > [!WARNING]
 >
-> **Stability: alpha** — this pipeline may change. Re-generate the YAML after pulling upstream changes.
+> This pipeline may change. Re-generate the YAML after pulling upstream changes.
 
 This guide covers the **speculator-offline-pipeline** — extraction and training combined in a single run, with hidden states extracted by an **external, user-managed vLLM endpoint** instead of a managed sidecar.
 
@@ -37,13 +37,13 @@ extract hidden states ──> train draft model ──> evaluate draft model ─
 
 Like online, this is a one-run pipeline — but the extraction stage talks to **your** external vLLM endpoint instead of a managed sidecar. Stage by stage:
 
-| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B smoke test) |
+| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B example run) |
 | --- | --- | --- | --- |
-| **extract hidden states** | A Trainer job (`speculator-model-opt-cuda` CTR) sends requests to `p03_vllm_endpoint` and writes hidden states to the PVC | Node logs show the endpoint connection and per-sample extraction progress. If the endpoint is unreachable, this node fails fast — run the probe command in [Setup](#external-vllm-server) first | A few minutes |
-| **train draft model** | Trains the Eagle3 draft from the hidden states just written | Training loss streaming, checkpoint saves, draft copied to `final_model` | A few minutes |
-| **evaluate draft model** | Starts a vLLM server with speculative decoding and runs the GuideLLM sweep | Slow start (server load), then results publish as **metrics artifacts** | ~5–15 minutes |
-| **register to model registry** | (Skipped entirely when `p47_model_registry_address` is empty) Registers `final_model` | Seconds; fails fast on wrong address or missing RoleBinding | Seconds |
-| **serve draft model** | Creates the KServe InferenceService using your verifier and the draft, waits for readiness | ServingRuntime + InferenceService creation, predictor rollout | ~2–5 minutes |
+| **extract hidden states** | A Trainer job (`speculator-model-opt-cuda` CTR) sends requests to `p03_vllm_endpoint` and writes hidden states to the PVC | Node logs show the endpoint connection and per-sample extraction progress. If the endpoint is unreachable, this node fails fast — run the probe command in [Setup](#external-vllm-server) first | ~10–20 minutes |
+| **train draft model** | Trains the Eagle3 draft from the hidden states just written | Training loss streaming, checkpoint saves, draft copied to `final_model` | ~10–20 minutes |
+| **evaluate draft model** | Starts a vLLM server with speculative decoding and runs the GuideLLM sweep | Slow start (server load), then results publish as **metrics artifacts** | ~15–30 minutes |
+| **register to model registry** | (Skipped entirely when `p47_model_registry_address` is empty) Registers `final_model` | Model version appears in the Model Registry UI; it can fail fast on wrong address or missing RoleBinding | Up to a few minutes |
+| **serve draft model** | Creates the KServe InferenceService using your verifier and the draft, waits for readiness | ServingRuntime + InferenceService creation, predictor rollout | ~5–15 minutes |
 
 A failure at **extract hidden states** with a connection error is almost always the external endpoint (wrong URL, or a NetworkPolicy blocking the path) — not the pipeline. Verify with the probe command in [Setup](#external-vllm-server) before debugging anything else.
 
@@ -140,6 +140,10 @@ This writes `pipelines/training/speculator/offline/pipeline.yaml`.
 
 **Step 3 — create a run.** Open the pipeline definition, click **Create run**, and fill in the parameters from the table below. Leave everything not listed at its default. Use a new `p50_model_registry_version` per revision if registering.
 
+> [!WARNING]
+>
+> Leave the **ML experiment** checkbox unticked. These pipelines have not been tested with an MLflow experiment association, and enabling it may cause the run to fail or behave unexpectedly.
+
 ![Create run dialog with offline parameters](../docs/speculator-offline-create-run.png)
 
 **Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
@@ -156,7 +160,7 @@ Assumes the verifier was already cached on the PVC (e.g., by a prior data-extrac
 | `p04_dataset_name` | `ultrachat` | Built-in dataset |
 | `p05_evaluation_dataset_uri` | `RedHatAI/speculator_benchmarks` | HuggingFace evaluation dataset with built-in subsets |
 | `p06_serving_namespace` | `<pvc-namespace>` | Must access the PVC |
-| `p07_data_extraction_max_samples` | `16` | Smoke test; set `0` for the full dataset |
+| `p07_data_extraction_max_samples` | `16` | Example run; set `0` for the full dataset |
 | `p15_target_layer_ids` | `2,14,25,28` | **Required** |
 | `p38_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the extraction and training jobs |
 | `p40_evaluation_max_samples` | `10` | Reduced for quick testing; default `80` for full runs |
@@ -221,7 +225,7 @@ Sweep `p16_training_epochs`, `p17_training_lr`, `p19_training_num_layers`, and `
 | `p25_training_scheduler_type` | `str` | `linear` | LR scheduler: `linear`, `cosine`, or `none`. |
 | `p26_training_scheduler_warmup_steps` | `int` | `0` | Warmup steps; `0` lets the SDK calculate them. |
 | `p27_training_scheduler_total_steps` | `int` | `0` | Total scheduler steps; `0` lets the SDK calculate them. |
-| `p30_training_save_best` | `bool` | `False` | Save the best checkpoint by validation loss. |
+| `p30_training_save_best` | `bool` | `False` | Save only the best checkpoint by validation loss. |
 | `p32_training_resume_from_checkpoint` | `bool` | `False` | Resume from a saved checkpoint when supported by the runtime. |
 | `p33_training_resource_cpu` | `str` | `4` | CPU request for the training worker. |
 | `p34_training_resource_gpu` | `int` | `1` | Number of GPUs requested for the training worker. |
