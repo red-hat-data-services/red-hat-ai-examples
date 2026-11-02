@@ -145,6 +145,47 @@ Before running this method, you must have a vLLM server running that:
 >
 > When using an external vLLM endpoint, the SDK may require `verifier_model` to be specified as a **PVC URI** (e.g., `pvc://shared/models/Qwen3-0.6B`) rather than a HuggingFace ID, since the external vLLM server already has the model loaded from the shared PVC. In this case, `target_layer_ids` and `hidden_states_path` must also be provided explicitly.
 
+#### Deploying an external vLLM server
+
+If you don't already have a vLLM deployment, a ready-to-use Deployment + Service manifest is provided at [`manifests/vllm-server.yaml`](../manifests/vllm-server.yaml) (relative to the `speculator/` example root). It runs vLLM with hidden state extraction enabled (`extract_hidden_states` speculative config + `ExampleHiddenStatesConnector`) and matches the notebook defaults: verifier model `Qwen3-0.6B`, `TARGET_LAYER_IDS = [2, 14, 25, 28]`, and port 8000.
+
+Before deploying:
+
+1. Download the verifier model to the shared PVC (`models/Qwen3-0.6B` on the `shared` PVC).
+2. Confirm a GPU node with at least 1 free NVIDIA GPU.
+3. Review the manifest's `imagePullSecrets` — remove it or adjust the secret name if your cluster can pull the image without a secret.
+
+Deploy into the same namespace as your workbench and TrainJob (run from the `data-only/` directory):
+
+```bash
+oc apply -f ../manifests/vllm-server.yaml -n <your-namespace>
+```
+
+Verify readiness (the model takes a minute or more to load — the readiness probe allows 60s initially):
+
+```bash
+oc rollout status deployment/vllm-svc -n <your-namespace>
+oc get pods -l app=vllm-svc -n <your-namespace>
+```
+
+Optionally, from the workbench terminal, confirm the API answers:
+
+```bash
+curl http://vllm-svc.<your-namespace>.svc.cluster.local:8000/health
+```
+
+Then set the notebook's `VLLM_ENDPOINT` to `http://vllm-svc.<your-namespace>.svc.cluster.local:8000/v1`.
+
+> [!IMPORTANT]
+>
+> `SPECULATOR_HS_PATH` in the manifest **must match** the `hidden_states_path` passed to the trainer in the notebook. The manifest ships with the **OFFLINE notebook's** default (`/mnt/speculator/run-01-offline/hidden_states`) — for this example, change it to `/mnt/speculator/run-01/hidden_states` (the PVC `shared` root is mounted at `/mnt` in the vLLM pod) before deploying. If you change `RUN_NAME` in the notebook, update the path accordingly.
+
+When finished, clean up:
+
+```bash
+oc delete -f ../manifests/vllm-server.yaml -n <your-namespace>
+```
+
 ## Verifier Model
 
 The `verifier_model` parameter specifies the large language model whose hidden states are extracted. It accepts two input types:
@@ -295,6 +336,13 @@ Common fixes:
 - Ensure the vLLM server has access to the **same shared PVC**
 - Ensure network policies allow traffic from the training pod to the vLLM service
 - Verify the vLLM server is serving the correct model
+
+If you deployed with the provided [`manifests/vllm-server.yaml`](../manifests/vllm-server.yaml), also check the deployment itself:
+
+- Pod stuck in `ImagePullBackOff` — the pinned `quay.io/aipcc/rhaiis/cuda-ubi9` image needs a pull secret; check the manifest's `imagePullSecrets` entry exists in your namespace (`oc get secret aipcc-pull-secret -n <namespace>`)
+- Pod stuck in `Pending` — no free GPU on the node (`oc describe pod -l app=vllm-svc -n <namespace>`)
+- Pod not ready — check startup logs: `oc logs -l app=vllm-svc -n <namespace>`; the readiness probe gives the model 60s to load, slow PVC-backed loads may need more
+- `MountVolume.SetUp failed` — the `shared` PVC does not exist in the namespace, or the model was not downloaded to `models/Qwen3-0.6B` on it
 
 ### Hidden states output is empty
 
