@@ -2,7 +2,7 @@
 
 > [!WARNING]
 >
-> **Stability: alpha** — the upstream speculator pipelines are not yet stable and may change. Re-generate the pipeline YAML after pulling upstream changes.
+> The upstream speculator pipelines may change. Re-generate the pipeline YAML after pulling upstream changes.
 
 This guided example walks through training a custom Eagle3 draft model for speculative decoding using **Kubeflow Pipelines** on Red Hat OpenShift AI. It covers generating each pipeline definition from source, importing it into Red Hat OpenShift AI, running it, interpreting the evaluation results, and testing the served endpoint.
 
@@ -37,7 +37,7 @@ New to the two-step vs one-run distinction? Start with [data-extraction](data-ex
 
 This example is compatible with Red Hat OpenShift AI 3.6. The pipelines additionally require:
 
-- Kubeflow Pipelines **>= 2.15.2** (the Red Hat OpenShift AI `aipipelines` component's pipeline server)
+- Kubeflow Pipelines **>= 2.15.2** (the Red Hat OpenShift AI Data Science Pipelines component)
 - Kubeflow Trainer **>= 0.1.0** (the Red Hat OpenShift AI `trainer` component)
 - For the training pipelines: Model Registry **>= 0.3.4**, KServe **>= 2.10.0**, vLLM ServingRuntime **>= 0.24.0**
 - Kubernetes (OpenShift) **>= 1.28**
@@ -45,7 +45,7 @@ This example is compatible with Red Hat OpenShift AI 3.6. The pipelines addition
 ## Requirements
 
 - An OpenShift cluster with Red Hat OpenShift AI 3.6 installed:
-  - The **dashboard**, **trainer**, and **aipipelines** components enabled
+  - The **dashboard**, **trainer**, and **datasciencepipelines** components enabled
   - The **pipeline server** running — see [Prerequisites](#configure-the-pipeline-server)
   - The **modelregistry** component enabled (required for the train-only pipeline; optional elsewhere)
 - Speculator **ClusterTrainingRuntimes (CTRs)** deployed — see [ClusterTrainingRuntimes](#clustertrainingruntimes-ctrs)
@@ -119,7 +119,7 @@ The pipeline server must be running for your project before you can import or ru
 
 ![Configure pipeline server dialog](docs/speculator-pipeline-server.png)
 
-For the official documentation, see [configuring a pipeline server](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.6/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines#configuring-a-pipeline-server_ai-pipelines).
+For the official documentation, see [configuring a pipeline server](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines#configuring-a-pipeline-server_ai-pipelines).
 
 ### Kubernetes authentication secret
 
@@ -419,4 +419,4 @@ More mode-specific symptoms are in each subfolder's guide.
 
 ## Source
 
-The pipelines documented here live in [`red-hat-data-services/pipelines-components`](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/speculator) under `pipelines/training/speculator/`. The parameter tables in the mode guides are derived from that repository's own pipeline READMEs. Since the pipelines are alpha, re-generate your YAML after pulling upstream changes and re-check the parameter list against the imported definition.
+The pipelines documented here live in [`red-hat-data-services/pipelines-components`](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/speculator) under `pipelines/training/speculator/`. The parameter tables in the mode guides are derived from that repository's own pipeline READMEs. Since the pipelines may change, re-generate your YAML after pulling upstream changes and re-check the parameter list against the imported definition.
