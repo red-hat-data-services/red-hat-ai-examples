@@ -125,7 +125,7 @@ Which components are deployed depends on the training mode:
   - `DATA_ONLY` with External vLLM / `TRAIN_ONLY` / `OFFLINE` — `speculator-model-opt-cuda` (training only, no vLLM sidecar)
   
   These CTRs must be pre-installed on your cluster by an admin. Each notebook verifies their existence before job submission.
-- **External vLLM requirements**: When using an external vLLM endpoint (`DATA_ONLY` with External vLLM or `OFFLINE` mode), the vLLM server must be in the **same namespace** and have access to the **same shared PVC** as the TrainJob.
+- **External vLLM requirements**: When using an external vLLM endpoint (`DATA_ONLY` with External vLLM or `OFFLINE` mode), the vLLM server must be in the **same namespace** and have access to the **same shared PVC** as the TrainJob. A ready-to-use Deployment + Service manifest is provided at [`manifests/vllm-server.yaml`](manifests/vllm-server.yaml) — see the [offline](offline/README.md#deploying-an-external-vllm-server) or [data-only](data-only/README.md#deploying-an-external-vllm-server) READMEs for deployment steps.
 - **HuggingFace token**: Passed to training pods via the `env` parameter on each trainer. Required for downloading gated models. Qwen3-0.6B is not gated, but a token avoids rate limits.
 - **Job naming**: Use `options=[Name(name="...")]` to give jobs explicit, predictable names. This makes it easier to monitor logs with `oc logs` and check job status with `trainer_client.get_job()`.
 - **No manual PVC mounts**: `SpeculativeDecodingTrainer` handles PVC mounting internally via PVC URIs. You do not need to configure volume mounts manually.

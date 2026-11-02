@@ -1,0 +1,120 @@
+# External vLLM server for hidden state extraction.
+#
+# Used by:
+#   - OFFLINE mode (offline/speculator-offline-example.ipynb)
+#   - DATA_ONLY mode, Method 2 — external vLLM endpoint (data-only/speculator-data-only-example.ipynb)
+#
+# Prerequisites:
+#   - A PVC named `shared` in the target namespace, with the verifier model
+#     pre-downloaded to `models/Qwen3-0.6B` on that PVC (see the model download
+#     cell in the notebooks). The PVC is mounted at /mnt in the vLLM pod.
+#   - A GPU node with at least 1 available NVIDIA GPU.
+#   - Access to the quay.io/aipcc/rhaiis/cuda-ubi9 image below (it carries the
+#     `extract_hidden_states` speculative config and ExampleHiddenStatesConnector
+#     used for extraction). Adjust or remove `imagePullSecrets` if your cluster
+#     can pull the image without a secret.
+#
+# IMPORTANT: SPECULATOR_HS_PATH below must match the `hidden_states_path`
+# passed to SpeculativeDecodingTrainer in the notebook you are running
+# (the PVC `shared` root maps to /mnt in this pod):
+#   - OFFLINE notebook default:      pvc://shared/speculator/run-01-offline/hidden_states
+#     -> /mnt/speculator/run-01-offline/hidden_states   (default below)
+#   - DATA_ONLY Method 2 default:    pvc://shared/speculator/run-01/hidden_states
+#     -> /mnt/speculator/run-01/hidden_states
+# If you change RUN_NAME in the notebook, update this path accordingly.
+#
+# Deploy with:
+#   oc apply -f manifests/vllm-server.yaml -n <your-namespace>
+#
+# The Service is named `vllm-svc` on port 8000, so the trainer's vllm_endpoint
+# is: http://vllm-svc.<your-namespace>.svc.cluster.local:8000/v1
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-svc
+  template:
+    metadata:
+      labels:
+        app: vllm-svc
+    spec:
+      imagePullSecrets:
+      - name: aipcc-pull-secret
+      containers:
+      - name: vllm
+        image: quay.io/aipcc/rhaiis/cuda-ubi9:3.6
+        command: ["sh", "-c"]
+        args:
+        - |
+          TP=${SPECULATOR_VLLM_GPU_COUNT:-1}
+          TF=""
+          [ "$TP" -gt 1 ] && TF="--tensor-parallel-size $TP"
+          python3 -m vllm.entrypoints.cli.main serve \
+            "$SPECULATOR_VERIFIER_MODEL" \
+            --speculative-config '{"method":"extract_hidden_states",
+              "num_speculative_tokens":1,
+              "draft_model_config":{"hf_config":{
+                "eagle_aux_hidden_state_layer_ids":['"$SPECULATOR_TARGET_LAYER_IDS"']}}}' \
+            --kv-transfer-config '{"kv_connector":"ExampleHiddenStatesConnector",
+              "kv_role":"kv_producer",
+              "kv_connector_extra_config":{
+                "shared_storage_path":"'"$SPECULATOR_HS_PATH"'"}}' \
+            --port 8000 \
+            --gpu-memory-utilization ${SPECULATOR_GPU_MEM_UTIL:-0.9} \
+            --no-enable-chunked-prefill \
+            --trust-remote-code $TF
+        env:
+        - name: SPECULATOR_VERIFIER_MODEL
+          value: /mnt/models/Qwen3-0.6B
+        # Must match the notebook's hidden_states_path (see header comment).
+        - name: SPECULATOR_HS_PATH
+          value: /mnt/speculator/run-01-offline/hidden_states
+        - name: SPECULATOR_GPU_MEM_UTIL
+          value: "0.9"
+        # Number of GPUs — set > 1 to enable tensor parallelism.
+        - name: SPECULATOR_VLLM_GPU_COUNT
+          value: "1"
+        # Must match TARGET_LAYER_IDS in the notebook (EAGLE3 on Qwen3-0.6B).
+        - name: SPECULATOR_TARGET_LAYER_IDS
+          value: "2, 14, 25, 28"
+        - name: HF_TOKEN
+          value: ""
+        - name: HF_HUB_OFFLINE
+          value: "0"
+        - name: HF_HOME
+          value: /tmp/hf_cache
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+          requests:
+            nvidia.com/gpu: "1"
+        volumeMounts:
+        - name: shared-storage
+          mountPath: /mnt
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+      volumes:
+      - name: shared-storage
+        persistentVolumeClaim:
+          claimName: shared
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-svc
+spec:
+  selector:
+    app: vllm-svc
+  ports:
+  - port: 8000
+    targetPort: 8000
