@@ -84,7 +84,7 @@ These pipelines store all models, datasets, hidden states, checkpoints, and outp
 >
 > There are **two** PVCs involved in every run:
 >
-> 1. **Your persistent PVC** (`p01_persistent_pvc`) — pre-existing, holds the verifier, datasets, hidden states, checkpoints, and the final draft. Must be RWX and visible to the serving namespace.
+> 1. **Your persistent PVC** (`p01_persistent_pvc`) — pre-existing, holds the verifier, datasets, hidden states, checkpoints, and the final draft. Must be RWX and exist in the same namespace as the pipeline and the serving endpoint — PVCs are namespace-scoped and cannot be mounted across namespaces.
 > 2. **The KFP workspace PVC** — created by the pipeline itself at run time (200Gi, storage class `nfs-csi`, ReadWriteMany) for the Kubeflow Pipelines launcher tasks. Its size and storage class are set at compile time; see [Customizing before you compile](#customizing-before-you-compile).
 
 Create the PVC once in the Red Hat OpenShift AI dashboard: open your project, choose the **Storage** tab, click **Add workbench storage** (or equivalent), name it (this guide uses `shared`), set size 100Gi, and select a storage class with **ReadWriteMany** access. Alternatively with `oc`:
@@ -133,12 +133,12 @@ The pipeline submits Trainer jobs through the Kubernetes API and requires a secr
 ```bash
 oc create secret generic kubernetes-credentials \
   --from-literal=KUBERNETES_SERVER_URL="https://api.your-cluster.com:6443" \
-  --from-literal=KUBERNETES_AUTH_TOKEN="<your-service-account-token>"
+  --from-file=KUBERNETES_AUTH_TOKEN=/path/to/token-file
 ```
 
 > [!NOTE]
 >
-> This is the only **required** secret and is non-optional for all four pipelines. Scope the token to the minimum Trainer API permissions needed for runtime selection, job submission, and monitoring. It is mounted only in the KFP launcher tasks, never forwarded to Trainer workers.
+> `--from-file` keeps the token out of your shell history and process listings — prefer it over `--from-literal` for secret values. This is the only **required** secret and is non-optional for all four pipelines. Scope the token to the minimum Trainer API permissions needed for runtime selection, job submission, and monitoring. It is mounted only in the KFP launcher tasks, never forwarded to Trainer workers.
 
 Verify:
 
@@ -152,7 +152,7 @@ Only needed for gated models or rate-limit-free downloads:
 
 ```bash
 oc create secret generic hf-token \
-  --from-literal=HF_TOKEN="<your-huggingface-token>"
+  --from-file=HF_TOKEN=/path/to/hf-token-file
 ```
 
 Qwen3-0.6B is not gated, so this example runs without it.

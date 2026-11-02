@@ -125,7 +125,7 @@ Everything else can keep its default. For remote mode instead, see [Managed vs r
 
 Before handing off to the train-only pipeline, check what extraction actually produced. This is the gate between the two steps — training fails immediately if the hidden states are missing, so two minutes here saves a confusing failure there.
 
-Run these from any pod that mounts the PVC — a workbench terminal in the project is the natural choice. (If the PVC is mounted at a different path in your workbench, adjust `PVC_MOUNT`; `/opt/app-root/src` is the Red Hat OpenShift AI workbench default.)
+Run these from any pod that mounts the PVC — a workbench terminal in the project is the natural choice. (If the PVC is mounted at a different path in your workbench, adjust `PVC_MOUNT`; `/opt/app-root/src` is the Red Hat OpenShift AI workbench default.) The commands assume the default output directory (`p06_output_dir=speculator-output`, hidden states at `speculator-output/hidden_states`); if you customized it, substitute your path.
 
 ```bash
 PVC_MOUNT=/opt/app-root/src
@@ -149,13 +149,17 @@ What you should see:
 
 If `hidden_states/` is empty or missing, the extraction did not do what you expected — see [Troubleshooting](#troubleshooting) before re-running.
 
-If `safetensors` is available in the workbench, peek at one tensor to confirm the data is real:
+If `safetensors` is available in the workbench, peek at one tensor to confirm the data is real (export `PVC_MOUNT` first if you changed it — the snippet reads it from the environment):
 
 ```bash
+export PVC_MOUNT=/opt/app-root/src
+
 python3 - <<'EOF'
+import os
 from safetensors import safe_open
 from pathlib import Path
-files = sorted(Path("/opt/app-root/src/speculator-output/hidden_states").rglob("*.safetensors"))
+mount = os.environ.get("PVC_MOUNT", "/opt/app-root/src")
+files = sorted(Path(mount, "speculator-output/hidden_states").rglob("*.safetensors"))
 print(f"{len(files)} file(s):", [f.name for f in files])
 with safe_open(files[0], framework="numpy") as f:
     for key in list(f.keys())[:3]:

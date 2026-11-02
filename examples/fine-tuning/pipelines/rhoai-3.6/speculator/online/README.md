@@ -76,7 +76,8 @@ Work through the [shared prerequisites](../README.md#prerequisites):
 - Pipeline server configured for the project
 - `kubernetes-credentials` secret (required)
 - CTR `vllm-extract-cuda` (`p34_job_runtime` default)
-- Model Registry + RoleBinding + serving namespace permissions — only if you keep registration enabled. To register, use the registry's `-rest` route URL (`https://...`, scheme included) with port `443` in `p44_model_registry_port`; see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)
+- Serving namespace permissions — **always required**; every online run serves the draft
+- Model Registry + RoleBinding — only if you keep registration enabled. To register, use the registry's `-rest` route URL (`https://...`, scheme included) with port `443` in `p44_model_registry_port`; see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)
 
 The three setup steps this mode depends on, as they look in the dashboard:
 

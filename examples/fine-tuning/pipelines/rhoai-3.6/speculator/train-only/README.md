@@ -26,7 +26,7 @@ Relative storage paths resolve against `p01_persistent_pvc`, and explicit `pvc:/
 
 ## The pipeline run from start to finish
 
-The run graph is a straight line of five tasks — no branches, no optionality (this pipeline always registers):
+The run graph is a straight line of four tasks — no branches, no optionality (this pipeline always registers):
 
 ```text
 train draft model ──> evaluate draft model ──> register to model registry ──> serve draft model
@@ -54,7 +54,7 @@ A failure at any node stops everything after it, and that node's logs are where 
 | Training worker | 1 | 4 cores | 64Gi |
 | Evaluation / serving | ~1 | — | — |
 
-Expect roughly 10–30 minutes end-to-end for the example-run configuration, depending on cluster load — most of it is the evaluation step spinning up its own vLLM server.
+Expect roughly 35–70 minutes end-to-end for the example-run configuration, depending on cluster load — most of it is the evaluation step spinning up its own vLLM server.
 
 ## Setup
 
@@ -94,7 +94,7 @@ Defaults line up out of the box. If you customized the extraction output directo
 
 ## Preparing the evaluation dataset
 
-The evaluation task benchmarks the trained draft model using [GuideLLM](https://github.com/neuralmagic/guidellm). Set `evaluation_dataset_uri` to a HuggingFace dataset that contains the evaluation subsets expected by the upstream evaluator.
+The evaluation task benchmarks the trained draft model using [GuideLLM](https://github.com/neuralmagic/guidellm). Set `p07_evaluation_dataset_uri` to a HuggingFace dataset that contains the evaluation subsets expected by the upstream evaluator.
 
 The recommended dataset is [`RedHatAI/speculator_benchmarks`](https://huggingface.co/datasets/RedHatAI/speculator_benchmarks), which ships the `HumanEval` subset (and others like `math_reasoning`, `qa`, `summarization`) that the evaluation script requires. It is public and does not need a HuggingFace token.
 
@@ -108,7 +108,7 @@ If you prefer to evaluate with your own prompts, prepare a JSONL file with one J
 {"messages": [{"role": "user", "content": "How does photosynthesis work?"}]}
 ```
 
-Each record must contain a `prompt` field, a `text` field, or a `messages` array with at least one `user` role entry. Upload the file to your PVC and set `evaluation_dataset_uri` to a `pvc://` URI (e.g. `pvc://shared/eval-prompts.jsonl`). The pipeline samples up to `evaluation_max_samples` prompts (default 80) from the file.
+Each record must contain a `prompt` field, a `text` field, or a `messages` array with at least one `user` role entry. Upload the file to your PVC and set `p07_evaluation_dataset_uri` to a `pvc://` URI (e.g. `pvc://shared/eval-prompts.jsonl`). The pipeline samples up to `p38_evaluation_max_samples` prompts (default 80) from the file.
 
 ## Running the pipeline
 
@@ -151,7 +151,7 @@ Assumes a completed data-extraction run with defaults, and the verifier cached b
 | `p39_evaluation_max_tokens` | `64` | Reduced for quick testing; default `256` for full runs |
 | `p45_model_registry_port` | `443` | **Required with a route address** — the default `8080` only fits the in-cluster service |
 
-The `evaluation_max_samples` and `evaluation_max_tokens` values above are reduced to speed up an example run. For production evaluation, leave them at their defaults (`80` and `256`).
+The `p38_evaluation_max_samples` and `p39_evaluation_max_tokens` values above are reduced to speed up an example run. For production evaluation, leave them at their defaults (`80` and `256`).
 
 ## What gets trained
 

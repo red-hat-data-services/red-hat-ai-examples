@@ -22,7 +22,7 @@ The offline pipeline combines data-only extraction and train-only training in a 
 4. **Register** — optional; leave `p47_model_registry_address` empty to skip.
 5. **Serve** via a cluster-local KServe InferenceService using the verifier at `p02_verifier_model_pvc` and the draft at `final_model`.
 
-The completed draft is written to `pvc://<p01_persistent_pvc>/final_model`. Each run **replaces** this shared path — use a separate PVC per revision if earlier registry versions must keep referencing their original weights.
+The completed draft is written to `pvc://<p01_persistent_pvc>/final_model`. Each run **replaces** this shared path — use a separate PVC per revision if earlier registry versions must keep referencing their original weights. An InferenceService still serving from the same PVC also picks up the new weights the next time its predictor restarts or scales up, even though the endpoint name is unchanged.
 
 `p01_persistent_pvc` is an existing ReadWriteMany PVC in the pipeline namespace, mounted at `/mnt/persistent`, storing the verifier, datasets, extraction outputs, checkpoints, and final draft. It must also be available in `p06_serving_namespace`. With `p01_persistent_pvc="shared"`, `p10_output_dir="speculator-output"` resolves to `pvc://shared/speculator-output`.
 
@@ -96,7 +96,8 @@ The cache path follows the `models/<org>--<model>` naming (model ID with `/` rep
 ### Remaining prerequisites
 
 - CTR `speculator-model-opt-cuda`
-- Model Registry + RoleBinding + serving namespace permissions — only if you keep registration enabled. To register, use the registry's `-rest` route URL (`https://...`, scheme included) with port `443` in `p48_model_registry_port`; see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)
+- Serving namespace permissions — **always required**; every offline run serves the draft
+- Model Registry + RoleBinding — only if you keep registration enabled. To register, use the registry's `-rest` route URL (`https://...`, scheme included) with port `443` in `p48_model_registry_port`; see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)
 
 The three setup steps this mode depends on, as they look in the dashboard:
 
