@@ -2,7 +2,7 @@
 
 > [!WARNING]
 >
-> **Stability: alpha** — this pipeline may change. Re-generate the YAML after pulling upstream changes.
+> This pipeline may change. Re-generate the YAML after pulling upstream changes.
 
 This guide covers the **speculator-hidden-state-extraction-pipeline** — the first step of the two-step speculator workflow. It extracts verifier hidden states for Eagle3 draft-model training. It does **not** train.
 
@@ -36,11 +36,11 @@ download model ──> managed vLLM branch ──> extract hidden states
 
 Stage by stage:
 
-| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B smoke test) |
+| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B example run) |
 | --- | --- | --- | --- |
-| **download model** | Pulls `p02_verifier_model` from HuggingFace onto the PVC at `models/<org>--<model>` | Node logs show the download progress; a `hf-token` note appears if the model is gated | ~1–2 minutes |
+| **download model** | Pulls `p02_verifier_model` from HuggingFace onto the PVC at `models/<org>--<model>` | Node logs show the download progress; a `hf-token` note appears if the model is gated | ~5–10 minutes |
 | **managed vLLM** branch | The graph takes one of two branches depending on `p10_vllm_mode`; the unused branch is skipped | Exactly one branch lights up | — |
-| **extract hidden states** | One Trainer job (`vllm-extract-cuda` CTR) with a vLLM sidecar serving the verifier; the worker requests hidden states for the dataset samples and writes them to the PVC | Logs sit quiet for the first few minutes while the sidecar loads the verifier into GPU — this is normal, not a hang. Then extraction progress streams: samples processed, tensors written | ~1–3 min sidecar startup + a few minutes extraction |
+| **extract hidden states** | One Trainer job (`vllm-extract-cuda` CTR) with a vLLM sidecar serving the verifier; the worker requests hidden states for the dataset samples and writes them to the PVC | Logs sit quiet for the first few minutes while the sidecar loads the verifier into GPU — this is normal, not a hang. Then extraction progress streams: samples processed, tensors written | ~5–10 min sidecar startup + 10–20 minutes extraction |
 
 While the Trainer job runs, you can also watch the pods it created:
 
@@ -96,13 +96,17 @@ This writes `pipelines/training/speculator/data_extraction/pipeline.yaml`.
 
 **Step 3 — create a run.** Open the pipeline definition, click **Create run**, and fill in the parameters from the table below. Leave everything not listed at its default.
 
+> [!WARNING]
+>
+> Leave the **ML experiment** checkbox unticked. These pipelines have not been tested with an MLflow experiment association, and enabling it may cause the run to fail or behave unexpectedly.
+
 ![Create run dialog with data-extraction parameters](../docs/speculator-data-extraction-create-run.png)
 
-**Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough of what the graph does and how long each node takes is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run. With the smoke-test values below (16 samples, Qwen3-0.6B, managed vLLM), expect the run to complete in minutes — most of it is the vLLM sidecar loading the verifier.
+**Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough of what the graph does and how long each node takes is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run. With the example-run values below (16 samples, Qwen3-0.6B, managed vLLM), expect the run to complete in minutes — most of it is the vLLM sidecar loading the verifier.
 
 ### Example: Qwen3-0.6B
 
-Minimal managed-mode parameter set for a smoke-test run:
+Minimal managed-mode parameter set for an example run:
 
 | Parameter | Value | Notes |
 | --- | --- | --- |
@@ -110,7 +114,7 @@ Minimal managed-mode parameter set for a smoke-test run:
 | `p02_verifier_model` | `Qwen/Qwen3-0.6B` | Downloaded because `p04_download_model=true` |
 | `p04_download_model` | `true` | Cache the verifier on the PVC |
 | `p05_dataset_name` | `ultrachat` | Built-in dataset |
-| `p08_max_samples` | `16` | Smoke test; set `0` for the full dataset |
+| `p08_max_samples` | `16` | Example run; set `0` for the full dataset |
 | `p10_vllm_mode` | `managed` | Sidecar vLLM |
 | `p18_target_layer_ids` | `2,14,25,28` | **Required** — download mode cannot infer layer IDs |
 | `p20_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the extraction job |
@@ -139,7 +143,7 @@ ls $PVC_MOUNT/models/
 
 What you should see:
 
-- **`speculator-output/hidden_states/`** containing `.safetensors` files — one per target layer of the four in `p18_target_layer_ids`. Each file should be non-trivially sized (tens of MB for the smoke test; more with `p08_max_samples=0`).
+- **`speculator-output/hidden_states/`** containing `.safetensors` files — one per target layer of the four in `p18_target_layer_ids`. Each file should be non-trivially sized (tens of MB for the example run; more with `p08_max_samples=0`).
 - **Processed dataset files** under `speculator-output/` — the preprocessed training data the train-only pipeline reads.
 - **`models/Qwen--Qwen3-0.6B/`** — the cached verifier. The download task replaces `/` with `--` in the model ID to form the directory name: `Qwen/Qwen3-0.6B` becomes `Qwen--Qwen3-0.6B`. This exact directory name is what `p06_verifier_model_pvc` needs in the train-only run — using the HuggingFace model ID (`models/Qwen3-0.6B` without the `Qwen--` prefix) causes an `HFValidationError` at training time.
 
@@ -199,7 +203,7 @@ The IDs are **verifier-specific** — for any other model (e.g. Llama-3.2-1B-Ins
 | `p01_persistent_pvc` | `str` | `None` | Name of the existing PVC in the pipeline namespace, mounted at `/mnt/persistent`, that stores models, datasets, and extraction outputs. Required. |
 | `p02_verifier_model` | `str` | `""` | Hugging Face Hub model ID. Set when `p04_download_model` is true to download to the PVC. In managed mode with downloads disabled and no PVC path set, this ID is passed directly to vLLM. |
 | `p03_verifier_model_pvc` | `str` | `""` | Optional verifier directory on `p01_persistent_pvc`. Use the on-disk directory name (`models/Qwen--Qwen3-0.6B`), not the HuggingFace model ID — the download task replaces `/` with `--`. Managed mode with downloads disabled reuses it if set. Remote mode always requires this PVC-backed path. Relative path or `pvc://` URI. |
-| `p04_download_model` | `bool` | `False` | Download `p02_verifier_model` to the PVC. |
+| `p04_download_model` | `bool` | `False` | Download `p02_verifier_model` to the PVC. When `false`, the verifier must already be on the PVC — supply it via `p03_verifier_model_pvc` (e.g. from a previous run). |
 | `p05_dataset_name` | `str` | `ultrachat` | `magpie`, `ultrachat`, or `gsm8k`; or a JSON/JSONL file on the PVC. Arbitrary HuggingFace dataset IDs are not supported. |
 | `p06_output_dir` | `str` | `speculator-output` | Directory on `p01_persistent_pvc` where extraction outputs are written. |
 | `p07_hidden_states_path` | `str` | `speculator-output/hidden_states` | Remote-mode output location for hidden states; must match the location used by the remote vLLM service. Managed mode ignores it and writes to `<p06_output_dir>/hidden_states`. |
