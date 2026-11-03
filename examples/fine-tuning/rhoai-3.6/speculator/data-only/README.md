@@ -167,9 +167,10 @@ oc rollout status deployment/vllm-svc -n <your-namespace>
 > change it to `/mnt/speculator/run-01/hidden_states` before deploying so it
 > matches this notebook's `hidden_states_path` — or skip the manual step
 > entirely and use the notebook's optional **Deploy an External vLLM Server**
-> cells under Method 2, which adjust the path and apply the manifest for you.
+> cells under Method 2, which set the path on the deployment (derived from
+> `RUN_NAME`) and apply the manifest for you.
 
-For a different verifier model, tensor parallelism, or other tuning, see
+For a different verifier model or other tuning, see
 [Customize](../manifests/README.md#customize) in the manifests README.
 
 ## Verifier Model
