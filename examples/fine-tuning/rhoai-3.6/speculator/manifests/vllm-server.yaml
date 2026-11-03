@@ -50,9 +50,6 @@ spec:
         command: ["sh", "-c"]
         args:
         - |
-          TP=${SPECULATOR_VLLM_GPU_COUNT:-1}
-          TF=""
-          [ "$TP" -gt 1 ] && TF="--tensor-parallel-size $TP"
           python3 -m vllm.entrypoints.cli.main serve \
             "$SPECULATOR_VERIFIER_MODEL" \
             --speculative-config '{"method":"extract_hidden_states",
@@ -66,7 +63,7 @@ spec:
             --port 8000 \
             --gpu-memory-utilization ${SPECULATOR_GPU_MEM_UTIL:-0.9} \
             --no-enable-chunked-prefill \
-            --trust-remote-code $TF
+            --trust-remote-code
         env:
         - name: SPECULATOR_VERIFIER_MODEL
           value: /mnt/models/Qwen3-0.6B
@@ -75,9 +72,6 @@ spec:
           value: /mnt/speculator/run-01-offline/hidden_states
         - name: SPECULATOR_GPU_MEM_UTIL
           value: "0.9"
-        # Number of GPUs — set > 1 to enable tensor parallelism.
-        - name: SPECULATOR_VLLM_GPU_COUNT
-          value: "1"
         # Must match TARGET_LAYER_IDS in the notebook (EAGLE3 on Qwen3-0.6B).
         - name: SPECULATOR_TARGET_LAYER_IDS
           value: "2, 14, 25, 28"

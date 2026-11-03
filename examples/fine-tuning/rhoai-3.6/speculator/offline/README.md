@@ -94,7 +94,7 @@ The manifest defaults match this notebook: verifier model `Qwen3-0.6B`,
 `hidden_states_path` (`run-01-offline`). The notebook also includes optional
 deploy cells that do all of this from the workbench.
 
-For a different verifier model, tensor parallelism, or other tuning, see
+For a different verifier model or other tuning, see
 [Customize](../manifests/README.md#customize) in the manifests README.
 
 ### ClusterTrainingRuntime (CTR)
