@@ -75,44 +75,27 @@ Before running this notebook, you must have a vLLM server running that:
 
 #### Deploying an external vLLM server
 
-A ready-to-use Deployment + Service manifest is provided at [`manifests/vllm-server.yaml`](../manifests/vllm-server.yaml) (relative to the `speculator/` example root). It runs vLLM with hidden state extraction enabled (`extract_hidden_states` speculative config + `ExampleHiddenStatesConnector`) and matches the notebook defaults: verifier model `Qwen3-0.6B`, `TARGET_LAYER_IDS = [2, 14, 25, 28]`, and port 8000.
-
-Before deploying:
-
-1. Download the verifier model to the shared PVC (the notebook's **optional model download cell** does this — run it first, or download `Qwen/Qwen3-0.6B` to `models/Qwen3-0.6B` on the `shared` PVC yourself).
-2. Confirm a GPU node with at least 1 free NVIDIA GPU.
-3. Review the manifest's `imagePullSecrets` — remove it or adjust the secret name if your cluster can pull the image without a secret.
-
-Deploy into the same namespace as your workbench and TrainJob (run from the `offline/` directory):
+A ready-to-use Deployment + Service manifest is provided at
+[`manifests/vllm-server.yaml`](../manifests/vllm-server.yaml), with full deploy,
+verify, customize, and cleanup instructions in the
+[manifests README](../manifests/README.md). Quick start from the `offline/`
+directory of the cloned repo:
 
 ```bash
+# Prerequisites: verifier model on the shared PVC (the notebook's optional
+# download cell does this), a free GPU, and a pull secret for the pinned image.
 oc apply -f ../manifests/vllm-server.yaml -n <your-namespace>
-```
-
-Verify readiness (the model takes a minute or more to load — the readiness probe allows 60s initially):
-
-```bash
 oc rollout status deployment/vllm-svc -n <your-namespace>
-oc get pods -l app=vllm-svc -n <your-namespace>
 ```
 
-Optionally, from the workbench terminal, confirm the API answers:
+The manifest defaults match this notebook: verifier model `Qwen3-0.6B`,
+`TARGET_LAYER_IDS = [2, 14, 25, 28]`, port 8000, and
+`SPECULATOR_HS_PATH` pointing at this notebook's default
+`hidden_states_path` (`run-01-offline`). The notebook also includes optional
+deploy cells that do all of this from the workbench.
 
-```bash
-curl http://vllm-svc.<your-namespace>.svc.cluster.local:8000/health
-```
-
-Then set the notebook's `VLLM_ENDPOINT` to `http://vllm-svc.<your-namespace>.svc.cluster.local:8000/v1`.
-
-> [!IMPORTANT]
->
-> `SPECULATOR_HS_PATH` in the manifest **must match** the `hidden_states_path` passed to the trainer in the notebook (the manifest's default `run-01-offline` matches the notebook's default `RUN_NAME = "run-01"`; the PVC `shared` root is mounted at `/mnt` in the vLLM pod). If you change `RUN_NAME` in the notebook, update `SPECULATOR_HS_PATH` in the manifest to `/mnt/speculator/<RUN_NAME>-offline/hidden_states` and re-apply.
-
-When finished, clean up:
-
-```bash
-oc delete -f ../manifests/vllm-server.yaml -n <your-namespace>
-```
+For a different verifier model, tensor parallelism, or other tuning, see
+[Customize](../manifests/README.md#customize) in the manifests README.
 
 ### ClusterTrainingRuntime (CTR)
 
@@ -339,12 +322,10 @@ Common fixes:
 - Ensure network policies allow traffic from the training pod to the vLLM service
 - Verify the vLLM server is serving the correct model
 
-If you deployed with the provided [`manifests/vllm-server.yaml`](../manifests/vllm-server.yaml), also check the deployment itself:
-
-- Pod stuck in `ImagePullBackOff` — the pinned `quay.io/aipcc/rhaiis/cuda-ubi9` image needs a pull secret; check the manifest's `imagePullSecrets` entry exists in your namespace (`oc get secret aipcc-pull-secret -n <namespace>`)
-- Pod stuck in `Pending` — no free GPU on the node (`oc describe pod -l app=vllm-svc -n <namespace>`)
-- Pod not ready — check startup logs: `oc logs -l app=vllm-svc -n <namespace>`; the readiness probe gives the model 60s to load, slow PVC-backed loads may need more
-- `MountVolume.SetUp failed` — the `shared` PVC does not exist in the namespace, or the model was not downloaded to `models/Qwen3-0.6B` on it
+If you deployed with the provided manifest, also check the deployment itself —
+see the [troubleshooting section](../manifests/README.md#troubleshooting) of the
+manifests README for deployment-side failures (image pull, GPU scheduling, PVC
+mount, permissions, slow first start).
 
 ### Extraction succeeds but training fails
 
