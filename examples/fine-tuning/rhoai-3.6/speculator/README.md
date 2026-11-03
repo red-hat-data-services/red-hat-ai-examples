@@ -123,7 +123,7 @@ Which components are deployed depends on the training mode:
 - **ClusterTrainingRuntimes**: Different training modes use different ClusterTrainingRuntimes (CTRs). Each mode requires a specific CTR:
   - `DATA_ONLY` with Managed Sidecar / `ONLINE` — `vllm-extract-cuda` (data extraction CTR that includes a managed vLLM sidecar; ONLINE reuses the same CTR — there is no specific sidecar requirement for ONLINE)
   - `DATA_ONLY` with External vLLM / `TRAIN_ONLY` / `OFFLINE` — `speculator-model-opt-cuda` (training only, no vLLM sidecar)
-  
+
   These CTRs must be pre-installed on your cluster by an admin. Each notebook verifies their existence before job submission.
 - **External vLLM requirements**: When using an external vLLM endpoint (`DATA_ONLY` with External vLLM or `OFFLINE` mode), the vLLM server must be in the **same namespace** and have access to the **same shared PVC** as the TrainJob. A ready-to-use Deployment + Service manifest is provided at [`manifests/vllm-server.yaml`](manifests/vllm-server.yaml), with full deployment, verification, customization, and cleanup instructions in the [manifests README](manifests/README.md).
 - **HuggingFace token**: Passed to training pods via the `env` parameter on each trainer. Required for downloading gated models. Qwen3-0.6B is not gated, but a token avoids rate limits.

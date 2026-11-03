@@ -94,9 +94,10 @@ the workbench pod), so deploying with the defaults requires no endpoint editing.
 >
 > `SPECULATOR_HS_PATH` in the manifest **must match** the `hidden_states_path`
 > passed to the trainer. The manifest default matches the OFFLINE notebook.
-> The data-only Method 2 deploy cell rewrites it automatically; when deploying
-> from a terminal, set it yourself per the table below. The PVC `shared` root
-> maps to `/mnt` in the vLLM pod.
+> The data-only Method 2 deploy cell sets it on the deployed server via
+> `oc set env` (derived from the notebook's `RUN_NAME`); when deploying from a
+> terminal, set it yourself per the table below. The PVC `shared` root maps to
+> `/mnt` in the vLLM pod.
 
 | Notebook | `hidden_states_path` (notebook) | `SPECULATOR_HS_PATH` (manifest) |
 | --- | --- | --- |
@@ -116,8 +117,13 @@ re-apply:
 | `SPECULATOR_VERIFIER_MODEL` | `/mnt/models/Qwen3-0.6B` | Verifier model path on the shared PVC. To train against a different model, download it to the PVC and point this at it. |
 | `SPECULATOR_TARGET_LAYER_IDS` | `2, 14, 25, 28` | Eagle3 extraction layers. Must match `TARGET_LAYER_IDS` in the notebook — for a different verifier, follow its README guidance on choosing 4 layer IDs. |
 | `SPECULATOR_HS_PATH` | `/mnt/speculator/run-01-offline/hidden_states` | Where hidden states are written. Must match the trainer's `hidden_states_path` (see table above). |
-| `SPECULATOR_VLLM_GPU_COUNT` | `1` | Number of GPUs. **Must be `1`** — hidden state extraction currently supports a single GPU only (same limit as the SDK-managed vLLM sidecar). Multi-GPU/tensor parallelism is not supported. |
 | `SPECULATOR_GPU_MEM_UTIL` | `0.9` | Fraction of GPU memory vLLM may use. Lower it if the pod OOMs during model load. |
+
+> [!NOTE]
+>
+> The server runs on a **single GPU** — hidden state extraction does not
+> currently support multi-GPU or tensor parallelism (the same limit as the
+> SDK-managed vLLM sidecar), so the pod requests exactly one `nvidia.com/gpu`.
 
 Changing the verifier model also means changing it in the notebook
 (`VERIFIER_MODEL_PVC_URI` / `VERIFIER_MODEL`) and re-checking `target_layer_ids`.
