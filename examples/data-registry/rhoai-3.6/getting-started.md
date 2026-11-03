@@ -86,6 +86,36 @@ spec:
 oc explain datasciencecluster.spec.components --recursive
 ```
 
+### Enable the dashboard UI
+
+The Data Registry backend and its dashboard UI are enabled separately. After
+enabling the component, set `spec.dashboardConfig.dataRegistry` to `true` in
+the Dashboard configuration custom resource. In the standard RHOAI 3.6
+installation, the resource is named `odh-dashboard-config` in the
+`redhat-ods-applications` namespace:
+
+```bash
+oc get odhdashboardconfig -n redhat-ods-applications
+
+oc patch odhdashboardconfig odh-dashboard-config \
+  -n redhat-ods-applications \
+  --type=merge \
+  -p '{"spec":{"dashboardConfig":{"dataRegistry":true}}}'
+```
+
+Verify that the setting is enabled before testing the dashboard:
+
+```bash
+oc get odhdashboardconfig odh-dashboard-config \
+  -n redhat-ods-applications \
+  -o jsonpath='{.spec.dashboardConfig.dataRegistry}{"\n"}'
+```
+
+The command should print `true`. If your installation uses a different
+`OdhDashboardConfig` resource name, use the name returned by the `oc get`
+command above. Changing the `DataScienceCluster` management state alone does
+not make the Data Registry appear in the dashboard.
+
 Wait for RHOAI to create the service namespace:
 
 ```bash
