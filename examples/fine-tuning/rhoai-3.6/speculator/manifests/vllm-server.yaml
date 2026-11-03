@@ -28,12 +28,21 @@
 #
 # The Service is named `vllm-svc` on port 8000, so the trainer's vllm_endpoint
 # is: http://vllm-svc.<your-namespace>.svc.cluster.local:8000/v1
+#
+# A NetworkPolicy restricts ingress to the vLLM pods: only pods in the same
+# namespace, only on TCP port 8000.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: vllm-svc
 spec:
   replicas: 1
+  # The pod requests a full GPU, so a default RollingUpdate would need a second
+  # GPU to surge the new pod before stopping the old one — on a single-GPU
+  # setup the rollout would hang. Recreate stops the old pod first; updates
+  # (e.g. oc set env) then proceed with only one GPU available.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: vllm-svc
@@ -112,3 +121,24 @@ spec:
   ports:
   - port: 8000
     targetPort: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vllm-svc-allow-same-namespace
+spec:
+  # Targets the same pods as the vllm-svc Service selector.
+  podSelector:
+    matchLabels:
+      app: vllm-svc
+  policyTypes:
+  - Ingress
+  ingress:
+  # Empty podSelector selects all pods in this namespace — the TrainJob
+  # extraction pods and the workbench both run here. Traffic from other
+  # namespaces is denied.
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8000

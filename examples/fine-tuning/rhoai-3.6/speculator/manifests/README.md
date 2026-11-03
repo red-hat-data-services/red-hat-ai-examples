@@ -28,6 +28,7 @@ It creates:
 | --- | --- | --- |
 | Deployment | `vllm-svc` | vLLM server pod (1 NVIDIA GPU) |
 | Service | `vllm-svc` (port 8000) | In-cluster endpoint for the trainer |
+| NetworkPolicy | `vllm-svc-allow-same-namespace` | Restricts ingress to the vLLM pods: same-namespace pods only, TCP port 8000 |
 
 The trainer connects to `http://vllm-svc.<namespace>.svc.cluster.local:8000/v1`.
 
