@@ -63,6 +63,8 @@ Update these settings in the `env` section of the `ServingRuntime`:
 
 - `SPECULATOR_VERIFIER_MODEL` — verifier model path. The example uses
   `/mnt/models/models/Qwen3-0.6B`; replace it if you use a different verifier.
+- `MAX_MODEL_LEN` — maximum context length in tokens. Keep it at or below the
+  verifier model's supported context length; the default is `40960`.
 - `SPECULATIVE_CONFIG` — vLLM JSON containing the speculative-decoding method,
   draft model path, and method-specific settings.
 - `SERVED_MODEL_NAME` — model name clients use in requests.
@@ -73,6 +75,8 @@ For example:
 ```yaml
 - name: SPECULATOR_VERIFIER_MODEL
   value: /mnt/models/models/Qwen3-0.6B
+- name: MAX_MODEL_LEN
+  value: "40960"
 - name: SPECULATIVE_CONFIG
   value: '{"method":"eagle3","model":"/mnt/models/speculator/run-01/checkpoints/checkpoint_best","draft_tensor_parallel_size":1,"num_speculative_tokens":5}'
 - name: SERVED_MODEL_NAME
