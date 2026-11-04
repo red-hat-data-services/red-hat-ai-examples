@@ -3,8 +3,8 @@
 This guide covers deploying, verifying, customizing, and cleaning up the external
 vLLM server used by the speculator training examples. It is shared by:
 
-- **OFFLINE mode** — [offline notebook](../offline/speculator-offline-example.ipynb)
-- **DATA_ONLY mode, Method 2 (external vLLM endpoint)** — [data-only notebook](../data-only/speculator-data-only-example.ipynb)
+- **OFFLINE mode** — [offline notebook](../../offline/speculator-offline-example.ipynb)
+- **DATA_ONLY mode, Method 2 (external vLLM endpoint)** — [data-only notebook](../../data-only/speculator-data-only-example.ipynb)
 
 Both workflows need a running vLLM server that can extract hidden states from the
 verifier model. The SDK does not deploy this server for you — you manage it.
@@ -60,8 +60,8 @@ oc apply -f ../manifests/vllm-server.yaml -n <your-namespace>
 ```
 
 Alternatively, deploy without leaving the notebook: both the
-[offline](../offline/speculator-offline-example.ipynb) and
-[data-only](../data-only/speculator-data-only-example.ipynb) notebooks include
+[offline](../../offline/speculator-offline-example.ipynb) and
+[data-only](../../data-only/speculator-data-only-example.ipynb) notebooks include
 optional **Deploy the External vLLM Server** cells that log in with your user
 token, apply the manifest, and wait for readiness.
 
@@ -158,5 +158,5 @@ Deployment-side failures:
 - `MountVolume.SetUp failed` — the `shared` PVC does not exist in the
   namespace, or the model was not downloaded to `models/Qwen3-0.6B` on it
 - Job-side failures (connection refused, wrong endpoint, empty hidden states)
-  are covered in the [offline](../offline/README.md#troubleshooting) and
-  [data-only](../data-only/README.md#troubleshooting) READMEs.
+  are covered in the [offline](../../offline/README.md#troubleshooting) and
+  [data-only](../../data-only/README.md#troubleshooting) READMEs.
