@@ -1,0 +1,130 @@
+# Common KServe vLLM model-serving resources for the Speculator examples.
+#
+# Reuse this manifest for each verifier/draft configuration. The namespace is
+# supplied with `oc apply -n <namespace>`; the PVC name is set in `storageUri`.
+#
+# User settings are grouped in the ServingRuntime `env` block. Kubernetes
+# expands $(VAR_NAME) references in the container args from these values.
+# Replace the Qwen3 verifier path if you use a different verifier. Update
+# SPECULATIVE_CONFIG with the method and draft path for the model configuration.
+#
+# The PVC root is mounted at /mnt/models by KServe. The example paths are:
+#   verifier: /mnt/models/models/Qwen3-0.6B
+#   draft:    /mnt/models/speculator/run-01/checkpoints/checkpoint_best
+#
+# Deploy with:
+#   oc apply -f model-serving.yaml -n <your-namespace>
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: model-serving-runtime
+  labels:
+    opendatahub.io/dashboard: "true"
+  annotations:
+    openshift.io/display-name: Speculator vLLM Model Serving
+    opendatahub.io/apiProtocol: REST
+    opendatahub.io/recommended-accelerators: '["nvidia.com/gpu"]'
+spec:
+  annotations:
+    opendatahub.io/kserve-runtime: vllm
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
+  multiModel: false
+  supportedModelFormats:
+    - name: vLLM
+      autoSelect: true
+  containers:
+    - name: kserve-container
+      image: registry.redhat.io/rhaii-fast/vllm-cuda-rhel9@sha256:97c7d6f66f3f0897b3ff10ddd135de930d45bdd116cf41a43e3ad7270029116a
+      command:
+        - python3
+        - -m
+        - vllm.entrypoints.openai.api_server
+      args:
+        - --port=8080
+        - --model=$(SPECULATOR_VERIFIER_MODEL)
+        - --speculative-config
+        - $(SPECULATIVE_CONFIG)
+        - --served-model-name=$(SERVED_MODEL_NAME)
+        - --max-model-len=40960
+        - --gpu-memory-utilization=$(SPECULATOR_GPU_MEM_UTIL)
+        - --max-num-seqs=16
+        - --tensor-parallel-size=1
+      env:
+        # Replace this path if you use a different verifier model.
+        - name: SPECULATOR_VERIFIER_MODEL
+          value: /mnt/models/models/Qwen3-0.6B
+        # Update the method and draft path for the selected model configuration.
+        - name: SPECULATIVE_CONFIG
+          value: '{"method":"eagle3","model":"/mnt/models/speculator/run-01/checkpoints/checkpoint_best","draft_tensor_parallel_size":1,"num_speculative_tokens":5}'
+        - name: SERVED_MODEL_NAME
+          value: speculator-model
+        - name: SPECULATOR_GPU_MEM_UTIL
+          value: "0.9"
+        - name: HOME
+          value: /tmp
+        - name: USER
+          value: default
+        - name: LOGNAME
+          value: default
+        - name: USERNAME
+          value: default
+        - name: HF_HOME
+          value: /tmp/hf_home
+        - name: HUGGINGFACE_HUB_CACHE
+          value: /tmp/hf_home
+        - name: XDG_CACHE_HOME
+          value: /tmp/.cache
+        - name: TORCHINDUCTOR_CACHE_DIR
+          value: /tmp/torchinductor
+        - name: HF_HUB_OFFLINE
+          value: "1"
+        - name: TRANSFORMERS_OFFLINE
+          value: "1"
+        - name: VLLM_ATTENTION_BACKEND
+          value: TRITON_ATTN
+        - name: PYTORCH_CUDA_ALLOC_CONF
+          value: expandable_segments:True
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: model-serving
+  annotations:
+    serving.kserve.io/deploymentMode: RawDeployment
+    security.opendatahub.io/enable-auth: "false"
+    opendatahub.io/model-type: generative
+    opendatahub.io/genai-use-case: speculative-decoding
+    openshift.io/display-name: Speculator Model Serving
+  labels:
+    opendatahub.io/dashboard: "true"
+    opendatahub.io/genai-asset: "true"
+    networking.kserve.io/visibility: cluster-local
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 1
+    automountServiceAccountToken: false
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 0
+        maxUnavailable: 1
+    model:
+      modelFormat:
+        name: vLLM
+      name: ""
+      runtime: model-serving-runtime
+      storageUri: pvc://shared
+      resources:
+        requests:
+          cpu: "4"
+          memory: 32Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "8"
+          memory: 64Gi
+          nvidia.com/gpu: "1"
