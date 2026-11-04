@@ -76,15 +76,15 @@ Before running this notebook, you must have a vLLM server running that:
 #### Deploying an external vLLM server
 
 A ready-to-use Deployment + Service manifest is provided at
-[`manifests/vllm-server.yaml`](../manifests/vllm-server.yaml), with full deploy,
+[`manifests/vllm-server.yaml`](../manifests/external-vllm/vllm-server.yaml), with full deploy,
 verify, customize, and cleanup instructions in the
-[manifests README](../manifests/README.md). Quick start from the `offline/`
+[manifests README](../manifests/external-vllm/README.md). Quick start from the `offline/`
 directory of the cloned repo:
 
 ```bash
 # Prerequisites: verifier model on the shared PVC (the notebook's optional
 # download cell does this), a free GPU, and a pull secret for the pinned image.
-oc apply -f ../manifests/vllm-server.yaml -n <your-namespace>
+oc apply -f ../manifests/external-vllm/vllm-server.yaml -n <your-namespace>
 oc rollout status deployment/vllm-svc -n <your-namespace>
 ```
 
@@ -95,7 +95,7 @@ The manifest defaults match this notebook: verifier model `Qwen3-0.6B`,
 deploy cells that do all of this from the workbench.
 
 For a different verifier model or other tuning, see
-[Customize](../manifests/README.md#customize) in the manifests README.
+[Customize](../manifests/external-vllm/README.md#customize) in the manifests README.
 
 ### ClusterTrainingRuntime (CTR)
 
@@ -323,7 +323,7 @@ Common fixes:
 - Verify the vLLM server is serving the correct model
 
 If you deployed with the provided manifest, also check the deployment itself —
-see the [troubleshooting section](../manifests/README.md#troubleshooting) of the
+see the [troubleshooting section](../manifests/external-vllm/README.md#troubleshooting) of the
 manifests README for deployment-side failures (image pull, GPU scheduling, PVC
 mount, permissions, slow first start).
 
