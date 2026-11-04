@@ -98,7 +98,7 @@ metadata:
   name: model-serving
   annotations:
     serving.kserve.io/deploymentMode: RawDeployment
-    security.opendatahub.io/enable-auth: "false"
+    security.opendatahub.io/enable-auth: "true"
     opendatahub.io/model-type: generative
     opendatahub.io/genai-use-case: speculative-decoding
     openshift.io/display-name: Speculator Model Serving

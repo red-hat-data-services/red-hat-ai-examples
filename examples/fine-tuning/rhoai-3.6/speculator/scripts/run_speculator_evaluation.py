@@ -55,7 +55,7 @@ def _ensure_guidellm() -> None:
     if shutil.which("guidellm"):
         return
 
-    print('Installing GuideLLM (guidellm~=0.7.1)...', flush=True)
+    print("Installing GuideLLM (guidellm~=0.7.1)...", flush=True)
     subprocess.run(
         [
             sys.executable,
@@ -218,15 +218,15 @@ def main() -> int:
         or config["max_tokens"] < 1
         or config["num_speculative_tokens"] < 1
     ):
-        raise ValueError("max-requests, max-tokens, and num-speculative-tokens must be positive")
+        raise ValueError(
+            "max-requests, max-tokens, and num-speculative-tokens must be positive"
+        )
     if not 0 < config["gpu_memory_utilization"] <= 1:
         raise ValueError("gpu-memory-utilization must be greater than 0 and at most 1")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     dataset_path = Path(config["dataset"]).expanduser()
-    subsets = config["subsets"] or (
-        "local" if dataset_path.exists() else "HumanEval"
-    )
+    subsets = config["subsets"] or ("local" if dataset_path.exists() else "HumanEval")
 
     with tempfile.TemporaryDirectory(prefix="speculator-eval-") as temporary_dir:
         evaluator_script, compat_dir = _prepare_evaluator(Path(temporary_dir))
@@ -246,14 +246,12 @@ def main() -> int:
             ):
                 evaluator_environment[variable] = "0"
 
-        speculative_config = json.dumps(
-            {
-                "method": "eagle3",
-                "model": str(draft_model),
-                "draft_tensor_parallel_size": 1,
-                "num_speculative_tokens": config["num_speculative_tokens"],
-            }
-        )
+        speculative_config = json.dumps({
+            "method": "eagle3",
+            "model": str(draft_model),
+            "draft_tensor_parallel_size": 1,
+            "num_speculative_tokens": config["num_speculative_tokens"],
+        })
         vllm_command = [
             vllm,
             "serve",
@@ -297,12 +295,10 @@ def main() -> int:
                 "--max-concurrency",
                 str(config["max_concurrency"]),
                 "--gen-kwargs",
-                json.dumps(
-                    {
-                        "temperature": config["temperature"],
-                        "max_tokens": config["max_tokens"],
-                    }
-                ),
+                json.dumps({
+                    "temperature": config["temperature"],
+                    "max_tokens": config["max_tokens"],
+                }),
             ]
             subprocess.run(
                 evaluate_command,
@@ -320,6 +316,11 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, RuntimeError, TimeoutError, subprocess.CalledProcessError) as error:
+    except (
+        OSError,
+        RuntimeError,
+        TimeoutError,
+        subprocess.CalledProcessError,
+    ) as error:
         print(f"Evaluation failed: {error}", file=sys.stderr)
         raise SystemExit(1) from error

@@ -141,39 +141,42 @@ oc logs "$POD" -c kserve-container -n "$NAMESPACE"
 
 ## Test the endpoint
 
+Authentication is enabled, so API requests require an OpenShift bearer token.
+Obtain one from an authenticated CLI session with `oc whoami -t`.
+
 Choose one of these options. The InferenceService URL is cluster-local and
 cannot be resolved directly from your Mac.
 
 ### Option 1: Run from inside the cluster
 
-From a workbench or another Pod that can reach the endpoint, get the internal
+From a workbench terminal with `oc` configured, get the token and internal
 address from `status.address.url`:
 
 ```bash
+TOKEN=$(oc whoami -t)
 MODEL_URL=$(oc get inferenceservice model-serving \
   -n "$NAMESPACE" \
   -o jsonpath='{.status.address.url}')
 
 echo "$MODEL_URL"
-curl -fsS "$MODEL_URL/v1/models"
+curl -fsS "$MODEL_URL/v1/models" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-If you are in a shell inside the predictor container (for example, a K9s
-container shell), `oc` might not be installed. Test the server directly on its
-container port instead:
+The predictor container shell may not include `oc`. Use a workbench terminal or
+the local port-forward option below to obtain a bearer token and test the
+authenticated endpoint.
 
-```bash
-MODEL_URL="http://localhost:8080"
-curl -fsS "$MODEL_URL/v1/models"
-```
-
-Use the same `MODEL_URL` for a test chat-completion request:
+Use the same `MODEL_URL` for a test chat-completion request. Set `model` to
+the value configured in `SERVED_MODEL_NAME` (the example uses
+`speculator-model`):
 
 ```bash
 curl -fsS "${MODEL_URL%/}/v1/chat/completions" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "speculator-model",
+    "model": "<your-served-model-name>",
     "messages": [
       {"role": "user", "content": "Explain speculative decoding in one sentence."}
     ],
@@ -194,21 +197,25 @@ POD=$(oc get pods \
 oc port-forward -n "$NAMESPACE" "pod/$POD" 8080:8080
 ```
 
-Keep this command running while you send requests. In another terminal, set
-`MODEL_URL` to localhost and check the endpoint:
+Keep this command running while you send requests. In another terminal, obtain
+a bearer token and set `MODEL_URL` to localhost:
 
 ```bash
+TOKEN=$(oc whoami -t)
 MODEL_URL="http://localhost:8080"
-curl -fsS "$MODEL_URL/v1/models"
+curl -fsS "$MODEL_URL/v1/models" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-Send the same chat-completion request through the port-forward:
+Send the same chat-completion request through the port-forward, using the value
+configured in `SERVED_MODEL_NAME`:
 
 ```bash
 curl -fsS "${MODEL_URL%/}/v1/chat/completions" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "speculator-model",
+    "model": "<your-served-model-name>",
     "messages": [
       {"role": "user", "content": "Explain speculative decoding in one sentence."}
     ],
