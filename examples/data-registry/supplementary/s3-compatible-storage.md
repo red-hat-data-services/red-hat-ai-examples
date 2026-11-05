@@ -45,8 +45,8 @@ installed; installing that product is outside this project-level example.
 ### Prerequisites
 
 Use a checkout of this repository and run the commands from
-`examples/data-registry/supplementary/`. You need `oc`, Python 3, and the AWS
-CLI on your workstation. You also need
+`examples/data-registry/supplementary/`. You need `oc`, Python 3, the AWS
+CLI, `openssl`, and `curl` on your workstation. You also need
 permission to create a namespace and a default dynamic `StorageClass` with at
 least 10 Gi of capacity. Ask an administrator for a namespace or storage class
 if your access does not include those operations. The cluster must be able to
