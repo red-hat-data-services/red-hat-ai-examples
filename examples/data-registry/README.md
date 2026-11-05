@@ -17,7 +17,7 @@ workbench.
 | 1 | [Configure the Data Registry](01-configure-data-registry/README.md) | A running registry and dashboard entry. Cluster administrator access is required. |
 | 2 | [Create a project, connection, collection, and asset](02-register-data-asset/README.md) | A synthetic document in S3-compatible storage and a discoverable catalog record. |
 | 3 | [Use the API from a workbench](03-use-registry-api/README.md) | A notebook that reads metadata, downloads the document, and registers an API-created asset. |
-| 4 | [Share project-scoped registry access](04-share-registry-access/README.md) | The existing user/group RoleBinding guidance. A fuller sharing walkthrough will follow. |
+| 4 | [Share Data Registry assets](04-share-registry-access/README.md) | Choose project-wide access or grant a user or group access to registry assets only. |
 
 The example uses `data-registry-example` as the RHOAI project and an
 S3-compatible [SeaweedFS evaluation setup](supplementary/s3-compatible-storage.md)
