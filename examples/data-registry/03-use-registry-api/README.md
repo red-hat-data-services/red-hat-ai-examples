@@ -139,17 +139,25 @@ this RHOAI 3.6 cluster the operator supplies these registry roles:
 | Role | Registry permissions | Can complete this notebook? |
 | --- | --- | --- |
 | `feast-data-registry-viewer` | Read catalog resources | No; the notebook creates a collection and asset. |
-| `feast-data-registry-editor` | Read and write catalog resources | No; it lacks `connections use`, which the API checks when an asset refers to the S3 connection. |
-| `feast-data-registry-admin` | Read and write catalog resources, plus `connections use` | Yes. |
+| `feast-data-registry-editor` | Read and write catalog resources | Yes, on the installation tested for this guide. |
+| `feast-data-registry-admin` | Editor permissions plus `connections use` | Yes, but broader than this notebook needs here. |
 
-Here, “admin” means **Data Registry permissions in this project**. The
-RoleBinding below does not grant Kubernetes project administration, access to
-other namespaces, or permission to read the Secret through the Kubernetes
-API. The Secret is mounted separately in the workspace. The installed admin
-role does include create, update, patch, and delete on registry catalog
-resources, so grant it only to this example workspace ServiceAccount and
-review whether a narrower custom role is appropriate in your own environment.
-The notebook uses only reads and two creates.
+The workbench initially received HTTP 403 because its ServiceAccount had no
+Data Registry grant in `data-registry-example`. On this installation the
+registry proxy maps these endpoints to project-scoped registry permissions.
+The installed volume route stores `connection_ref` as metadata; it does not
+check `connections use`. The notebook needs catalog reads and two creates,
+which the operator-provided **editor** role supplies. The S3 read is authorized
+separately by the mounted connection's credentials. A later RHOAI version may
+enforce connection use differently, so check its current authorization
+contract if this request returns 403 after the editor grant.
+
+The namespaced RoleBinding below does not grant Kubernetes project
+administration, access to other namespaces, or permission to read the Secret
+through the Kubernetes API. The Secret is mounted separately in the workspace.
+The editor role also includes update, patch, and delete on registry catalog
+resources, so grant it only to this example workspace ServiceAccount. A
+custom Role can be narrower where your platform supports it.
 
 A project administrator should identify the ServiceAccount of the **new**
 workspace pod and bind the operator-provided role in `data-registry-example`:
@@ -161,9 +169,9 @@ WORKSPACE_SA="$(oc get pod -n data-registry-example \
 test -n "$WORKSPACE_SA"
 echo "Workspace ServiceAccount: $WORKSPACE_SA"
 
-oc create rolebinding data-registry-api-admin \
+oc create rolebinding data-registry-api-editor \
   --namespace=data-registry-example \
-  --clusterrole=feast-data-registry-admin \
+  --clusterrole=feast-data-registry-editor \
   --serviceaccount="data-registry-example:$WORKSPACE_SA" \
   --dry-run=client -o yaml | oc apply -f -
 
@@ -171,9 +179,10 @@ oc auth can-i --list -n data-registry-example \
   --as="system:serviceaccount:data-registry-example:$WORKSPACE_SA"
 ```
 
-In the permission list, confirm that `volumes.dataregistry.opendatahub.io`
-includes `create` and `connections.dataregistry.opendatahub.io` includes
-`use`. For this workspace, the ServiceAccount is `ws-data-registry-api`. This
+In the permission list, confirm that `registries`, `namespaces`, and
+`volumes` in the `dataregistry.opendatahub.io` API group include `get`,
+`list`, and `create`. For this workspace, the ServiceAccount is
+`ws-data-registry-api`. This
 is a **namespaced RoleBinding** to an operator-provided ClusterRole; it does
 not modify that ClusterRole. Use the ServiceAccount reported by your pod.
 See [Step 4](../04-share-registry-access/README.md) for the existing user and
@@ -271,7 +280,7 @@ displayed.
 | No Workspaces page or create action | Ask the administrator to check both Workbenches management states, component readiness, and the dashboard's `workbenchesV2` setting. |
 | Missing `AWS_*` setting | Mount `data-registry-storage` at `/var/run/secrets/data-registry-storage` and restart the workspace; do not add credentials to the notebook. |
 | Registry request returns 401 | The projected ServiceAccount token is missing, expired, or not sent to the API. Restart the workbench and rerun the preflight. |
-| Registry request returns 403 | Check the workbench pod's actual ServiceAccount and its namespaced admin RoleBinding. |
+| Registry request returns 403 | Check the workspace pod's actual ServiceAccount and its namespaced editor RoleBinding; check your installed version's authorization mapping. |
 | TLS certificate error | Check the projected `service-ca.crt`, the service hostname, and the cluster's CA rotation. Do not disable verification. |
 | Connection or path differs | Open the asset detail page and correct the metadata in Step 2. The notebook deliberately rejects a different resource. |
 | S3 request returns 403 | Check connection attachment, the bucket policy, and that the connection uses the S3 API endpoint rather than the SeaweedFS Admin port. |

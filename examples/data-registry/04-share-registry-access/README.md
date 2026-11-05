@@ -14,7 +14,7 @@ When a user or group needs access to registry metadata but must not receive broa
 | --- | --- |
 | `feast-data-registry-viewer` | List, view, and watch registry resources. |
 | `feast-data-registry-editor` | Create, update, and delete registry resources. |
-| `feast-data-registry-admin` | Editor access plus use of referenced RHOAI connections. |
+| `feast-data-registry-admin` | Editor access plus the `connections use` permission. |
 
 These ClusterRoles are installed and maintained by the operator. Do not edit them or create a duplicate namespaced Role. A namespaced RoleBinding limits the ClusterRole grant to Data Registry resources in the selected project.
 
