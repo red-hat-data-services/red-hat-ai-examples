@@ -6,4 +6,4 @@ These examples show how to enable and use the Data Registry in Red Hat OpenShift
 
 ## Supplementary
 
-- [S3-compatible storage for the Data Registry examples](supplementary/s3-compatible-storage.md)
+- [S3-compatible storage with a standalone SeaweedFS example](supplementary/s3-compatible-storage.md)

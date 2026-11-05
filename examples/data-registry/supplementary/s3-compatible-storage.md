@@ -1,167 +1,276 @@
 # S3-compatible storage for the Data Registry examples
 
-This supplementary guide helps you provide the object storage used by the
-[Data Registry getting-started example](../rhoai-3.6/getting-started.md). It is
-not part of the Data Registry deployment itself.
+The [Data Registry getting-started guide](../rhoai-3.6/getting-started.md)
+registers metadata and a reference to a data location. It does not deploy
+object storage, upload files, or keep S3 credentials. This guide provides a
+small, standalone [SeaweedFS](https://github.com/seaweedfs/seaweedfs) object
+store so you can try the S3-backed example without an AWS account. You can
+also use an existing S3-compatible service supplied by your organization.
 
-The core example works with any approved object store that provides the S3 API.
-You can either:
+SeaweedFS is Apache-2.0 licensed and does not require a product license key.
+The example below runs its single-node `weed mini` mode with an authenticated
+S3 endpoint, a web Admin UI, and a persistent volume. It is an evaluation
+setup, not a highly available storage design. Keep it separate from the Data
+Registry service and from any existing object store.
 
-- use an existing AWS S3 or other S3-compatible service; or
-- ask a cluster administrator to provide a cluster-local NooBaa endpoint when
-  OpenShift Data Foundation (ODF) is available.
-
-The Data Registry uses an `s3://` location and an RHOAI S3-compatible Data
-Connection regardless of which provider supplies the endpoint. It does not
-copy the data into the registry.
-
-## Which Red Hat storage option is this?
-
-The names are related but are not interchangeable:
-
-| Name | Meaning |
-| --- | --- |
-| NooBaa | The object-storage service and Kubernetes operator that provide an S3-compatible endpoint. |
-| Multicloud Object Gateway (MCG) | The Red Hat OpenShift Data Foundation name for the NooBaa-based object gateway. |
-| OpenShift Data Foundation (ODF) | The broader Red Hat storage product and operator. It can deploy MCG alone or deploy a full storage system. |
-
-For this use case, choose standalone MCG in ODF when a Red Hat-supported
-deployment is required. It reduces the resource footprint compared with
-deploying the full ODF storage stack, while retaining the Red Hat-supported
-installation path. It still requires cluster-admin or operator-installation
-privileges, an ODF entitlement, and a StorageClass that meets the ODF
-requirements.
-
-See Red Hat's [standalone MCG deployment
-documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_data_foundation/4.22/html/deploying_openshift_data_foundation_on_vmware_vsphere/deploy-standalone-multicloud-object-gateway)
-and its [MCG application access
-documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_data_foundation/4.22/html/deploying_and_managing_openshift_data_foundation_using_red_hat_openstack_platform/multicloud-object-gateway_osp).
-
-> [!WARNING]
-> Do not install an object-storage operator or create cluster-scoped storage
-> resources from a project-level example. Ask the OpenShift administrator to
-> confirm the approved provider, subscription, StorageClass, endpoint, bucket,
-> and least-privilege credentials first.
-
-## Option 1: Use existing AWS S3 or S3-compatible storage
-
-This is the preferred path when your organization already operates object
-storage. The provider can be AWS S3, Red Hat Ceph Object Gateway, IBM Cloud
-Object Storage, an ODF MCG endpoint, or another administrator-approved
-S3-compatible service.
-
-Ask the storage administrator for:
-
-- the endpoint URL;
-- an access key and secret key scoped to this example;
-- the region value expected by the provider; and
-- a bucket and the prefix where the example data will live.
-
-Continue with [Create an RHOAI Data Connection](#create-an-rhoai-data-connection).
-
-## Option 2: Provide cluster-local storage with standalone NooBaa
-
-This option is for a cluster administrator. It does not require AWS S3, but it
-does require permission to install the upstream NooBaa operator and create its
-custom resources.
-
-Standalone NooBaa is the lightweight, upstream option for an evaluation
-cluster. It provides an S3 endpoint, a management console, and credentials
-after installation. It is not the same support boundary as Red Hat ODF/MCG:
-customers who require a Red Hat-supported storage deployment should use
-standalone MCG through ODF instead.
-
-### Install NooBaa
-
-Use the upstream NooBaa CLI and follow its current installation instructions:
-
-1. Install the NooBaa CLI for your operating system.
-2. Create a namespace such as `noobaa`.
-3. Make that namespace current and run `noobaa install`, specifying the
-   approved StorageClass if the cluster has more than one:
-
-   ```bash
-   oc new-project noobaa
-   oc project noobaa
-   noobaa install --db-storage-class <storage-class> \\
-     --pv-pool-default-storage-class <storage-class>
-   ```
-
-   If the namespace already exists, use `oc project noobaa` instead of
-   `oc new-project noobaa`.
-4. Wait for `noobaa status` to report that the system is Ready.
-5. Keep the S3 endpoint, management-console address, access key, and secret key
-   from `noobaa status` in a secure location.
-
-The upstream [NooBaa operator
-README](https://github.com/noobaa/noobaa-operator#installation) documents the
-CLI installation flow. The [NooBaa core
-README](https://github.com/noobaa/noobaa-core#deploy-to-kubernetes) confirms
-that installation supplies both an S3 endpoint and a web management-console
-address.
-
-The generated default backing store is intended for evaluation, not
-production. Create a project-scoped account and bucket through the NooBaa
-console or CLI, and do not use the administrator credentials for a customer
-project connection.
-
-### Find the NooBaa endpoints
-
-```bash
-noobaa status
-oc get route -n noobaa
+```text
+Data Registry asset metadata -> RHOAI Data Connection -> S3 endpoint
+                                                    -> SeaweedFS bucket -> PVC
 ```
 
-Use the S3 endpoint from the status output or the S3 Route. Use the management
-endpoint only to administer NooBaa and create the project bucket.
+A standalone SeaweedFS **4.52** deployment with this configuration was
+verified on OpenShift using the `restricted-v2` security context and a
+dynamically provisioned PVC. The
+[upstream quick start](https://github.com/seaweedfs/seaweedfs#quick-start)
+documents `weed mini`, its S3 endpoint, and the Admin UI. The
+[Helm chart documentation](https://github.com/seaweedfs/seaweedfs/blob/master/k8s/charts/seaweedfs/README.md#openshift-support)
+provides an OpenShift path for larger deployments.
+
+## Choose a storage path
+
+| Situation | Path |
+| --- | --- |
+| Your organization already provides S3-compatible storage | Obtain its endpoint, bucket, region, and scoped credentials. Skip to [Create an RHOAI Data Connection](#create-an-rhoai-data-connection). |
+| You need a self-contained evaluation | Follow the SeaweedFS installation and verification below. |
+
+An existing service might be AWS S3, Red Hat Ceph Object Gateway, IBM Cloud
+Object Storage, or an OpenShift Data Foundation Object Bucket Claim. Use the
+provider and access policy approved for your project. An
+[Object Bucket Claim](https://docs.redhat.com/en/documentation/red_hat_openshift_data_foundation/4.22/html/managing_hybrid_and_multicloud_resources/object-bucket-claim)
+can supply a bucket and credentials when OpenShift Data Foundation is already
+installed; installing that product is outside this project-level example.
+
+## Install SeaweedFS in a new namespace
+
+### Prerequisites
+
+Use a checkout of this repository and run the commands from
+`examples/data-registry/supplementary/`. You need `oc`, Python 3, and the AWS
+CLI on your workstation. You also need
+permission to create a namespace and a default dynamic `StorageClass` with at
+least 10 Gi of capacity. Ask an administrator for a namespace or storage class
+if your access does not include those operations. The cluster must be able to
+pull `docker.io/chrislusf/seaweedfs:4.52` or an approved mirror of it.
+
+Confirm the cluster before creating resources:
+
+```bash
+oc whoami
+oc config current-context
+oc get storageclass
+oc get namespace data-registry-storage --ignore-not-found
+```
+
+Use a different new namespace name if `data-registry-storage` already belongs
+to another workload. Set `STORAGE_NAMESPACE` to that name in the commands
+below. This example uses one internal ClusterIP Service; it does **not** create
+a public Route.
+
+```bash
+export STORAGE_NAMESPACE=data-registry-storage
+oc create namespace "$STORAGE_NAMESPACE"
+```
+
+### Create credentials
+
+The S3 access key, S3 secret key, and Admin UI password are independent.
+Generate them into a Kubernetes Secret without writing their values to a file
+or terminal output:
+
+```bash
+python3 - <<'PY' | oc apply -n "$STORAGE_NAMESPACE" -f -
+import json
+import secrets
+
+print(json.dumps({
+    "apiVersion": "v1",
+    "kind": "Secret",
+    "metadata": {"name": "seaweedfs-credentials"},
+    "type": "Opaque",
+    "stringData": {
+        "AWS_ACCESS_KEY_ID": "swfs" + secrets.token_hex(10),
+        "AWS_SECRET_ACCESS_KEY": secrets.token_hex(32),
+        "WEED_ADMIN_PASSWORD": secrets.token_hex(24),
+    },
+}))
+PY
+```
+
+Keep this Secret when reapplying the manifest or restarting the pod. Recreating
+it changes the credentials and requires updating any Data Connection that uses
+them. The Secret is for this evaluation store; do not commit its values.
+
+### Deploy the store
+
+Review [seaweedfs.yaml](seaweedfs.yaml), then apply it in the new namespace:
+
+```bash
+oc apply -n "$STORAGE_NAMESPACE" -f seaweedfs.yaml
+oc rollout status deployment/seaweedfs -n "$STORAGE_NAMESPACE" --timeout=5m
+oc get deployment,pod,service,pvc -n "$STORAGE_NAMESPACE" -o wide
+```
+
+Expect `deployment/seaweedfs` to show `1/1` Ready, `pvc/seaweedfs-data` to
+show `Bound`, and `service/seaweedfs` to expose ports **8333** (S3) and
+**12646** (Admin UI). The image runs with a non-root UID and the restricted
+OpenShift security context. The PVC uses the cluster's default StorageClass;
+set `storageClassName` in the manifest if you need a specific one. The bucket
+`data-registry-example` is created at startup.
+
+The manifest gives `weed mini` a fixed Admin port below the usual ephemeral
+port range, mounts `/tmp` separately, and stores object data under `/data` on
+the PVC. The Service is internal to the cluster. It does not require a storage
+operator, cluster-wide RBAC, or changes to the Data Registry deployment.
+
+## Verify the S3 API
+
+In one terminal, forward the two Service ports. Keep this command running
+while testing:
+
+```bash
+oc -n "$STORAGE_NAMESPACE" port-forward service/seaweedfs \
+  18333:8333 12646:12646
+```
+
+In a second terminal, set the same namespace variable and load the S3 keys
+from the Secret. Command substitution keeps their values out of terminal
+output; avoid shell tracing while credentials are in use.
+
+```bash
+export STORAGE_NAMESPACE=data-registry-storage
+set +x
+export AWS_ACCESS_KEY_ID="$(oc -n "$STORAGE_NAMESPACE" get secret seaweedfs-credentials \
+  -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | openssl base64 -d -A)"
+export AWS_SECRET_ACCESS_KEY="$(oc -n "$STORAGE_NAMESPACE" get secret seaweedfs-credentials \
+  -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | openssl base64 -d -A)"
+export AWS_DEFAULT_REGION=us-east-1
+export AWS_EC2_METADATA_DISABLED=true
+```
+
+Create, list, and download a small object through the S3 API:
+
+```bash
+test_dir="$(mktemp -d)"
+printf 'SeaweedFS S3 test\n' > "$test_dir/hello.txt"
+
+aws --endpoint-url http://127.0.0.1:18333 s3api head-bucket \
+  --bucket data-registry-example
+aws --endpoint-url http://127.0.0.1:18333 s3api put-object \
+  --bucket data-registry-example --key sample/hello.txt \
+  --body "$test_dir/hello.txt"
+aws --endpoint-url http://127.0.0.1:18333 s3api list-objects-v2 \
+  --bucket data-registry-example --prefix sample/
+aws --endpoint-url http://127.0.0.1:18333 s3api get-object \
+  --bucket data-registry-example --key sample/hello.txt \
+  "$test_dir/downloaded.txt"
+cmp "$test_dir/hello.txt" "$test_dir/downloaded.txt"
+printf 'S3 round trip passed\n'
+
+rm -r "$test_dir"
+unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+```
+
+The list should contain `sample/hello.txt`, and `cmp` should succeed. An
+unsigned request to the bucket should return `403 AccessDenied`:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  http://127.0.0.1:18333/data-registry-example
+```
+
+To test persistence, restart only this deployment:
+
+```bash
+oc rollout restart deployment/seaweedfs -n "$STORAGE_NAMESPACE"
+oc rollout status deployment/seaweedfs -n "$STORAGE_NAMESPACE" --timeout=5m
+oc get pvc seaweedfs-data -n "$STORAGE_NAMESPACE"
+```
+
+The existing port forward disconnects when its pod is replaced. Restart the
+port-forward command in the first terminal. In the second terminal, reload
+the two AWS key exports from the Secret as shown above, then read the object
+again:
+
+```bash
+aws --endpoint-url http://127.0.0.1:18333 s3api get-object \
+  --bucket data-registry-example --key sample/hello.txt \
+  /tmp/seaweedfs-persisted-hello.txt
+cat /tmp/seaweedfs-persisted-hello.txt
+rm /tmp/seaweedfs-persisted-hello.txt
+unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+```
+
+The response should contain `SeaweedFS S3 test`. The object remains because
+the PVC stays Bound.
+
+## Use the Admin UI
+
+With the Admin port forwarded, open <http://127.0.0.1:12646/login>. Sign in
+as `admin` with the `WEED_ADMIN_PASSWORD` stored in
+`Secret/seaweedfs-credentials`. On macOS, copy it to the clipboard without
+printing it:
+
+```bash
+oc -n "$STORAGE_NAMESPACE" get secret seaweedfs-credentials \
+  -o jsonpath='{.data.WEED_ADMIN_PASSWORD}' | openssl base64 -d -A | pbcopy
+```
+
+Use your workstation's clipboard utility in place of `pbcopy` on other
+systems. The **Object Store → Buckets** page should show
+`data-registry-example`; open it to browse `sample/hello.txt`. The UI also
+shows cluster status and volume information. Keep the Admin UI internal and
+authenticated rather than adding a public Route for this example.
 
 ## Create an RHOAI Data Connection
 
-In the RHOAI dashboard, open the Data Science project used by the example and
-select **Connections → Create connection**. Choose **S3 compatible object
-storage - v1** and enter:
+This step connects an RHOAI project to the object store. It is independent of
+the standalone S3 installation test above. In the RHOAI dashboard, open the
+Data Science project that will own the example asset, select **Connections →
+Create connection**, and choose **S3 compatible object storage - v1**.
 
-| Field | Value |
+| Field | SeaweedFS example value |
 | --- | --- |
-| Connection name | A descriptive name such as `data-registry-storage` |
-| Endpoint | The AWS S3, external provider, or NooBaa endpoint |
-| Access key | The scoped account's access key |
-| Secret key | The scoped account's secret key |
-| Region | The provider's required region value |
-| Bucket | The bucket created or assigned for the example |
+| Connection name | `data-registry-storage` |
+| Endpoint | `http://seaweedfs.data-registry-storage.svc:8333` |
+| Access key | `AWS_ACCESS_KEY_ID` from `Secret/seaweedfs-credentials` |
+| Secret key | `AWS_SECRET_ACCESS_KEY` from the same Secret |
+| Region | `us-east-1` |
+| Bucket | `data-registry-example` |
 
-Keep credentials in the RHOAI Secret. Do not put access keys, secret keys, or
-pull credentials in this repository.
+If you chose another storage namespace, replace `data-registry-storage` in the
+endpoint. The `.svc` address is available inside the cluster, not from a
+workstation browser. Use your organization's approved process to transfer the
+scoped key values into the RHOAI connection Secret. Do not put them into asset
+metadata, Git, screenshots, or a public URL. A NetworkPolicy or service-mesh
+rule may require an explicit path from the project to port 8333.
 
-## Use the storage with the Data Registry example
-
-Return to the [Data Registry getting-started guide](../rhoai-3.6/getting-started.md)
-and register an asset in the same RHOAI project. When the form asks for a
-connection, choose the connection created above. Use an object path such as:
+Return to the [getting-started guide](../rhoai-3.6/getting-started.md) to
+register an unstructured example asset with the connection and path:
 
 ```text
-s3://data-registry-example/sample/orders/
+s3://data-registry-example/sample/hello.txt
 ```
 
-The Data Registry stores the asset metadata and connection reference. It does
-not upload objects, copy data, or validate that the path exists. Upload or
-generate the example data in the selected bucket before registering it.
+The Data Registry stores the path and connection reference. Registration does
+not prove that the object exists or that a workbench can read it; the S3 test
+above verifies the object independently. An RHOAI user needs storage access
+through the connection as well as registry metadata access through project
+RBAC.
 
-## If you must avoid the S3 API
+## Troubleshoot and retain the data
 
-RHOAI also has URI-based connections for HTTP/HTTPS locations, but those are
-not a replacement for a writable object store. They do not provide bucket
-creation, prefix listing, scoped object credentials, or the upload semantics
-used by the current Data Registry examples.
+| Symptom | Check |
+| --- | --- |
+| PVC stays `Pending` | Check the default StorageClass, quota, and PVC events with `oc describe pvc seaweedfs-data -n "$STORAGE_NAMESPACE"`. |
+| Pod cannot pull the image | Check pod events and cluster egress or mirror policy. Do not substitute an unrelated image. |
+| Pod restarts or cannot write `/data` | Check `oc describe pod` and `oc logs deployment/seaweedfs -n "$STORAGE_NAMESPACE"`; confirm PVC ownership and the assigned OpenShift security context. |
+| S3 requests return `403` | Confirm the generated Secret and AWS CLI environment match; anonymous access is intentionally denied. |
+| UI redirects to login | This is expected. Use the Admin password from the Secret and the forwarded port 12646. |
+| Forwarded ports stop after restart | Start `oc port-forward` again; it was attached to the replaced pod. |
+| RHOAI workload cannot reach S3 | Verify the endpoint uses the correct namespace and port 8333, then check NetworkPolicy and DNS from the workload namespace. |
 
-For a no-object-store demonstration, use structured data through an approved
-database connection or adapt the example to read-only public files. That is a
-different example shape and should not be mixed with the S3-backed asset
-steps above.
-
-## Cleanup
-
-Project users should delete only their own Data Connection and bucket contents
-according to the storage administrator's retention policy. The cluster
-administrator owns NooBaa or ODF/MCG lifecycle operations; do not delete their
-namespace or PVCs as part of cleaning up this example.
+The `sample/hello.txt` object is harmless test data. Keep the namespace and
+PVC if you plan to reuse the store. **Deleting the namespace or PVC deletes
+the object data** when the StorageClass uses a delete reclaim policy; make an
+intentional backup and removal decision before cleaning up. Nothing in this
+guide deletes persistent storage or changes an existing object store.

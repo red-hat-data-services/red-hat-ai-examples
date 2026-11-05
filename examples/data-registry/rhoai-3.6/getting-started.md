@@ -183,6 +183,13 @@ oc get events -n rhoai-data-registry --sort-by='.lastTimestamp'
 
 Select the RHOAI project that should own the metadata. The project is the authorization boundary: anyone with registry view access in the project can see all of its collections and assets.
 
+For an S3-backed example, first follow the [standalone SeaweedFS and
+S3-compatible storage guide](../supplementary/s3-compatible-storage.md) or use
+an existing S3 service. Upload the example object and create a project Data
+Connection before registering its location. The storage guide includes an
+authenticated S3 round trip and Admin UI check. The Data Registry deployment
+itself does not require SeaweedFS.
+
 ### Decide whether to create a collection
 
 Every asset is assigned to a collection. The default collection is useful for a quick trial. For metadata that will be shared, create a collection whose name reflects a stable data product, business domain, or lifecycle, for example `customer-orders` or `fraud-training-data`.
