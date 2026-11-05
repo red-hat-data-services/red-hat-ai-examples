@@ -2,10 +2,12 @@
 
 The [Data Registry getting-started guide](../rhoai-3.6/getting-started.md)
 registers metadata and a reference to a data location. It does not deploy
-object storage, upload files, or keep S3 credentials. This guide provides a
-small, standalone [SeaweedFS](https://github.com/seaweedfs/seaweedfs) object
-store so you can try the S3-backed example without an AWS account. You can
-also use an existing S3-compatible service supplied by your organization.
+object storage, upload files, or keep S3 credentials. Several S3-compatible
+object stores can serve these examples; [SeaweedFS](https://github.com/seaweedfs/seaweedfs)
+is one option, not a requirement of the Data Registry. This guide uses a small,
+standalone SeaweedFS deployment so you can try the S3-backed example without
+an AWS account. You can instead use an existing S3-compatible service supplied
+by your organization.
 
 SeaweedFS is Apache-2.0 licensed and does not require a product license key.
 The example below runs its single-node `weed mini` mode with an authenticated
