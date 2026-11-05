@@ -9,7 +9,7 @@ extraction in `DATA_ONLY` or `OFFLINE` training. The evaluation Job starts its
 own temporary server.
 
 Run the commands that reference the Job manifest or create the script ConfigMap
-from this directory: `examples/fine-tuning/rhoai-3.6/speculator/manifests/evaluation/`.
+from this directory: `examples/fine-tuning/rhoai-3.6/manifests/evaluation/`.
 The Python script is at `../../scripts/run_speculator_evaluation.py` relative to
 this directory.
 
@@ -165,7 +165,7 @@ The evaluation produces acceptance metrics and performance results, including
 acceptance results to see how often the verifier accepts draft tokens, and the
 performance results to compare latency and throughput.
 
-![Evaluation output files in the workbench](../../images/evaluation-output-files.png)
+![Evaluation output files in the workbench](../../../images/evaluation-output-files.png)
 
 ## Clean up
 

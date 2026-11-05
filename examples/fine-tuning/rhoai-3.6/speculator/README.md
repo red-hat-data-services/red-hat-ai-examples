@@ -35,9 +35,9 @@ After `TRAIN_ONLY`, `OFFLINE`, or `ONLINE` produces a trained draft checkpoint,
 use these guides to evaluate and serve the model.
 
 - **Evaluate the draft model:** Run an evaluation sweep with the verifier and
-  trained draft checkpoint. See the [evaluation guide](manifests/evaluation/README.md).
+  trained draft checkpoint. See the [evaluation guide](../manifests/evaluation/README.md).
 - **Serve the model:** Deploy a KServe `InferenceService` with the verifier and
-  trained draft checkpoint. See the [serving guide](manifests/serving/README.md).
+  trained draft checkpoint. See the [serving guide](../manifests/serving/README.md).
 
 ## Supported Datasets
 

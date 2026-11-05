@@ -6,7 +6,7 @@ inference with a verifier model and its trained draft model. Reuse
 set of model settings below.
 
 Run commands that reference `model-serving.yaml` from this directory:
-`examples/fine-tuning/rhoai-3.6/speculator/manifests/serving/`.
+`examples/fine-tuning/rhoai-3.6/manifests/serving/`.
 
 ## Prerequisites
 
@@ -141,8 +141,16 @@ oc logs "$POD" -c kserve-container -n "$NAMESPACE"
 
 ## Test the endpoint
 
-Authentication is enabled, so API requests require an OpenShift bearer token.
-Obtain one from an authenticated CLI session with `oc whoami -t`.
+Authentication is enabled on the KServe/OpenShift AI endpoint, so requests to
+the InferenceService URL require an OpenShift user bearer token. Obtain it from
+the authenticated CLI session with `oc whoami -t`:
+
+```bash
+TOKEN=$(oc whoami -t)
+```
+
+This is the OpenShift API token for the current user. It is not a Hugging Face
+token, AWS token, model API key, or service-account token.
 
 Choose one of these options. The InferenceService URL is cluster-local and
 cannot be resolved directly from your Mac.
@@ -186,7 +194,8 @@ curl -fsS "${MODEL_URL%/}/v1/chat/completions" \
 
 ### Option 2: Port-forward from your local machine
 
-On your local machine, find the predictor Pod and start a port-forward:
+On your local machine, find the predictor Pod and start a port-forward directly
+to the vLLM container:
 
 ```bash
 POD=$(oc get pods \
@@ -198,11 +207,22 @@ oc port-forward -n "$NAMESPACE" "pod/$POD" 8080:8080
 ```
 
 Keep this command running while you send requests. In another terminal, obtain
-a bearer token and set `MODEL_URL` to localhost:
+a URL for localhost:
+
+```bash
+MODEL_URL="http://localhost:8080"
+curl -fsS "$MODEL_URL/v1/models"
+```
+
+Directly forwarding the predictor's port `8080` reaches vLLM inside the Pod and
+does not exercise the KServe authentication proxy, so a bearer token is not
+required for this local test. Kubernetes still requires permission to create
+the `pods/portforward` connection.
+
+Use the bearer token when testing the authenticated InferenceService URL:
 
 ```bash
 TOKEN=$(oc whoami -t)
-MODEL_URL="http://localhost:8080"
 curl -fsS "$MODEL_URL/v1/models" \
   -H "Authorization: Bearer $TOKEN"
 ```
