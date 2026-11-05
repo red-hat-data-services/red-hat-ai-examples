@@ -1,6 +1,6 @@
 # S3-compatible storage for the Data Registry examples
 
-The [Data Registry getting-started guide](../rhoai-3.6/getting-started.md)
+The [Data Registry getting-started guide](../README.md)
 registers metadata and a reference to a data location. It does not deploy
 object storage, upload files, or keep S3 credentials. Several S3-compatible
 object stores can serve these examples; [SeaweedFS](https://github.com/seaweedfs/seaweedfs)
@@ -249,11 +249,11 @@ scoped key values into the RHOAI connection Secret. Do not put them into asset
 metadata, Git, screenshots, or a public URL. A NetworkPolicy or service-mesh
 rule may require an explicit path from the project to port 8333.
 
-Return to the [getting-started guide](../rhoai-3.6/getting-started.md) to
-register an unstructured example asset with the connection and path:
+Return to [Step 2](../02-register-data-asset/README.md) to upload the synthetic
+FAQ and register an unstructured example asset with the connection and path:
 
 ```text
-s3://data-registry-example/sample/hello.txt
+s3://data-registry-example/examples/customer-support/
 ```
 
 The Data Registry stores the path and connection reference. Registration does
