@@ -1,0 +1,21 @@
+metadata:
+  title: "Getting started with the Data Registry in RHOAI 3.6"
+  description: >-
+    Enable the Technology Preview Data Registry, register a document using an
+    S3-compatible connection, verify it from a workbench, and share metadata.
+  status: community
+
+  duration_estimate:
+    setup: "45 minutes"
+    execution: "45 minutes"
+    total: "90 minutes"
+
+  complexity: intermediate
+
+  components:
+    rhoai:
+      - data-registry
+      - workbench
+    external:
+      - postgresql
+      - s3-compatible-storage
