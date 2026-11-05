@@ -125,7 +125,10 @@ operator, cluster-wide RBAC, or changes to the Data Registry deployment.
 ## Verify the S3 API
 
 In one terminal, forward the two Service ports. Keep this command running
-while testing:
+while testing. If either local port is already in use, stop the older port
+forward or choose unused local ports and update the URLs below. Confirm the
+forward names `service/seaweedfs` in your new namespace before using the S3
+keys from that namespace:
 
 ```bash
 oc -n "$STORAGE_NAMESPACE" port-forward service/seaweedfs \
@@ -266,6 +269,7 @@ RBAC.
 | Pod restarts or cannot write `/data` | Check `oc describe pod` and `oc logs deployment/seaweedfs -n "$STORAGE_NAMESPACE"`; confirm PVC ownership and the assigned OpenShift security context. |
 | S3 requests return `403` | Confirm the generated Secret and AWS CLI environment match; anonymous access is intentionally denied. |
 | UI redirects to login | This is expected. Use the Admin password from the Secret and the forwarded port 12646. |
+| S3 returns `403` with the new Secret, or port forwarding reports an address already in use | Check for an older port forward on 18333 or 12646. Stop it and forward `service/seaweedfs` in the intended namespace. Credentials from one SeaweedFS instance will not authenticate to another. |
 | Forwarded ports stop after restart | Start `oc port-forward` again; it was attached to the replaced pod. |
 | RHOAI workload cannot reach S3 | Verify the endpoint uses the correct namespace and port 8333, then check NetworkPolicy and DNS from the workload namespace. |
 
