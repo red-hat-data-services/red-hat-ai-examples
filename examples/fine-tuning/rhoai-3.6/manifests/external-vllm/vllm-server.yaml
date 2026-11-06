@@ -24,7 +24,7 @@
 # If you change RUN_NAME in the notebook, update this path accordingly.
 #
 # Deploy with:
-#   oc apply -f manifests/external-vllm/vllm-server.yaml -n <your-namespace>
+#   oc apply -f ../../manifests/external-vllm/vllm-server.yaml -n <your-namespace>
 #
 # The Service is named `vllm-svc` on port 8000, so the trainer's vllm_endpoint
 # is: http://vllm-svc.<your-namespace>.svc.cluster.local:8000/v1
