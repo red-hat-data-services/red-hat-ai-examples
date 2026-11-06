@@ -65,13 +65,14 @@ Values below are for the default **Qwen3-0.6B** verifier. Requirements scale wit
 | data-extraction (managed vLLM) | — | 1 | — | 1 |
 | data-extraction (remote vLLM) | — | — (external) | — | 0 |
 | train-only | 1 | — | ~1 | 2 |
-| online | 1 | 1 | ~1 | 3 |
+| online | 1 | 1 | ~1 | 2 |
 | offline | 1 | — (external) | ~1 | 2 |
 
 > [!NOTE]
 >
 > - The vLLM sidecar currently supports exactly 1 GPU (`p12_vllm_resource_gpu`).
 > - Evaluation (GuideLLM) and the KServe endpoint each consume roughly one GPU while active.
+> - Stages run sequentially — evaluation and serving start after the training job completes and reuse its freed GPUs, so the totals reflect **peak concurrent** usage. The online total of 2 is its training job (worker + sidecar) running together.
 > - Offline mode uses your external vLLM server's own resources — size it separately.
 
 ## Prerequisites
@@ -99,11 +100,14 @@ metadata:
   name: shared
 spec:
   accessModes: ["ReadWriteMany"]
+  storageClassName: <your-rwx-storage-class>
   resources:
     requests:
       storage: 100Gi
 EOF
 ```
+
+Replace `<your-rwx-storage-class>` with the name of a storage class on your cluster that provisions **ReadWriteMany** volumes — list what is available with `oc get storageclass`. Omitting `storageClassName` binds the PVC to the cluster's default class, which is often RWO-only and leaves the PVC stuck `Pending` or mounted read-only.
 
 ![Project storage view with the RWX PVC](docs/speculator-storage-pvc.png)
 
