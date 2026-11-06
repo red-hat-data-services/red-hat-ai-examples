@@ -8,6 +8,7 @@ PVC into the pod first; this program does not create or mount PVCs.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -22,9 +23,16 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-# Keep the evaluator files and provenance helper on the same Speculators release.
-EVALUATOR_REF = "v0.9.0"
+# Keep the evaluator files and provenance helper on the same, immutable
+# Speculators release commit.
+EVALUATOR_REF = "1c800f2b053bcd538fc11bf49ec843d4dfa81a95"
 EVALUATOR_FILES = ("evaluate.py", "perf_utils.py", "mrcr.py")
+EVALUATOR_SHA256 = {
+    "evaluate.py": "0fb2aef469ec489eb9b8cc137a98f305d32f6b6bf66e2254f774927d1c47438b",
+    "perf_utils.py": "e6a0e2b1a58a62e7daf4533854a5004e5bf35e91f5edf320af66e1a2630413bd",
+    "mrcr.py": "cf8d3c68d94e73eff21f14d20bf0659103d17d648e6fd23f949c4fe72f288a15",
+    "provenance.py": "2ddd7c8c10eaaca2678552979c848f985eb146b35ae14062f9589151d4ee020a",
+}
 
 # User configuration: edit these values before running the file or notebook cell.
 USER_CONFIG = {
@@ -83,8 +91,8 @@ def _ensure_guidellm() -> None:
         )
 
 
-def _download_file(url: str, destination: Path) -> None:
-    """Download a pinned evaluator file, retrying transient errors."""
+def _download_file(url: str, destination: Path, expected_sha256: str) -> None:
+    """Download and verify a pinned evaluator file, retrying transient errors."""
     last_error: Exception | None = None
     for attempt in range(1, 4):
         try:
@@ -93,6 +101,12 @@ def _download_file(url: str, destination: Path) -> None:
                 content = response.read()
             if not content:
                 raise RuntimeError(f"Downloaded an empty file from {url}")
+            actual_sha256 = hashlib.sha256(content).hexdigest()
+            if actual_sha256 != expected_sha256:
+                raise RuntimeError(
+                    f"SHA-256 mismatch for {url}: expected {expected_sha256}, "
+                    f"got {actual_sha256}"
+                )
             destination.write_bytes(content)
             return
         except (URLError, TimeoutError, OSError, RuntimeError) as error:
@@ -113,7 +127,7 @@ def _prepare_evaluator(work_dir: Path) -> tuple[Path, Path]:
             f"https://raw.githubusercontent.com/vllm-project/speculators/"
             f"{EVALUATOR_REF}/scripts/evaluate/{filename}"
         )
-        _download_file(url, evaluator_dir / filename)
+        _download_file(url, evaluator_dir / filename, EVALUATOR_SHA256[filename])
 
     compat_dir = work_dir / "compat"
     compat_package = compat_dir / "speculators"
@@ -125,7 +139,11 @@ def _prepare_evaluator(work_dir: Path) -> tuple[Path, Path]:
         f"https://raw.githubusercontent.com/vllm-project/speculators/"
         f"{EVALUATOR_REF}/src/speculators/provenance.py"
     )
-    _download_file(provenance_url, compat_package / "provenance.py")
+    _download_file(
+        provenance_url,
+        compat_package / "provenance.py",
+        EVALUATOR_SHA256["provenance.py"],
+    )
     return evaluator_dir / "evaluate.py", compat_dir
 
 

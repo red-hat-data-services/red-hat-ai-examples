@@ -31,11 +31,10 @@ Before submitting the Job, confirm that:
   availability and project quota.
 - The cluster can pull the Job image from `registry.redhat.io`. Add an
   `imagePullSecrets` entry to the Job manifest if your cluster requires one.
-- The Job can reach `raw.githubusercontent.com`, PyPI, and Hugging Face:
-  the script downloads the pinned Speculators `v0.9.0` evaluator files,
-  installs GuideLLM if needed, and downloads the default evaluation dataset.
-  If your cluster has no outbound access, use approved internal mirrors or
-  pre-populate these dependencies.
+- The Job can reach `raw.githubusercontent.com`, PyPI, and Hugging Face. The
+  script downloads the pinned Speculators `v0.9.0` evaluator files, installs
+  GuideLLM if needed, and downloads the default evaluation dataset. This example
+  does not support offline execution or configurable internal mirrors.
 
 ## Log in and select the namespace
 

@@ -171,9 +171,9 @@ curl -fsS "$MODEL_URL/v1/models" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-The predictor container shell may not include `oc`. Use a workbench terminal or
-the local port-forward option below to obtain a bearer token and test the
-authenticated endpoint.
+The predictor container shell may not include `oc`. Use a workbench terminal to
+obtain a bearer token and test the authenticated endpoint. For a direct local
+test that bypasses KServe authentication, use the port-forward option below.
 
 Use the same `MODEL_URL` for a test chat-completion request. Set `model` to
 the value configured in `SERVED_MODEL_NAME` (the example uses
@@ -219,20 +219,11 @@ does not exercise the KServe authentication proxy, so a bearer token is not
 required for this local test. Kubernetes still requires permission to create
 the `pods/portforward` connection.
 
-Use the bearer token when testing the authenticated InferenceService URL:
-
-```bash
-TOKEN=$(oc whoami -t)
-curl -fsS "$MODEL_URL/v1/models" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
 Send the same chat-completion request through the port-forward, using the value
 configured in `SERVED_MODEL_NAME`:
 
 ```bash
 curl -fsS "${MODEL_URL%/}/v1/chat/completions" \
-  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "<your-served-model-name>",
