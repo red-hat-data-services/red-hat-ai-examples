@@ -9,10 +9,14 @@
 #     pre-downloaded to `models/Qwen3-0.6B` on that PVC (see the model download
 #     cell in the notebooks). The PVC is mounted at /mnt in the vLLM pod.
 #   - A GPU node with at least 1 available NVIDIA GPU.
-#   - Access to the quay.io/aipcc/rhaiis/cuda-ubi9 image below (it carries the
-#     `extract_hidden_states` speculative config and ExampleHiddenStatesConnector
-#     used for extraction). Adjust or remove `imagePullSecrets` if your cluster
-#     can pull the image without a secret.
+#   - Access to the registry.redhat.io/rhaii-fast/vllm-cuda-rhel9 image below
+#     (it carries the `extract_hidden_states` speculative config and
+#     ExampleHiddenStatesConnector used for extraction, and matches the image
+#     used by the vLLM ClusterTrainingRuntimes). It is pinned by digest for
+#     reproducibility. On most OpenShift clusters the global pull secret covers
+#     registry.redhat.io; if your namespace needs its own credentials, add an
+#     `imagePullSecrets` entry pointing at a secret with Red Hat registry
+#     credentials.
 #
 # IMPORTANT: SPECULATOR_HS_PATH below must match the `hidden_states_path`
 # passed to SpeculativeDecodingTrainer in the notebook you are running
@@ -51,14 +55,15 @@ spec:
       labels:
         app: vllm-svc
     spec:
-      imagePullSecrets:
-      - name: aipcc-pull-secret
       containers:
       - name: vllm
-        image: quay.io/aipcc/rhaiis/cuda-ubi9:3.6
+        image: registry.redhat.io/rhaii-fast/vllm-cuda-rhel9@sha256:97c7d6f66f3f0897b3ff10ddd135de930d45bdd116cf41a43e3ad7270029116a
         command: ["sh", "-c"]
         args:
         - |
+          TP=${SPECULATOR_VLLM_GPU_COUNT:-1}
+          TF=""
+          [ "$TP" -gt 1 ] && TF="--tensor-parallel-size $TP"
           python3 -m vllm.entrypoints.cli.main serve \
             "$SPECULATOR_VERIFIER_MODEL" \
             --speculative-config '{"method":"extract_hidden_states",
@@ -72,7 +77,7 @@ spec:
             --port 8000 \
             --gpu-memory-utilization ${SPECULATOR_GPU_MEM_UTIL:-0.9} \
             --no-enable-chunked-prefill \
-            --trust-remote-code
+            --trust-remote-code $TF
         env:
         - name: SPECULATOR_VERIFIER_MODEL
           value: /mnt/models/Qwen3-0.6B
@@ -81,6 +86,11 @@ spec:
           value: /mnt/speculator/run-01-offline/hidden_states
         - name: SPECULATOR_GPU_MEM_UTIL
           value: "0.9"
+        # Number of GPUs — the example defaults to 1 (enough for Qwen3-0.6B).
+        # Increase for a larger verifier model, and raise the nvidia.com/gpu
+        # request/limit below to match — values > 1 add --tensor-parallel-size.
+        - name: SPECULATOR_VLLM_GPU_COUNT
+          value: "1"
         # Must match TARGET_LAYER_IDS in the notebook (EAGLE3 on Qwen3-0.6B).
         - name: SPECULATOR_TARGET_LAYER_IDS
           value: "2, 14, 25, 28"
@@ -93,6 +103,8 @@ spec:
         ports:
         - containerPort: 8000
         resources:
+          # Single GPU by default — raise together with SPECULATOR_VLLM_GPU_COUNT
+          # when scaling up for a larger verifier model.
           limits:
             nvidia.com/gpu: "1"
           requests:
@@ -109,6 +121,9 @@ spec:
       volumes:
       - name: shared-storage
         persistentVolumeClaim:
+          # "shared" matches PVC_NAME in the notebooks and the workbench's
+          # shared storage. PVC names are not fixed — if yours differs, change
+          # claimName (and PVC_NAME in the notebooks) to match.
           claimName: shared
 ---
 apiVersion: v1
