@@ -162,7 +162,8 @@ Training is orchestrated as a **RHOAI pipeline** (based on Kubeflow Pipelines), 
 
 **Learn more**
 
-- [Training Hub pipelines example](pipelines/training-hub/README.md)
+- [Training Hub pipelines example](pipelines/rhoai-3.3/training-hub/README.md)
+- [Speculator (speculative decoding draft model) pipelines example](pipelines/rhoai-3.6/speculator/README.md)
 
 ---
 
