@@ -125,7 +125,7 @@ Which components are deployed depends on the training mode:
   - `DATA_ONLY` with External vLLM / `TRAIN_ONLY` / `OFFLINE` — `speculator-model-opt-cuda` (training only, no vLLM sidecar)
 
   These CTRs must be pre-installed on your cluster by an admin. Each notebook verifies their existence before job submission.
-- **External vLLM requirements**: When using an external vLLM endpoint (`DATA_ONLY` with External vLLM or `OFFLINE` mode), the vLLM server must be in the **same namespace** and have access to the **same shared PVC** as the TrainJob. A ready-to-use Deployment + Service manifest is provided at [`manifests/vllm-server.yaml`](manifests/external-vllm/vllm-server.yaml), with full deployment, verification, customization, and cleanup instructions in the [manifests README](manifests/external-vllm/README.md).
+- **External vLLM requirements**: When using an external vLLM endpoint (`DATA_ONLY` with External vLLM or `OFFLINE` mode), the vLLM server must be in the **same namespace** and have access to the **same shared PVC** as the TrainJob. A ready-to-use Deployment + Service manifest is provided at [`manifests/vllm-server.yaml`](../manifests/external-vllm/vllm-server.yaml), with full deployment, verification, customization, and cleanup instructions in the [manifests README](../manifests/external-vllm/README.md).
 - **HuggingFace token**: Passed to training pods via the `env` parameter on each trainer. Required for downloading gated models. Qwen3-0.6B is not gated, but a token avoids rate limits.
 - **Job naming**: Use `options=[Name(name="...")]` to give jobs explicit, predictable names. This makes it easier to monitor logs with `oc logs` and check job status with `trainer_client.get_job()`.
 - **No manual PVC mounts**: `SpeculativeDecodingTrainer` handles PVC mounting internally via PVC URIs. You do not need to configure volume mounts manually.
@@ -309,7 +309,7 @@ Parameters not shown in the examples can still be passed to `SpeculativeDecoding
   git clone https://github.com/red-hat-data-services/red-hat-ai-examples.git
   ```
 
-  Cloning from the workbench terminal (rather than uploading files or opening the repo from your local machine) puts the repository in the workbench home directory on the shared PVC. The notebooks expect to run from inside this clone — several optional cells reference files in the repo, such as `manifests/external-vllm/vllm-server.yaml`, via paths relative to the notebook's location.
+  Cloning from the workbench terminal (rather than uploading files or opening the repo from your local machine) puts the repository in the workbench home directory on the shared PVC. The notebooks expect to run from inside this clone — several optional cells reference files in the repo, such as `../../manifests/external-vllm/vllm-server.yaml`, via paths relative to the notebook's location.
 
 - Navigate to the `examples/fine-tuning/rhoai-3.6/speculator` directory.
 

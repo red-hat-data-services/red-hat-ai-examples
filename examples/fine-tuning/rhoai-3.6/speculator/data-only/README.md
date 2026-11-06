@@ -148,15 +148,15 @@ Before running this method, you must have a vLLM server running that:
 #### Deploying an external vLLM server
 
 If you don't already have a vLLM deployment, a ready-to-use Deployment + Service
-manifest is provided at [`manifests/vllm-server.yaml`](../manifests/external-vllm/vllm-server.yaml),
+manifest is provided at [`manifests/vllm-server.yaml`](../../manifests/external-vllm/vllm-server.yaml),
 with full deploy, verify, customize, and cleanup instructions in the
-[manifests README](../manifests/external-vllm/README.md). Quick start from the `data-only/`
+[manifests README](../../manifests/external-vllm/README.md). Quick start from the `data-only/`
 directory of the cloned repo:
 
 ```bash
 # Prerequisites: verifier model on the shared PVC (the notebook's optional
 # download cell does this), a free GPU, and a pull secret for the pinned image.
-oc apply -f ../manifests/external-vllm/vllm-server.yaml -n <your-namespace>
+oc apply -f ../../manifests/external-vllm/vllm-server.yaml -n <your-namespace>
 oc rollout status deployment/vllm-svc -n <your-namespace>
 ```
 
@@ -171,7 +171,7 @@ oc rollout status deployment/vllm-svc -n <your-namespace>
 > `RUN_NAME`) and apply the manifest for you.
 
 For a different verifier model or other tuning, see
-[Customize](../manifests/external-vllm/README.md#customize) in the manifests README.
+[Customize](../../manifests/external-vllm/README.md#customize) in the manifests README.
 
 ## Verifier Model
 
@@ -325,7 +325,7 @@ Common fixes:
 - Verify the vLLM server is serving the correct model
 
 If you deployed with the provided manifest, also check the deployment itself —
-see the [troubleshooting section](../manifests/external-vllm/README.md#troubleshooting) of the
+see the [troubleshooting section](../../manifests/external-vllm/README.md#troubleshooting) of the
 manifests README for deployment-side failures (image pull, GPU scheduling, PVC
 mount, permissions, slow first start).
 
