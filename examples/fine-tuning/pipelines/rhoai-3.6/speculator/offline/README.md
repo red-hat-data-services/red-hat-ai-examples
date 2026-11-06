@@ -1,10 +1,10 @@
 # Offline Pipeline (external vLLM, extraction + training in one run)
 
+This guide covers the **speculator-offline-pipeline** — extraction and training combined in a single run, with hidden states extracted by an **external, user-managed vLLM endpoint** instead of a managed sidecar.
+
 > [!WARNING]
 >
 > This pipeline may change. Re-generate the YAML after pulling upstream changes.
-
-This guide covers the **speculator-offline-pipeline** — extraction and training combined in a single run, with hidden states extracted by an **external, user-managed vLLM endpoint** instead of a managed sidecar.
 
 ## When to use this pipeline
 
@@ -73,7 +73,15 @@ Work through the [shared prerequisites](../README.md#prerequisites), plus the of
 
 - is reachable from the pipeline namespace,
 - can access the verifier and hidden-state paths on `p01_persistent_pvc`,
-- serves the verifier model you intend to train against.
+- serves the verifier model you intend to train against,
+- is launched **with hidden-states extraction enabled** — a standard vLLM deployment is not sufficient.
+
+The last point matters: extraction requires the server to expose the verifier's hidden states. Launch it with the speculators [`launch_vllm.py`](https://github.com/vllm-project/speculators/blob/main/scripts/launch_vllm.py) script in extraction mode, which configures:
+
+- the `ExampleHiddenStatesConnector` (`kv_connector`) whose `shared_storage_path` points at the PVC directory the pipeline reads — align it with `p11_hidden_states_path`,
+- `target_layer_ids` matching the pipeline's `p15_target_layer_ids` (the launcher appends the verifier's final layer by default).
+
+A plain vLLM deployment answers `/v1/models` and passes the probe below, but produces no hidden states — the extraction stage then fails or writes nothing.
 
 Verify reachability from the project namespace before running:
 
