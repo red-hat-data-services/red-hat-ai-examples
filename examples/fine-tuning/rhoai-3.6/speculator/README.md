@@ -29,6 +29,16 @@ vLLM already supports Eagle3 speculative decoding at serving time — if you hav
 
 Each mode has its own subfolder with a dedicated notebook and README.
 
+## After Training: Evaluate and Serve
+
+After `TRAIN_ONLY`, `OFFLINE`, or `ONLINE` produces a trained draft checkpoint,
+use these guides to evaluate and serve the model.
+
+- **Evaluate the draft model:** Run an evaluation sweep with the verifier and
+  trained draft checkpoint. See the [evaluation guide](../manifests/evaluation/README.md).
+- **Serve the model:** Deploy a KServe `InferenceService` with the verifier and
+  trained draft checkpoint. See the [serving guide](../manifests/serving/README.md).
+
 ## Supported Datasets
 
 The SDK provides three built-in dataset names that can be used directly with the `dataset_name` parameter:
