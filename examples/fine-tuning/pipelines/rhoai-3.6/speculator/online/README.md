@@ -1,10 +1,10 @@
 # Online Pipeline (single-job extraction + training)
 
+This guide covers the **speculator-online-pipeline** — the simplest one-run path to a trained Eagle3 draft. A single Trainer job extracts hidden states with a managed vLLM sidecar **and** trains the draft, then the pipeline evaluates, optionally registers, and serves it.
+
 > [!WARNING]
 >
 > This pipeline may change. Re-generate the YAML after pulling upstream changes.
-
-This guide covers the **speculator-online-pipeline** — the simplest one-run path to a trained Eagle3 draft. A single Trainer job extracts hidden states with a managed vLLM sidecar **and** trains the draft, then the pipeline evaluates, optionally registers, and serves it.
 
 ## When to use this pipeline
 

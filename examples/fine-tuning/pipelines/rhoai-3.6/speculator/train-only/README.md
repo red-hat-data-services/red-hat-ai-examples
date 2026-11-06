@@ -1,10 +1,10 @@
 # Train-Only Pipeline (TRAIN_ONLY)
 
+This guide covers the **speculator-training-pipeline** — the second step of the two-step speculator workflow. It trains, evaluates, registers, and serves an Eagle3 draft model from artifacts already on the PVC.
+
 > [!WARNING]
 >
 > This pipeline may change. Re-generate the YAML after pulling upstream changes.
-
-This guide covers the **speculator-training-pipeline** — the second step of the two-step speculator workflow. It trains, evaluates, registers, and serves an Eagle3 draft model from artifacts already on the PVC.
 
 ## When to use this pipeline
 
@@ -231,7 +231,7 @@ A note on reading the result: with speculative decoding the output is still **co
 
 Because extraction is reused, iterating is cheap — re-run **only this pipeline** with a new `p46_model_registry_version` and adjusted parameters:
 
-- More data (the first thing to fix after an example run): re-run **extraction** with `p08_max_samples=0` for the full dataset, then train-only again.
+- More data (the first thing to fix after an example run): re-run **extraction** with `p08_max_samples=0` for the full dataset, then train-only again. Use a **fresh `p06_output_dir`** for the new extraction run and point the train-only input paths (`p08_training_data_path`, `p09_hidden_states_path`) at it — keeping the existing extraction directory causes the SDK to skip extraction, so training would still use the original small dataset.
 - More training: raise `p14_training_epochs` or tune `p15_training_lr`.
 - Bigger draft: raise `p17_training_num_layers`.
 - Different speculation depth: `p41_num_speculative_tokens` (affects evaluation and serving).
