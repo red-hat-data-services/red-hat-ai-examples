@@ -193,7 +193,7 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | `p08_serving_namespace` | `str` | `None` | Required KServe namespace; must access the PVC. |
 | `p02_verifier_model` | `str` | `""` | Optional HuggingFace model ID used for downloading or resolving the default cached directory. |
 | `p03_verifier_model_pvc` | `str` | `""` | Optional existing verifier directory on the shared PVC. Use the on-disk directory name (`models/Qwen--Qwen3-0.6B`), not the HuggingFace model ID — the download task replaces `/` with `--`. Used when `p04_download_model` is false. |
-| `p04_download_model` | `bool` | `False` | Download the model specified by `p02_verifier_model` to the shared PVC. When `false`, the verifier must already be on the PVC — supply it via `p03_verifier_model_pvc` (e.g. from a previous run). |
+| `p04_download_model` | `bool` | `False` | Download the model specified by `p02_verifier_model` to the shared PVC. When `false`, the verifier is taken from `p03_verifier_model_pvc` if set, or from the default cache directory derived from `p02_verifier_model` — no PVC copy is strictly required in online (managed) mode. |
 | `p09_data_extraction_max_samples` | `int` | `0` | Maximum training examples extracted by the sidecar; `0` processes the full dataset. |
 | `p10_data_extraction_regenerate_responses` | `bool` | `False` | Regenerate assistant responses with the verifier; built-in datasets only. |
 | `p11_data_extraction_concurrency` | `int` | `1` | vLLM request concurrency and training `datagen_concurrency`. Use `1` on shared/NFS PVCs. |
