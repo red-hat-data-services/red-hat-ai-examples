@@ -1,10 +1,10 @@
 # Hidden State Extraction Pipeline (DATA_ONLY)
 
+This guide covers the **speculator-hidden-state-extraction-pipeline** — the first step of the two-step speculator workflow. It extracts verifier hidden states for Eagle3 draft-model training. It does **not** train.
+
 > [!WARNING]
 >
 > This pipeline may change. Re-generate the YAML after pulling upstream changes.
-
-This guide covers the **speculator-hidden-state-extraction-pipeline** — the first step of the two-step speculator workflow. It extracts verifier hidden states for Eagle3 draft-model training. It does **not** train.
 
 ## When to use this pipeline
 
@@ -143,7 +143,7 @@ ls $PVC_MOUNT/models/
 
 What you should see:
 
-- **`speculator-output/hidden_states/`** containing `.safetensors` files — one per target layer of the four in `p18_target_layer_ids`. Each file should be non-trivially sized (tens of MB for the example run; more with `p08_max_samples=0`).
+- **`speculator-output/hidden_states/`** containing one `.safetensors` file **per extracted sample**, each holding the captured verifier hidden states for that sample. Files should be non-trivially sized (tens of MB total for the example run; more with `p08_max_samples=0`).
 - **Processed dataset files** under `speculator-output/` — the preprocessed training data the train-only pipeline reads.
 - **`models/Qwen--Qwen3-0.6B/`** — the cached verifier. The download task replaces `/` with `--` in the model ID to form the directory name: `Qwen/Qwen3-0.6B` becomes `Qwen--Qwen3-0.6B`. This exact directory name is what `p06_verifier_model_pvc` needs in the train-only run — using the HuggingFace model ID (`models/Qwen3-0.6B` without the `Qwen--` prefix) causes an `HFValidationError` at training time.
 
@@ -163,11 +163,11 @@ files = sorted(Path(mount, "speculator-output/hidden_states").rglob("*.safetenso
 print(f"{len(files)} file(s):", [f.name for f in files])
 with safe_open(files[0], framework="numpy") as f:
     for key in list(f.keys())[:3]:
-        print(key, f.get_tensor(key).shape)
+        print(key, f.get_slice(key).get_shape())
 EOF
 ```
 
-For Qwen3-0.6B the shapes should be `[num_samples, seq_len, 1024]` (`hidden_size=1024`).
+For Qwen3-0.6B the `hidden_states` tensor in each file should be `[seq_len, num_layers, 1024]` — sequence length, the captured verifier layers, and `hidden_size=1024`. (`get_slice(...).get_shape()` reads only the shape metadata, so it works on bfloat16 tensors that `get_tensor` cannot load as numpy.)
 
 ## Managed vs remote vLLM
 
@@ -180,7 +180,8 @@ The pipeline adds a vLLM sidecar to the Trainer job. No infrastructure beyond th
 Point `p11_vllm_endpoint` at your own vLLM deployment. Requirements:
 
 - The external service must be able to access the verifier at `p03_verifier_model_pvc` on the shared PVC (remote mode always requires the PVC-backed path).
-- Set `p07_hidden_states_path` to match the location the remote vLLM service uses for hidden states on the shared PVC — it must line up with what the service writes.
+- The server must be launched **with hidden-states extraction enabled** — a standard vLLM deployment is not sufficient. Use the speculators [`launch_vllm.py`](https://github.com/vllm-project/speculators/blob/main/scripts/launch_vllm.py) script in extraction mode: it configures the `ExampleHiddenStatesConnector` (`kv_connector`) with a `shared_storage_path`, and `target_layer_ids` matching `p18_target_layer_ids`. A plain vLLM deployment answers `/v1/models` but produces no hidden states.
+- Set `p07_hidden_states_path` to match the connector's `shared_storage_path` on the shared PVC — it must line up with what the service writes.
 - Use the `speculator-model-opt-cuda` CTR (`p23_job_runtime`).
 
 Test that the endpoint is reachable from the project namespace before running:

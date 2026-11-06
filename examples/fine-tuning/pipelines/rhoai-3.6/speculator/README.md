@@ -1,10 +1,12 @@
 # Pipelines for Speculative Decoding Draft Model Training on Red Hat OpenShift AI
 
+This guided example walks through training a custom Eagle3 draft model for speculative decoding using **Kubeflow Pipelines** on Red Hat OpenShift AI. It covers generating each pipeline definition from source, importing it into Red Hat OpenShift AI, running it, interpreting the evaluation results, and testing the served endpoint.
+
 > [!WARNING]
 >
 > The upstream speculator pipelines may change. Re-generate the pipeline YAML after pulling upstream changes.
 
-This guided example walks through training a custom Eagle3 draft model for speculative decoding using **Kubeflow Pipelines** on Red Hat OpenShift AI. It covers generating each pipeline definition from source, importing it into Red Hat OpenShift AI, running it, interpreting the evaluation results, and testing the served endpoint.
+This page covers what is shared across all four modes — background, prerequisites, and the Quick Start. Each mode has its own guide in a subfolder.
 
 > [!TIP]
 >
