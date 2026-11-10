@@ -73,6 +73,30 @@ Before running this notebook, you must have a vLLM server running that:
 >
 > When using an external vLLM endpoint, the SDK may require `verifier_model` to be specified as a **PVC URI** (e.g., `pvc://shared/models/Qwen3-0.6B`) rather than a HuggingFace ID, since the external vLLM server already has the model loaded from the shared PVC. In this case, `target_layer_ids` must also be provided explicitly in `SpeculatorConfig`.
 
+#### Deploying an external vLLM server
+
+A ready-to-use Deployment + Service manifest is provided at
+[`manifests/vllm-server.yaml`](../../manifests/external-vllm/vllm-server.yaml), with full deploy,
+verify, customize, and cleanup instructions in the
+[manifests README](../../manifests/external-vllm/README.md). Quick start from the `offline/`
+directory of the cloned repo:
+
+```bash
+# Prerequisites: verifier model on the shared PVC (the notebook's optional
+# download cell does this), a free GPU, and a pull secret for the pinned image.
+oc apply -f ../../manifests/external-vllm/vllm-server.yaml -n <your-namespace>
+oc rollout status deployment/vllm-svc -n <your-namespace>
+```
+
+The manifest defaults match this notebook: verifier model `Qwen3-0.6B`,
+`TARGET_LAYER_IDS = [2, 14, 25, 28]`, port 8000, and
+`SPECULATOR_HS_PATH` pointing at this notebook's default
+`hidden_states_path` (`run-01-offline`). The notebook also includes optional
+deploy cells that do all of this from the workbench.
+
+For a different verifier model or other tuning, see
+[Customize](../../manifests/external-vllm/README.md#customize) in the manifests README.
+
 ### ClusterTrainingRuntime (CTR)
 
 OFFLINE mode uses the `speculator-model-opt-cuda` CTR. This CTR provisions only the training container — no vLLM sidecar is included since you manage the vLLM server externally. This is the same CTR used by TRAIN_ONLY mode and DATA_ONLY with External vLLM.
@@ -297,6 +321,11 @@ Common fixes:
 - Ensure the vLLM server has access to the **same shared PVC**
 - Ensure network policies allow traffic from the training pod to the vLLM service
 - Verify the vLLM server is serving the correct model
+
+If you deployed with the provided manifest, also check the deployment itself —
+see the [troubleshooting section](../../manifests/external-vllm/README.md#troubleshooting) of the
+manifests README for deployment-side failures (image pull, GPU scheduling, PVC
+mount, permissions, slow first start).
 
 ### Extraction succeeds but training fails
 

@@ -145,6 +145,34 @@ Before running this method, you must have a vLLM server running that:
 >
 > When using an external vLLM endpoint, the SDK may require `verifier_model` to be specified as a **PVC URI** (e.g., `pvc://shared/models/Qwen3-0.6B`) rather than a HuggingFace ID, since the external vLLM server already has the model loaded from the shared PVC. In this case, `target_layer_ids` and `hidden_states_path` must also be provided explicitly.
 
+#### Deploying an external vLLM server
+
+If you don't already have a vLLM deployment, a ready-to-use Deployment + Service
+manifest is provided at [`manifests/vllm-server.yaml`](../../manifests/external-vllm/vllm-server.yaml),
+with full deploy, verify, customize, and cleanup instructions in the
+[manifests README](../../manifests/external-vllm/README.md). Quick start from the `data-only/`
+directory of the cloned repo:
+
+```bash
+# Prerequisites: verifier model on the shared PVC (the notebook's optional
+# download cell does this), a free GPU, and a pull secret for the pinned image.
+oc apply -f ../../manifests/external-vllm/vllm-server.yaml -n <your-namespace>
+oc rollout status deployment/vllm-svc -n <your-namespace>
+```
+
+> [!IMPORTANT]
+>
+> The manifest's `SPECULATOR_HS_PATH` ships with the **OFFLINE notebook's**
+> default (`/mnt/speculator/run-01-offline/hidden_states`). For this example,
+> change it to `/mnt/speculator/run-01/hidden_states` before deploying so it
+> matches this notebook's `hidden_states_path` — or skip the manual step
+> entirely and use the notebook's optional **Deploy an External vLLM Server**
+> cells under Method 2, which set the path on the deployment (derived from
+> `RUN_NAME`) and apply the manifest for you.
+
+For a different verifier model or other tuning, see
+[Customize](../../manifests/external-vllm/README.md#customize) in the manifests README.
+
 ## Verifier Model
 
 The `verifier_model` parameter specifies the large language model whose hidden states are extracted. It accepts two input types:
@@ -295,6 +323,11 @@ Common fixes:
 - Ensure the vLLM server has access to the **same shared PVC**
 - Ensure network policies allow traffic from the training pod to the vLLM service
 - Verify the vLLM server is serving the correct model
+
+If you deployed with the provided manifest, also check the deployment itself —
+see the [troubleshooting section](../../manifests/external-vllm/README.md#troubleshooting) of the
+manifests README for deployment-side failures (image pull, GPU scheduling, PVC
+mount, permissions, slow first start).
 
 ### Hidden states output is empty
 
