@@ -363,6 +363,10 @@ Create a dedicated secret in the AutoRAG namespace that references the Bolt URI 
 ```bash
 NEO4J_PASSWORD=$(oc get secret my-standalone-auth -n neo4j \
   -o jsonpath='{.data.NEO4J_AUTH}' | base64 -d | cut -d/ -f2)
+if [ -z "${NEO4J_PASSWORD}" ]; then
+  echo "Unable to read a Neo4j password from my-standalone-auth."
+  exit 1
+fi
 
 # For an organization or public CA issuer without ca.crt, set this before
 # running the block, for example: NEO4J_CA_FILE=/path/to/issuer-ca-bundle.pem
@@ -383,8 +387,17 @@ if [ -z "${NEO4J_CA_DATA}" ]; then
   fi
 fi
 
-test -n "${NEO4J_CA_DATA}"
-printf '%s' "${NEO4J_CA_DATA}" | base64 -d > neo4j-ca.crt
+if [ -z "${NEO4J_CA_DATA}" ]; then
+  echo "No trusted CA certificate data was found."
+  exit 1
+fi
+if ! printf '%s' "${NEO4J_CA_DATA}" | base64 -d > neo4j-ca.crt \
+  || ! test -s neo4j-ca.crt \
+  || ! openssl x509 -in neo4j-ca.crt -noout; then
+  echo "The trusted CA data could not be decoded as a PEM certificate."
+  rm -f neo4j-ca.crt
+  exit 1
+fi
 
 oc create secret generic neo4j-bolt-credentials \
   --from-literal=NEO4J_URI="bolt://autorag-neo4j.neo4j.svc.cluster.local:7687" \
@@ -455,7 +468,14 @@ if [ -z "${NEO4J_CA_DATA}" ]; then
   NEO4J_CA_DATA=$(oc get secret neo4j-server-tls -n neo4j \
     -o jsonpath='{.data.tls\.crt}')
 fi
-printf '%s' "${NEO4J_CA_DATA}" | base64 -d > neo4j-ca.crt
+if [ -z "${NEO4J_CA_DATA}" ] \
+  || ! printf '%s' "${NEO4J_CA_DATA}" | base64 -d > neo4j-ca.crt \
+  || ! test -s neo4j-ca.crt \
+  || ! openssl x509 -in neo4j-ca.crt -noout; then
+  echo "The trusted CA data could not be decoded as a PEM certificate."
+  rm -f neo4j-ca.crt
+  exit 1
+fi
 
 NEO4J_CA_B64=$(base64 < neo4j-ca.crt | tr -d '\n')
 oc patch secret neo4j-bolt-credentials -n <autorag-namespace> \
@@ -527,7 +547,7 @@ oc get secret neo4j-server-tls -n neo4j \
     printf "%s\\n" "${output}" | grep -q "Verify return code: 0 (ok)"'
 ```
 
-If an organization or public CA issuer does not include `ca.crt` in `neo4j-server-tls`, obtain its issuer CA bundle and replace `oc get secret … | base64 -d |` with `base64 < /path/to/issuer-ca-bundle.pem |`. Do not substitute `tls.crt`. For the documented self-signed issuer only, `tls.crt` may replace `ca.crt` if `ca.crt` is absent. This command returned `Verification: OK` and `Verify return code: 0 (ok)` on the live self-signed deployment.
+If an organization or public CA issuer does not include `ca.crt` in `neo4j-server-tls`, obtain its issuer CA bundle and replace `oc get secret … | base64 -d |` with `cat /path/to/issuer-ca-bundle.pem |`. Do not substitute `tls.crt`. For the documented self-signed issuer only, `tls.crt` may replace `ca.crt` if `ca.crt` is absent. This command returned `Verification: OK` and `Verify return code: 0 (ok)` on the live self-signed deployment.
 
 The Python-driver check above is the recommended end-to-end validation from the consumer namespace because it verifies TLS negotiation, authentication, and a Cypher query.
 
