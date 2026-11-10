@@ -44,7 +44,12 @@ The trainer connects to `http://vllm-svc.<namespace>.svc.cluster.local:8000/v1`.
    server must be in the **same namespace** and use the **same PVC** as the
    TrainJob — hidden states are written to the PVC and both the vLLM server and
    the training pod must see the same filesystem.
-2. **GPU node** — at least 1 free NVIDIA GPU in the namespace's quota/region.
+2. **GPU capacity** — the vLLM server itself needs 1 free NVIDIA GPU (more for
+   a larger verifier model, see [Customize](#customize)). The default OFFLINE
+   workflow runs the TrainJob alongside the vLLM server and needs at least 2
+   free GPUs in total (1 for the vLLM server + 1 for training; 3 recommended
+   for data-parallel training). DATA_ONLY Method 2's extraction pod needs no
+   GPU, so the vLLM server's allocation is enough there.
 3. **Image pull access** — the pinned image is served from `registry.redhat.io`.
    On most OpenShift clusters the global pull secret covers it; if your
    namespace needs its own credentials, add an `imagePullSecrets` entry to the
@@ -112,6 +117,10 @@ the workbench pod), so deploying with the defaults requires no endpoint editing.
 
 If you change `RUN_NAME` in a notebook, update `SPECULATOR_HS_PATH` accordingly
 (`/mnt/speculator/<RUN_NAME>[-offline]/hidden_states`) and re-apply the manifest.
+
+The PVC name is configurable in the same way: the example uses `shared`, but
+you should set the manifest's `claimName` (and `PVC_NAME` in the notebooks) to
+the name of your own PVC.
 
 ## Customize
 
