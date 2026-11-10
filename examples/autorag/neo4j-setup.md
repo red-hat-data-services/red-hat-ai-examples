@@ -7,7 +7,7 @@
 
 ## Overview
 
-Neo4j is the graph database used by AutoRAG's GraphRAG capability (`BaseGraphStore` + Neo4j adapter). RHOAI does **not** auto-install or lifecycle-manage Neo4j — it is a customer- or platform-admin-provisioned prerequisite. This runbook documents the validated install path, connectivity validation, sizing guidance, and known constraints.
+Neo4j is the graph database used by AutoRAG's GraphRAG capability (`BaseVectorStore` + Neo4j adapter). RHOAI does **not** auto-install or lifecycle-manage Neo4j — it is a customer- or platform-admin-provisioned prerequisite. This runbook documents the validated install path, connectivity validation, sizing guidance, and known constraints.
 
 **Recommended path**: Neo4j **Community Edition** via the official **Neo4j Helm chart** (`helm.neo4j.com/neo4j`), deployed into a dedicated namespace.
 
@@ -277,7 +277,7 @@ oc run neo4j-bolt-test \
 
 Expected output: `bolt_ok / 1`
 
-### From Python (AutoRAG / LlamaIndex neo4j driver)
+### From Python (Neo4j driver)
 
 ```python
 from neo4j import GraphDatabase
