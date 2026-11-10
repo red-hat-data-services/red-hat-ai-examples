@@ -30,6 +30,16 @@ The **Neo4j Operator** (OperatorHub) is an alternative to Helm but is less commo
 
 ---
 
+## Create the namespace
+
+Create the target namespace before completing the prerequisites below. In particular, the optional Docker Hub pull secret must be created in this namespace.
+
+```bash
+oc new-project neo4j
+```
+
+---
+
 ## Prerequisites
 
 ### 1. OpenShift permissions
@@ -76,13 +86,7 @@ cert-manager and a `ClusterIssuer` or namespaced `Issuer` are required. The step
 
 ## Installation
 
-### Step 1 — Create the namespace
-
-```bash
-oc new-project neo4j
-```
-
-### Step 2 — Grant `anyuid` SCC
+### Step 1 — Grant `anyuid` SCC
 
 Neo4j runs as UID 7474 (non-root but specific UID). The `restricted-v2` SCC blocks specific UIDs; `anyuid` is required.
 
@@ -100,7 +104,7 @@ oc get pod autorag-neo4j-0 -n neo4j \
 # Expected: anyuid
 ```
 
-### Step 3 — Verify or create the cert-manager issuer
+### Step 2 — Verify or create the cert-manager issuer
 
 Check that cert-manager is installed and that the evaluation issuer exists:
 
@@ -124,7 +128,7 @@ EOF
 
 > For production, do not create this self-signed issuer. Obtain the name and kind of the organization-approved issuer from the platform team, then substitute it in Step 4.
 
-### Step 4 — Create the cert-manager Certificate
+### Step 3 — Create the cert-manager Certificate
 
 Apply this before installing the Helm release so the keypair Secret exists when the Neo4j pod starts.
 
@@ -157,10 +161,10 @@ EOF
 # Confirm cert-manager issued the TLS Secret.
 oc wait --for=condition=Ready certificate/neo4j-server-tls -n neo4j --timeout=2m
 oc describe secret neo4j-server-tls -n neo4j
-# Expected keys: ca.crt, tls.crt, tls.key
+# Expected keys: tls.crt, tls.key, and possibly ca.crt
 ```
 
-### Step 5 — Create values file
+### Step 4 — Create values file
 
 Save as `neo4j.values.yaml`:
 
@@ -236,14 +240,14 @@ config:
   server.https.enabled: "true"
 ```
 
-> After cert-manager renews or reissues `neo4j-server-tls`, restart Neo4j so it loads the new certificate:
+> After cert-manager renews or reissues `neo4j-server-tls`, restart Neo4j so it loads the new certificate. If AutoRAG uses the copied CA Secret described in [Rotate the AutoRAG trust certificate](#rotate-the-autorag-trust-certificate), update that Secret and restart or recreate its client workloads as well.
 >
 > ```bash
 > oc rollout restart statefulset/autorag-neo4j -n neo4j
 > oc rollout status statefulset/autorag-neo4j -n neo4j --timeout=5m
 > ```
 
-### Step 6 — Install via Helm
+### Step 5 — Install via Helm
 
 ```bash
 helm install autorag-neo4j neo4j/neo4j \
@@ -254,7 +258,7 @@ helm install autorag-neo4j neo4j/neo4j \
 
 Expected result: `STATUS: deployed` and pod `autorag-neo4j-0` in `Running` state.
 
-### Step 7 — Verify deployment and TLS
+### Step 6 — Verify deployment and TLS
 
 ```bash
 # Pod running
@@ -293,7 +297,7 @@ Expected services:
 | `autorag-neo4j-admin` | ClusterIP | 7687, 7474 | Admin/monitoring access |
 | `my-standalone-lb-neo4j` | LoadBalancer | 7474, 7473, 7687 | External client access |
 
-### Step 8 — Add the LoadBalancer hostname to the certificate (optional)
+### Step 7 — Add the LoadBalancer hostname to the certificate (optional)
 
 The certificate initially covers only the in-cluster Service DNS names. Complete this step only when clients connect through the external LoadBalancer. Add its hostname as a certificate SAN, wait for certificate reissuance, then restart Neo4j so it reads the renewed Secret.
 
@@ -311,7 +315,7 @@ oc rollout status statefulset/autorag-neo4j -n neo4j --timeout=5m
 
 Run this once after the LoadBalancer receives its hostname. If the Certificate already contains the hostname, do not patch it again. For a production issuer, ensure its certificate policy permits the LoadBalancer DNS name.
 
-### Step 9 — Verify APOC
+### Step 8 — Verify APOC
 
 APOC Core is bundled in the Neo4j image at `/var/lib/neo4j/labs/`. Setting `NEO4J_PLUGINS: '["apoc"]'` in the values causes the entrypoint to copy it into `/var/lib/neo4j/plugins/` at startup — no internet access required.
 
@@ -354,20 +358,32 @@ oc get secret my-standalone-auth -n neo4j \
 
 ### Exposing credentials to AutoRAG workloads
 
-Create a dedicated secret in the AutoRAG namespace that references the Bolt URI and credentials:
+Create a dedicated secret in the AutoRAG namespace that references the Bolt URI and credentials. This copies the current trust certificate; it is not a live reference to `neo4j-server-tls`.
 
 ```bash
 NEO4J_PASSWORD=$(oc get secret my-standalone-auth -n neo4j \
   -o jsonpath='{.data.NEO4J_AUTH}' | base64 -d | cut -d/ -f2)
 
-# Use ca.crt when cert-manager provides it; a self-signed leaf is its own
-# trust certificate, so tls.crt is the safe fallback.
+# For an organization or public CA issuer without ca.crt, set this before
+# running the block, for example: NEO4J_CA_FILE=/path/to/issuer-ca-bundle.pem
 NEO4J_CA_DATA=$(oc get secret neo4j-server-tls -n neo4j \
   -o jsonpath='{.data.ca\.crt}')
 if [ -z "${NEO4J_CA_DATA}" ]; then
-  NEO4J_CA_DATA=$(oc get secret neo4j-server-tls -n neo4j \
-    -o jsonpath='{.data.tls\.crt}')
+  NEO4J_ISSUER=$(oc get certificate neo4j-server-tls -n neo4j \
+    -o jsonpath='{.spec.issuerRef.name}')
+  if [ "${NEO4J_ISSUER}" = "selfsigned-issuer" ]; then
+    # Documented evaluation deployment only: a self-signed leaf is its own CA.
+    NEO4J_CA_DATA=$(oc get secret neo4j-server-tls -n neo4j \
+      -o jsonpath='{.data.tls\.crt}')
+  elif [ -n "${NEO4J_CA_FILE:-}" ] && [ -r "${NEO4J_CA_FILE}" ]; then
+    NEO4J_CA_DATA=$(base64 < "${NEO4J_CA_FILE}")
+  else
+    echo "No ca.crt: set NEO4J_CA_FILE to the issuer CA bundle; do not trust tls.crt."
+    exit 1
+  fi
 fi
+
+test -n "${NEO4J_CA_DATA}"
 printf '%s' "${NEO4J_CA_DATA}" | base64 -d > neo4j-ca.crt
 
 oc create secret generic neo4j-bolt-credentials \
@@ -375,8 +391,15 @@ oc create secret generic neo4j-bolt-credentials \
   --from-literal=NEO4J_USERNAME="neo4j" \
   --from-literal=NEO4J_PASSWORD="${NEO4J_PASSWORD}" \
   --from-file=NEO4J_CA_CERT=neo4j-ca.crt \
-  -n <autorag-namespace>
+  -n <autorag-namespace> \
+  --dry-run=client -o yaml | oc apply -f -
 rm neo4j-ca.crt
+```
+
+For an organization or public CA issuer that does not put `ca.crt` in `neo4j-server-tls`, do not use `tls.crt`. Obtain the issuer's trusted CA bundle from the platform team and set `NEO4J_CA_FILE` before running the complete block above:
+
+```bash
+export NEO4J_CA_FILE=/path/to/issuer-ca-bundle.pem
 ```
 
 Reference in a KFP pipeline task or Pod spec:
@@ -410,6 +433,38 @@ volumes:
         - key: NEO4J_CA_CERT
           path: ca.crt
 ```
+
+### Rotate the AutoRAG trust certificate
+
+For the documented, verified self-signed issuer, `ca.crt` (or, only when it is absent, `tls.crt`) is the server certificate itself. Each renewal or reissuance can therefore change the trust certificate copied into `neo4j-bolt-credentials`. Restarting Neo4j updates only its server certificate; it does not update the copy in the AutoRAG namespace.
+
+For this self-signed deployment, after every renewal, reissuance, or certificate SAN change (including Step 7), refresh the AutoRAG Secret and restart or recreate every client workload that uses it. New KFP task pods receive the updated Secret; for long-running Pods, Deployments, or services, perform the appropriate rollout/restart so the application reloads its trust configuration.
+
+```bash
+# Self-signed evaluation deployment only. Run after neo4j-server-tls is Ready
+# and Neo4j has been restarted.
+NEO4J_CA_DATA=$(oc get secret neo4j-server-tls -n neo4j \
+  -o jsonpath='{.data.ca\.crt}')
+if [ -z "${NEO4J_CA_DATA}" ]; then
+  NEO4J_ISSUER=$(oc get certificate neo4j-server-tls -n neo4j \
+    -o jsonpath='{.spec.issuerRef.name}')
+  if [ "${NEO4J_ISSUER}" != "selfsigned-issuer" ]; then
+    echo "No ca.crt: update the trusted issuer CA, not tls.crt."
+    exit 1
+  fi
+  NEO4J_CA_DATA=$(oc get secret neo4j-server-tls -n neo4j \
+    -o jsonpath='{.data.tls\.crt}')
+fi
+printf '%s' "${NEO4J_CA_DATA}" | base64 -d > neo4j-ca.crt
+
+NEO4J_CA_B64=$(base64 < neo4j-ca.crt | tr -d '\n')
+oc patch secret neo4j-bolt-credentials -n <autorag-namespace> \
+  --type=merge \
+  -p "{\"data\":{\"NEO4J_CA_CERT\":\"${NEO4J_CA_B64}\"}}"
+rm neo4j-ca.crt
+```
+
+For an organization or public CA issuer, `tls.crt` is a leaf certificate, not a trust anchor. If the TLS Secret has no `ca.crt`, obtain the issuer's trusted CA bundle separately or use the workload's system trust store. Do not use `tls.crt` as a fallback. Prefer an issuer with a stable CA chain for production; distribute that CA to AutoRAG workloads and rotate it only when the issuing CA changes.
 
 ---
 
@@ -450,17 +505,29 @@ oc exec autorag-neo4j-0 -n neo4j -- \
 # 1
 ```
 
-Verify the certificate chain and service hostname (this command returned `Verification: OK` and `Verify return code: 0 (ok)` on the live deployment):
+Verify the certificate chain and service hostname with the issuing CA. For the documented self-signed deployment, `tls.crt` is the issuing certificate only if `ca.crt` is absent. For a non-self-signed issuer, do not use `tls.crt` here.
 
 ```bash
-oc exec autorag-neo4j-0 -n neo4j -- sh -c '\
-  openssl s_client \
-    -connect autorag-neo4j.neo4j.svc.cluster.local:7687 \
-    -servername autorag-neo4j.neo4j.svc.cluster.local \
-    -verify_hostname autorag-neo4j.neo4j.svc.cluster.local \
-    -CAfile /var/lib/neo4j/certificates/bolt/public.crt \
-    </dev/null 2>&1 | grep -E "Verification: OK|Verify return code: 0 \(ok\)"'
+# Streams ca.crt (the issuing CA) into a temporary file in the pod for this
+# check. It does not depend on a NEO4J_CA_DATA shell variable.
+oc get secret neo4j-server-tls -n neo4j \
+  -o jsonpath='{.data.ca\.crt}' | base64 -d | \
+  oc exec -i autorag-neo4j-0 -n neo4j -- sh -c '
+    ca_file=$(mktemp)
+    trap "rm -f \"${ca_file}\"" EXIT
+    cat > "${ca_file}"
+    output=$(openssl s_client \
+      -connect autorag-neo4j.neo4j.svc.cluster.local:7687 \
+      -servername autorag-neo4j.neo4j.svc.cluster.local \
+      -verify_hostname autorag-neo4j.neo4j.svc.cluster.local \
+      -CAfile "${ca_file}" \
+      </dev/null 2>&1)
+    printf "%s\\n" "${output}"
+    printf "%s\\n" "${output}" | grep -q "Verification: OK"
+    printf "%s\\n" "${output}" | grep -q "Verify return code: 0 (ok)"'
 ```
+
+If an organization or public CA issuer does not include `ca.crt` in `neo4j-server-tls`, obtain its issuer CA bundle and replace `oc get secret … | base64 -d |` with `base64 < /path/to/issuer-ca-bundle.pem |`. Do not substitute `tls.crt`. For the documented self-signed issuer only, `tls.crt` may replace `ca.crt` if `ca.crt` is absent. This command returned `Verification: OK` and `Verify return code: 0 (ok)` on the live self-signed deployment.
 
 The Python-driver check above is the recommended end-to-end validation from the consumer namespace because it verifies TLS negotiation, authentication, and a Cypher query.
 
@@ -478,7 +545,7 @@ Use `bolt://<service-name>.<namespace>.svc.cluster.local:7687` only together wit
 
 ### External Bolt connection
 
-After completing [Step 8](#step-8--add-the-loadbalancer-hostname-to-the-certificate-optional), use the LoadBalancer hostname with the same Python driver settings:
+After completing [Step 7](#step-7--add-the-loadbalancer-hostname-to-the-certificate-optional), use the LoadBalancer hostname with the same Python driver settings:
 
 ```text
 bolt://<load-balancer-hostname>:7687
@@ -488,7 +555,7 @@ Keep `encrypted=True` and `TrustCustomCAs` configured with the issued CA. The Lo
 
 ### HTTP Browser UI
 
-After completing [Step 8](#step-8--add-the-loadbalancer-hostname-to-the-certificate-optional), open:
+After completing [Step 7](#step-7--add-the-loadbalancer-hostname-to-the-certificate-optional), open:
 
 ```text
 https://<load-balancer-hostname>:7473
