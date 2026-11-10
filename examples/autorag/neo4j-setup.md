@@ -33,16 +33,19 @@ The **Neo4j Operator** (OperatorHub) is an alternative to Helm but is less commo
 ## Prerequisites
 
 ### 1. OpenShift permissions
+
 - Cluster-admin or namespace-admin with ability to grant SCCs
 - Ability to create `ServiceAccount` with `anyuid` SCC (Neo4j pod runs as UID/GID 7474)
 - cert-manager installed on the cluster; a cluster administrator is required when creating or selecting a `ClusterIssuer`
 
 ### 2. Storage
+
 - A `StorageClass` supporting `ReadWriteOnce` (RWO) dynamic provisioning  
   Validated: **`gp3-csi`** on ROSA/AWS  
-  Minimum: 100 Gi for the data PVC (see [Sizing](#sizing-guidance))
+  Minimum: 100 Gi for the data PVC (see [Sizing](#sizing-guidance-graphrag-oriented-workload))
 
 ### 3. Image pull access
+
 Neo4j images are hosted on **Docker Hub** (`neo4j:<version>`). On clusters with Docker Hub rate limits or in disconnected environments, a pull secret is required.
 
 ```bash
@@ -54,9 +57,10 @@ oc create secret docker-registry dockerhub-pull-secret \
   -n neo4j
 ```
 
-For **disconnected/air-gapped** clusters, mirror the image to your internal registry first — see [Disconnected Constraints](#disconnectedair-gapped-constraints).
+For **disconnected/air-gapped** clusters, mirror the image to your internal registry first — see [Disconnected Constraints](#disconnected--air-gapped).
 
 ### 4. Helm
+
 ```bash
 helm repo add neo4j https://helm.neo4j.com/neo4j
 helm repo update
@@ -89,6 +93,7 @@ oc adm policy add-scc-to-user anyuid \
 ```
 
 Verify after deployment:
+
 ```bash
 oc get pod autorag-neo4j-0 -n neo4j \
   -o jsonpath='{.metadata.annotations.openshift\.io/scc}'
@@ -332,7 +337,6 @@ oc exec autorag-neo4j-0 -n neo4j -- \
 ```
 
 > **Note — APOC Extended**: `apoc-extended` (the superset with additional procedures) is a separate artifact that the entrypoint downloads at runtime from GitHub. It requires outbound internet access and will fail in disconnected/air-gapped clusters. APOC Core covers the procedures needed for GraphRAG workloads.
-
 > **Note — Extensions tab**: Plugin management via a UI Extensions tab is a Neo4j Desktop feature and is not available in the browser-based deployment. Use the Cypher queries above to inspect installed procedures.
 
 ---
@@ -466,7 +470,7 @@ The Python-driver check above is the recommended end-to-end validation from the 
 
 ### In-cluster Bolt connection
 
-```
+```text
 bolt://autorag-neo4j.neo4j.svc.cluster.local:7687
 ```
 
@@ -474,7 +478,7 @@ Use `bolt://<service-name>.<namespace>.svc.cluster.local:7687` only together wit
 
 ### External Bolt connection
 
-After completing [Step 8](#step-8--add-the-loadbalancer-hostname-to-the-certificate), use the LoadBalancer hostname with the same Python driver settings:
+After completing [Step 8](#step-8--add-the-loadbalancer-hostname-to-the-certificate-optional), use the LoadBalancer hostname with the same Python driver settings:
 
 ```text
 bolt://<load-balancer-hostname>:7687
@@ -484,7 +488,7 @@ Keep `encrypted=True` and `TrustCustomCAs` configured with the issued CA. The Lo
 
 ### HTTP Browser UI
 
-After completing [Step 8](#step-8--add-the-loadbalancer-hostname-to-the-certificate), open:
+After completing [Step 8](#step-8--add-the-loadbalancer-hostname-to-the-certificate-optional), open:
 
 ```text
 https://<load-balancer-hostname>:7473
@@ -563,10 +567,13 @@ AutoRAG will surface a clear error (e.g. `ServiceUnavailable: Failed to establis
 ## Known Constraints and Unsupported Scenarios
 
 ### FIPS
+
 Neo4j CE 2026.x does **not** publish FIPS-validated builds. Running on a FIPS-enabled RHEL 9 node may fail at JVM startup due to unsupported cipher suites. **Status: Unsupported on FIPS clusters.** Investigation with Neo4j EE FIPS support is a potential follow-on.
 
 ### Disconnected / Air-gapped
+
 Neo4j CE images are published to **Docker Hub** (`docker.io/library/neo4j:<version>`). For disconnected clusters:
+
 1. Mirror `neo4j:2026.06.0` to your internal registry (Quay, OpenShift internal registry, etc.)
 2. Update `image.customImage` in values.yaml to point to the mirrored image
 3. Ensure `imagePullSecrets` references a secret for the internal registry
@@ -574,19 +581,24 @@ Neo4j CE images are published to **Docker Hub** (`docker.io/library/neo4j:<versi
 No disconnected-specific image is provided by Neo4j; mirroring is the customer's responsibility.
 
 ### Licensing (Community vs Enterprise)
+
 - CE: Apache 2.0 — no contract, no support SLA
 - EE: Requires a commercial license from Neo4j, Inc. The Helm chart enforces `acceptLicenseAgreement: "yes"`. Using EE without a valid license violates the Neo4j EE EULA.
 
 ### Security Context Constraints
+
 Neo4j **requires** the `anyuid` SCC (runs as UID 7474). It cannot run under `restricted-v2`. This is a fixed upstream constraint — adjusting the pod's UID is not supported by the Helm chart. Platform teams must explicitly grant `anyuid` to the neo4j service account.
 
 ### Auto-install / Lifecycle management by RHOAI
+
 RHOAI (per platform policy overlay 0008) will **not** auto-install, upgrade, backup, or monitor Neo4j. All lifecycle operations are the customer's or platform admin's responsibility.
 
 ### Clustering / HA
+
 Neo4j Community Edition is **single-node only**. Causal clustering (HA) requires Enterprise Edition and a commercial license.
 
 ### Apache AGE
+
 AGE (PostgreSQL graph extension) is out of scope for this investigation. This runbook covers Neo4j only.
 
 ---
