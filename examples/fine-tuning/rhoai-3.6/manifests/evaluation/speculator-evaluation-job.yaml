@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: speculator-evaluation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 10800
+  template:
+    metadata:
+      labels:
+        app: speculator-evaluation
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: evaluation
+          image: registry.redhat.io/rhaii-fast/vllm-cuda-rhel9@sha256:97c7d6f66f3f0897b3ff10ddd135de930d45bdd116cf41a43e3ad7270029116a
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - /opt/evaluation/run_speculator_evaluation.py
+          env:
+            # Replace these paths with directories on the PVC. They are required.
+            - name: SPECULATOR_VERIFIER_MODEL
+              value: models/Qwen3-0.6B
+            - name: SPECULATOR_DRAFT_MODEL
+              value: speculator/run-01/checkpoints/checkpoint_best
+            - name: SPECULATOR_OUTPUT_DIR
+              value: speculator/run-01/evaluation
+          resources:
+            requests:
+              cpu: "4"
+              memory: 32Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: shared-pvc
+              mountPath: /mnt/persistent
+            - name: evaluation-script
+              mountPath: /opt/evaluation
+              readOnly: true
+      volumes:
+        - name: shared-pvc
+          persistentVolumeClaim:
+            claimName: shared
+        - name: evaluation-script
+          configMap:
+            name: speculator-eval-script
+            defaultMode: 0444
