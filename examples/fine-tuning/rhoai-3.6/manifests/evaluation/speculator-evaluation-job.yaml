@@ -18,6 +18,14 @@ spec:
           command:
             - python3
             - /opt/evaluation/run_speculator_evaluation.py
+          env:
+            # Replace these paths with directories on the PVC. They are required.
+            - name: SPECULATOR_VERIFIER_MODEL
+              value: models/Qwen3-0.6B
+            - name: SPECULATOR_DRAFT_MODEL
+              value: speculator/run-01/checkpoints/checkpoint_best
+            - name: SPECULATOR_OUTPUT_DIR
+              value: speculator/run-01/evaluation
           resources:
             requests:
               cpu: "4"

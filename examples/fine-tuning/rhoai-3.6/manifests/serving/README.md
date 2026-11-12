@@ -2,8 +2,12 @@
 
 This guide deploys a vLLM `ServingRuntime` and KServe `InferenceService` for
 inference with a verifier model and its trained draft model. Reuse
-`model-serving.yaml` for the eight model configurations by updating the small
-set of model settings below.
+`model-serving.yaml` for different verifier and draft model configurations by
+updating the model settings below.
+
+`ServingRuntime` defines the runtime environment for serving the model.
+`InferenceService` deploys and manages the model-serving workload using that
+runtime.
 
 Run commands that reference `model-serving.yaml` from this directory:
 `examples/fine-tuning/rhoai-3.6/manifests/serving/`.
@@ -84,6 +88,17 @@ For example:
 - name: SPECULATOR_GPU_MEM_UTIL
   value: "0.9"
 ```
+
+Set the draft model path in `SPECULATIVE_CONFIG` to the checkpoint produced by
+the training workflow you ran:
+
+- [TRAIN_ONLY notebook](../../speculator/train-only/speculator-train-only-example.ipynb): `/mnt/models/speculator/<run-name>/checkpoints/checkpoint_best`
+- [OFFLINE notebook](../../speculator/offline/speculator-offline-example.ipynb): `/mnt/models/speculator/<run-name>-offline/checkpoint_best`
+- [ONLINE notebook](../../speculator/online/speculator-online-example.ipynb): `/mnt/models/speculator/<run-name>-online/checkpoint_best`
+
+Replace `<run-name>` with the `RUN_NAME` value used in the notebook. The paths
+include KServe's `/mnt/models` mount prefix and must match the checkpoint
+directory on the PVC.
 
 The KServe runtime expands these values in its container arguments. The other
 runtime settings, including the vLLM image and CPU, memory, and GPU requests,

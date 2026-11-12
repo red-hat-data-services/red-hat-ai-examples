@@ -1,8 +1,12 @@
 # Run the Speculator Evaluation Job
 
-This guide runs an evaluation sweep against a trained Eagle3 draft model. The Job
-starts a temporary vLLM server with the verifier and draft model, runs the
-Speculators evaluator, and saves results to a shared PVC.
+This guide runs an evaluation **sweep**, which tests the serving system at
+different request rates, against a trained Eagle3 draft model. A **subset** is
+the selected benchmark task within the evaluation dataset. For an overview of
+how the draft model works with the verifier model, see the [Speculator
+overview](../../speculator/README.md). The Job starts a temporary vLLM server
+with the verifier and draft model, runs the Speculators evaluator, and saves
+results to a shared PVC.
 
 You do **not** need to deploy the external vLLM server used for hidden-state
 extraction in `DATA_ONLY` or `OFFLINE` training. The evaluation Job starts its
@@ -10,8 +14,7 @@ own temporary server.
 
 Run the commands that reference the Job manifest or create the script ConfigMap
 from this directory: `examples/fine-tuning/rhoai-3.6/manifests/evaluation/`.
-The Python script is at `../../scripts/run_speculator_evaluation.py` relative to
-this directory.
+The Python script is at `run_speculator_evaluation.py` in this directory.
 
 ## Prerequisites
 
@@ -69,27 +72,67 @@ oc get resourcequota -n "$NAMESPACE"
 
 ## Configure the script and Job manifest
 
-Edit `USER_CONFIG` in
-[`../../scripts/run_speculator_evaluation.py`](../../scripts/run_speculator_evaluation.py)
-before creating the ConfigMap. The model and output paths are relative to the
-PVC mount root; do not use `pvc://` URIs in these fields.
+Set the required model and output paths as environment variables in
+`speculator-evaluation-job.yaml`; do not edit the Python source. These
+variables are required by the script. The paths are relative to the PVC mount
+root at `/mnt/persistent`; do not use `pvc://` URIs. Replace the example paths
+only if your PVC uses different directories. These sample values must match the
+verifier model, trained draft checkpoint, and output directory on the mounted
+PVC:
 
-For example:
+```yaml
+env:
+  - name: SPECULATOR_VERIFIER_MODEL
+    value: models/Qwen3-0.6B
+  - name: SPECULATOR_DRAFT_MODEL
+    value: speculator/run-01/checkpoints/checkpoint_best
+  - name: SPECULATOR_OUTPUT_DIR
+    value: speculator/run-01/evaluation
+```
+
+Set `SPECULATOR_DRAFT_MODEL` to the checkpoint produced by the training
+workflow you ran:
+
+- [TRAIN_ONLY notebook](../../speculator/train-only/speculator-train-only-example.ipynb): `speculator/<run-name>/checkpoints/checkpoint_best`
+- [OFFLINE notebook](../../speculator/offline/speculator-offline-example.ipynb): `speculator/<run-name>-offline/checkpoint_best`
+- [ONLINE notebook](../../speculator/online/speculator-online-example.ipynb): `speculator/<run-name>-online/checkpoint_best`
+
+Replace `<run-name>` with the `RUN_NAME` value used in the notebook. These
+paths are relative to `/mnt/persistent` and must match the checkpoint directory
+on the PVC.
+
+The Job already runs the script with `python3`; customers only need to update
+these three environment variable values. The script validates the verifier and
+draft directories before starting vLLM, and creates the output directory if it
+does not exist.
+
+The other evaluation settings keep the official Speculators evaluator defaults
+in `USER_CONFIG`. The default dataset runs the standard subsets
+`HumanEval`, `math_reasoning`, `qa`, `question`, `rag`, `summarization`,
+`tool_call`, `translation`, and `writing`. For example:
 
 ```python
 "pvc_mount_root": "/mnt/persistent",
-"verifier_model": "models/<verifier-model-directory>",
-"draft_model": "speculator/<run-name>/checkpoints/checkpoint_best",
-"output_dir": "speculator/<run-name>/evaluation",
 "dataset": "RedHatAI/speculator_benchmarks",
-"subsets": None,
+"subsets": "HumanEval,math_reasoning,qa,question,rag,summarization,tool_call,translation,writing",
+"mode": "sweep",
+"max_requests": 200,
+"max_concurrency": 128,
+"max_tokens": 4096,
+"temperature": 1.0,
 ```
 
+For a quick configuration check, temporarily lower `max_requests` in the
+script before running the Job and treat the result as a smoke test, not as a
+performance benchmark. For meaningful performance comparisons, keep the
+workload, concurrency, warmup, and hardware configuration consistent across
+runs.
+
 Replace the verifier and draft paths with directories on your PVC. The output
-directory is created by the script. The default dataset uses the `HumanEval`
-subset. If you use another Hugging Face dataset, set `subsets` to a subset that
-exists in that dataset. For a local JSONL dataset, set `dataset` to its absolute
-path under `/mnt/persistent` and set `subsets` to `"local"`.
+directory is created by the script. If you use another Hugging Face dataset,
+set `subsets` to a subset that exists in that dataset. For a local JSONL
+dataset, set `dataset` to its absolute path under `/mnt/persistent` and set
+`subsets` to `"local"`.
 
 In `speculator-evaluation-job.yaml`:
 
@@ -102,8 +145,12 @@ In `speculator-evaluation-job.yaml`:
     claimName: shared
   ```
 
+  Keep `claimName` as a literal PVC name in the manifest. It cannot be supplied
+  through a container environment variable because Kubernetes must resolve and
+  mount the PVC before the container starts.
+
 - Keep the PVC mount path at `/mnt/persistent` to match `pvc_mount_root` in the
-  script.
+  script and the relative paths passed to the script.
 
 The ConfigMap and Job must be created in the same namespace as the PVC. The
 evaluation Job needs read access to the verifier and draft directories and
@@ -111,11 +158,11 @@ write access to the output directory.
 
 ## Create or update the script ConfigMap
 
-From this directory, create the ConfigMap from the script under `scripts/`:
+From this directory, create the ConfigMap from the evaluation script:
 
 ```bash
 oc create configmap speculator-eval-script \
-  --from-file=run_speculator_evaluation.py=../../scripts/run_speculator_evaluation.py \
+  --from-file=run_speculator_evaluation.py=run_speculator_evaluation.py \
   -n "$NAMESPACE" \
   --dry-run=client -o yaml |
   oc apply -n "$NAMESPACE" -f -
@@ -159,10 +206,59 @@ The script writes results under the configured `output_dir` on the PVC. For
 example, if `output_dir` is `speculator/run-01/evaluation`, inspect that
 directory from the workbench file browser.
 
-The evaluation produces acceptance metrics and performance results, including
-`acceptance.csv`, `perf_results.csv`, and raw evaluator output. Use the
-acceptance results to see how often the verifier accepts draft tokens, and the
-performance results to compare latency and throughput.
+The main result files are:
+
+- `acceptance.csv`: contains draft-token acceptance metrics.
+- `perf_results.csv`: contains latency and throughput metrics.
+- Raw evaluator files: contain detailed evaluation output.
+
+The following values are from an earlier ten-request smoke test. They only show
+how to read the output and are not accurate or representative benchmark
+results.
+
+The `acceptance.csv` row reported:
+
+```text
+num_drafts=127,535
+num_draft_tokens=637,675
+num_accepted_tokens=6,112
+acceptance_length=1.0479
+```
+
+This means:
+
+- `6,112 / 637,675` equals approximately 0.96% of proposed draft tokens
+  accepted.
+- The official evaluator calculates `acceptance_length` as:
+  `1 + (num_accepted_tokens / num_drafts)`.
+- For this row:
+  `1 + (6,112 / 127,535) = 1.0479`.
+- `acceptance_length` is an evaluator metric, not a percentage.
+
+Because this run used only ten requests, do not use these values to judge model
+quality or performance.
+
+In `perf_results.csv`:
+
+- `rps_median`: requests per second.
+- `latency_median_s`: seconds per request.
+- `itl_median_ms`: milliseconds between output tokens.
+- `ttft_median_ms`: milliseconds before the first token.
+- `output_tps_median`: output tokens per second.
+
+For example, `output_tps_median=26` means that benchmark point reported a
+median output throughput of 26 tokens per second.
+
+This example measures the verifier and draft model running together. It does
+not measure the verifier model by itself, so these results cannot prove a
+speedup.
+
+To claim a speedup, run a separate benchmark using the same verifier model
+without a draft model, with the same dataset, request settings, and hardware.
+That baseline run is outside this example.
+
+`HumanEval` provides coding prompts for the workload. This evaluation does not
+execute or grade the generated code.
 
 ![Evaluation output files in the workbench](../../../images/evaluation-output-files.png)
 

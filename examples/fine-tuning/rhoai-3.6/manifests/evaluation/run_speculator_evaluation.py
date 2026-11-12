@@ -34,21 +34,25 @@ EVALUATOR_SHA256 = {
     "provenance.py": "2ddd7c8c10eaaca2678552979c848f985eb146b35ae14062f9589151d4ee020a",
 }
 
-# User configuration: edit these values before running the file or notebook cell.
+# Evaluation settings. Model and output paths are supplied through required Job
+# environment variables so customers do not need to edit this file.
 USER_CONFIG = {
-    # The Job mounts the user-selected PVC at this stable path. The paths below
-    # are relative to the PVC root; the PVC name belongs only in the Job YAML.
+    # The Job mounts the user-selected PVC at this stable path. These paths are
+    # relative to the PVC root; the PVC name belongs only in the Job YAML.
     "pvc_mount_root": "/mnt/persistent",
-    "verifier_model": "models/Qwen3-0.6B",
-    "draft_model": "speculator/run-01/checkpoints/checkpoint_best",
-    "output_dir": "speculator/run-01/evaluation",
+    "verifier_model": None,
+    "draft_model": None,
+    "output_dir": None,
     "dataset": "RedHatAI/speculator_benchmarks",
-    "subsets": None,
+    "subsets": (
+        "HumanEval,math_reasoning,qa,question,rag,summarization,"
+        "tool_call,translation,writing"
+    ),
     "mode": "sweep",
-    "max_requests": 10,
-    "max_concurrency": 8,
-    "max_tokens": 128,
-    "temperature": 0.0,
+    "max_requests": 200,
+    "max_concurrency": 128,
+    "max_tokens": 4096,
+    "temperature": 1.0,
     "num_speculative_tokens": 5,
     "gpu_memory_utilization": 0.9,
     "port": 8000,
@@ -56,6 +60,13 @@ USER_CONFIG = {
     "evaluation_timeout_seconds": 7200,
     "trust_remote_code": False,
 }
+
+
+def _required_environment(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(f"Required environment variable is not set: {name}")
+    return value
 
 
 def _ensure_guidellm() -> None:
@@ -214,7 +225,12 @@ def _stop_server(process: subprocess.Popen[bytes]) -> None:
 
 
 def main() -> int:
-    config = USER_CONFIG
+    config = {
+        **USER_CONFIG,
+        "verifier_model": _required_environment("SPECULATOR_VERIFIER_MODEL"),
+        "draft_model": _required_environment("SPECULATOR_DRAFT_MODEL"),
+        "output_dir": _required_environment("SPECULATOR_OUTPUT_DIR"),
+    }
 
     vllm = shutil.which("vllm")
     if vllm is None:
