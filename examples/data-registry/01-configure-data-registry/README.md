@@ -61,18 +61,7 @@ spec:
 
 The Feature Store and Data Registry management states are independent. Do not change the Feature Store state unless you also intend to enable or disable that component.
 
-Clusters upgraded from an earlier RHOAI release might expose the compatibility form below instead:
-
-```yaml
-spec:
-  components:
-    feastoperator:
-      managementState: Managed
-      dataRegistry:
-        managementState: Managed
-```
-
-`managementState` is an enum such as `Managed` or `Removed`; it is not a `true` or `false` field. Check the custom resource definition installed on your cluster if neither form is accepted:
+`managementState` is an enum such as `Managed` or `Removed`; it is not a `true` or `false` field. Check the custom resource definition installed on your cluster if the field is not accepted:
 
 ```bash
 oc explain datasciencecluster.spec.components --recursive
@@ -140,6 +129,10 @@ Secret for you; skip the command above.
 The Secret must be in the `rhoai-data-registry` namespace because the Data Registry workload reads it there. If the password contains reserved URI characters, URL-encode it before using it in the DSN. Never commit a Secret containing real credentials.
 
 ### Create the registry instance
+
+> **Required namespace:** The `FeatureStore` must use
+> `metadata.namespace: rhoai-data-registry`. This is the service namespace,
+> separate from the RHOAI project where you catalog assets.
 
 Review [feature-store.yaml](feature-store.yaml), then create the instance:
 
