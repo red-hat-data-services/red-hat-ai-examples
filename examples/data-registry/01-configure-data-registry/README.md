@@ -3,7 +3,7 @@
 This step is for a cluster administrator. Enable the Data Registry component,
 configure its metadata database, deploy an instance, and confirm the dashboard
 is available. Then continue with [Step 2](../02-register-data-asset/README.md)
-to create a project and register data.
+to register a data asset.
 
 > **Technology Preview:** Technology Preview features are not supported with Red Hat production service-level agreements (SLAs), might not be functionally complete, and are not recommended for production. See the Red Hat support scope for Technology Preview features before using this example.
 
@@ -117,13 +117,25 @@ oc get namespace rhoai-data-registry
 
 ### Configure the metadata database
 
-The registry requires PostgreSQL for its own metadata. It can use the same PostgreSQL service as a Feast Feature Store, but use a dedicated database and database user when possible. This gives you clearer ownership, backup, lifecycle, and access boundaries even when both databases share a PostgreSQL server.
+The registry requires PostgreSQL for its own metadata. Use an existing
+reachable PostgreSQL service, or follow the
+[supplementary demo PostgreSQL setup](../supplementary/postgresql-demo.md) to
+create a single-instance database for evaluation. The demo setup is not
+production ready. The registry can use the same PostgreSQL service as a Feast
+Feature Store, but use a dedicated database and database user when possible.
+This gives you clearer ownership, backup, lifecycle, and access boundaries
+even when both databases share a PostgreSQL server.
 
-Copy [database-secret.example.yaml](database-secret.example.yaml), replace every `CHANGE_ME` value, and apply it:
+For an existing PostgreSQL service, copy
+[database-secret.example.yaml](database-secret.example.yaml), replace every
+`CHANGE_ME` value, then apply it:
 
 ```bash
 oc apply -f database-secret.example.yaml
 ```
+
+If you use the supplementary demo database, its guide creates this same
+Secret for you; skip the command above.
 
 The Secret must be in the `rhoai-data-registry` namespace because the Data Registry workload reads it there. If the password contains reserved URI characters, URL-encode it before using it in the DSN. Never commit a Secret containing real credentials.
 

@@ -1,0 +1,115 @@
+# Demo-only single-instance PostgreSQL for Data Registry metadata.
+# Create Secret/postgresql-demo-credentials first; see postgresql-demo.md.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-demo-data
+  labels:
+    app.kubernetes.io/name: postgresql-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql-demo
+  labels:
+    app.kubernetes.io/name: postgresql-demo
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql-demo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgresql-demo
+    spec:
+      containers:
+        - name: postgresql
+          image: quay.io/sclorg/postgresql-16-c9s:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgresql
+              containerPort: 5432
+          env:
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-demo-credentials
+                  key: POSTGRESQL_USER
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-demo-credentials
+                  key: POSTGRESQL_PASSWORD
+            - name: POSTGRESQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-demo-credentials
+                  key: POSTGRESQL_DATABASE
+          startupProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - pg_isready -h 127.0.0.1 -p 5432 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/pgsql/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgresql-demo-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-demo
+  labels:
+    app.kubernetes.io/name: postgresql-demo
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgresql-demo
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql

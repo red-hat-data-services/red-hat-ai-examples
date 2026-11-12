@@ -1,4 +1,4 @@
-# Step 3: Use the Data Registry API from a workbench
+# Step 3: Use the Data Registry API
 
 [← Step 2: Register an asset](../02-register-data-asset/README.md) ·
 [Step 4: Share access →](../04-share-registry-access/README.md) ·

@@ -1,7 +1,7 @@
-# Step 2: Create a project, collection, and data asset
+# Step 2: Register a Data Asset
 
 [← Step 1: Configure the registry](../01-configure-data-registry/README.md) ·
-[Step 3: Use the API →](../03-use-registry-api/README.md) ·
+[Step 3: Use the Data Registry API →](../03-use-registry-api/README.md) ·
 [Guide index](../README.md)
 
 In this walkthrough, you create an RHOAI project, connect it to an S3-compatible
@@ -25,6 +25,11 @@ credentials in the connection, and adjust the example path.
 - Have permission to create an RHOAI project, connection, collection, and asset.
 - Keep credentials out of Git, screenshots, asset descriptions, and notebook
   outputs. This example's document contains only synthetic information.
+
+Already have the RHOAI project and S3 connection? Skip sections 1 and 3, and
+use their names and endpoint in the remaining steps. Confirm that the
+connection belongs to the selected project and can access the bucket and path
+you use below.
 
 The example names below are used throughout Steps 2 and 3:
 
@@ -208,5 +213,5 @@ For another data product, replace the fictional values deliberately:
   and local conventions. Confirm these with the data owner. PII status is an
   informative classification; it does not enforce storage or registry access.
 
-Next, [use the API from a workbench](../03-use-registry-api/README.md) to
+Next, [use the Data Registry API](../03-use-registry-api/README.md) to
 inspect this asset and download the document using the attached connection.
