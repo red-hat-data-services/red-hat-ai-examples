@@ -66,7 +66,9 @@ If the project already exists, do not recreate it. Check that it appears under
 **Projects** in the dashboard. The label makes a CLI-created namespace
 available as an RHOAI project; it does not grant storage access.
 
-> **Screenshot to add:** Projects page with `data-registry-example` selected.
+![Data Registry example project before storage is added](images/data-registry-project.png)
+
+*Data Registry example project open on its Connections tab before adding an S3 connection.*
 
 ## 2. Put an example document in S3-compatible storage
 
@@ -168,8 +170,9 @@ After saving, check that `data-registry-storage` appears on the project's
 does not itself create a Data Registry asset or grant every project member S3
 access.
 
-> **Screenshot to add:** Completed S3 connection form with the access and
-> secret key fields obscured; then the connection listed in the project.
+![S3 connection listed in the Data Registry example project](images/data-registry-connection.png)
+
+*The `data-registry-storage` connection is listed in the project. This example view shows its status as Unverified.*
 
 ## 4. Create a collection
 
