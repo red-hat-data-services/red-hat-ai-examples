@@ -55,10 +55,13 @@ installed; installing that product is outside this project-level example.
 Use a checkout of this repository and run the commands from
 `examples/data-registry/supplementary/`. You need `oc`, Python 3, the AWS
 CLI, `openssl`, and `curl` on your workstation. You also need
-permission to create a namespace and a default dynamic `StorageClass` with at
-least 10 Gi of capacity. Ask an administrator for a namespace or storage class
-if your access does not include those operations. The cluster must be able to
-pull `docker.io/chrislusf/seaweedfs:4.52` or an approved mirror of it.
+permission to create a namespace and a dynamic `StorageClass` with at least
+10 Gi of capacity. A default StorageClass is simplest. If the cluster has no
+default, choose an available dynamic class from `oc get storageclass` and set
+`storageClassName` in the PVC in `seaweedfs.yaml` before applying it. Ask an
+administrator for a namespace or storage class if your access does not include
+those operations. The cluster must be able to pull
+`docker.io/chrislusf/seaweedfs:4.52` or an approved mirror of it.
 
 Confirm the cluster before creating resources:
 
@@ -122,8 +125,9 @@ oc get deployment,pod,service,pvc -n "$STORAGE_NAMESPACE" -o wide
 Expect `deployment/seaweedfs` to show `1/1` Ready, `pvc/seaweedfs-data` to
 show `Bound`, and `service/seaweedfs` to expose ports **8333** (S3) and
 **12646** (Admin UI). The image runs with a non-root UID and the restricted
-OpenShift security context. The PVC uses the cluster's default StorageClass;
-set `storageClassName` in the manifest if you need a specific one. The bucket
+OpenShift security context. The PVC uses the cluster's default StorageClass
+unless you set `storageClassName` in the PVC in `seaweedfs.yaml` to select a
+specific class or to use a class when the cluster has no default. The bucket
 `data-registry-example` is created at startup.
 
 The manifest gives `weed mini` a fixed Admin port below the usual ephemeral
@@ -162,7 +166,14 @@ export AWS_EC2_METADATA_DISABLED=true
 Create, list, and download a small object through the S3 API:
 
 ```bash
+set -euo pipefail
 test_dir="$(mktemp -d)"
+cleanup() {
+  rm -rf "$test_dir"
+  unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+}
+trap cleanup EXIT
+
 printf 'SeaweedFS S3 test\n' > "$test_dir/hello.txt"
 
 aws --endpoint-url http://127.0.0.1:18333 s3api head-bucket \
@@ -177,17 +188,19 @@ aws --endpoint-url http://127.0.0.1:18333 s3api get-object \
   "$test_dir/downloaded.txt"
 cmp "$test_dir/hello.txt" "$test_dir/downloaded.txt"
 printf 'S3 round trip passed\n'
-
-rm -r "$test_dir"
-unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 ```
 
 The list should contain `sample/hello.txt`, and `cmp` should succeed. An
 unsigned request to the bucket should return `403 AccessDenied`:
 
 ```bash
-curl -sS -o /dev/null -w '%{http_code}\n' \
-  http://127.0.0.1:18333/data-registry-example
+status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  http://127.0.0.1:18333/data-registry-example)"
+if [[ "$status" != 403 ]]; then
+  printf 'Expected anonymous request to return 403; got %s\n' "$status" >&2
+  exit 1
+fi
+printf 'Anonymous request returned HTTP %s as expected\n' "$status"
 ```
 
 To test persistence, restart only this deployment:
@@ -234,6 +247,8 @@ systems. The **Object Store → Buckets** page should show
 Admin UI internal and authenticated rather than adding a public Route for this
 example.
 
+![SeaweedFS Admin UI showing sample/hello.txt in the data-registry-example bucket.](images/seaweedfs-admin-sample-object.png)
+
 ## Clean up
 
 Stop the `oc port-forward` command in the first terminal with **Ctrl+C**.
@@ -252,7 +267,7 @@ oc delete namespace "$STORAGE_NAMESPACE" --wait=true
 
 | Symptom | Check |
 | --- | --- |
-| PVC stays `Pending` | Check the default StorageClass, quota, and PVC events with `oc describe pvc seaweedfs-data -n "$STORAGE_NAMESPACE"`. |
+| PVC stays `Pending` | Check the selected StorageClass, quota, and PVC events with `oc describe pvc seaweedfs-data -n "$STORAGE_NAMESPACE"`. |
 | Pod cannot pull the image | Check pod events and cluster egress or mirror policy. Do not substitute an unrelated image. |
 | Pod restarts or cannot write `/data` | Check `oc describe pod` and `oc logs deployment/seaweedfs -n "$STORAGE_NAMESPACE"`; confirm PVC ownership and the assigned OpenShift security context. |
 | S3 requests return `403` | Confirm the generated Secret and AWS CLI environment match; anonymous access is intentionally denied. |
