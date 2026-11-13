@@ -232,7 +232,9 @@ created for it and replace the bucket in the path with the actual bucket, for
 example `s3://your-approved-bucket/examples/customer-support/`. The path
 describes the location; it is not a credential or an upload command.
 
-> **Screenshot to add:** Registration form showing identity and format values.
+![Data asset identity and format in the registration form](images/data-asset-identity-format.png)
+
+*The asset identity and format are filled in before choosing the S3 connection and path.*
 >
 > **Screenshot to add:** Organization, location, and governance values with
 > `data-registry-storage` selected; no credentials in view.
