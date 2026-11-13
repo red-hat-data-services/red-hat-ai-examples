@@ -1,0 +1,37 @@
+# Apply after Step 2 has created the project and data-registry-storage connection.
+# WorkbenchesV2 must be Managed in the DataScienceCluster.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-registry-api-home
+  namespace: data-registry-example
+  labels:
+    notebooks.kubeflow.org/can-mount: "true"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: kubeflow.org/v1beta1
+kind: Workspace
+metadata:
+  name: data-registry-api
+  namespace: data-registry-example
+spec:
+  displayName: Data Registry API
+  kind: jupyterlab
+  paused: false
+  podTemplate:
+    options:
+      imageConfig: s2i-generic-data-science-notebook:3.6
+      podConfig: small_cpu
+    podMetadata:
+      labels:
+        opendatahub.io/feast-integration: "true"
+    volumes:
+      home: data-registry-api-home
+      secrets:
+        - secretName: data-registry-storage
+          mountPath: /var/run/secrets/data-registry-storage
