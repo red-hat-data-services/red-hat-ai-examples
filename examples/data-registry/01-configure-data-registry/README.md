@@ -167,7 +167,7 @@ oc get deployments,pods,services,routes -n rhoai-data-registry
 
 In the RHOAI dashboard, open **AI hub** and then **Data**. Confirm that you can select an RHOAI project and that the Data Registry page loads.
 
-> **Screenshot to add:** RHOAI 3.6 **AI hub → Data** with the project selector and an empty registry. Capture a neutral project without hostnames, usernames, or customer data.
+![Data Registry empty state in the RHOAI 3.6 AI hub Data page, with the agent-sandbox-system project selected.](images/data-registry-empty-state.png)
 
 If the page does not load, first inspect the `FeatureStore` status and workload events:
 
