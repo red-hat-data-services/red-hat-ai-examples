@@ -16,8 +16,8 @@ setup, not a highly available storage design. Keep it separate from the Data
 Registry service and from any existing object store.
 
 ```text
-Data Registry asset metadata -> RHOAI Data Connection -> S3 endpoint
-                                                    -> SeaweedFS bucket -> PVC
+Workstation AWS CLI -> port-forward -> SeaweedFS S3 API -> bucket -> PVC
+Workstation browser -> port-forward -> SeaweedFS Admin UI
 ```
 
 A standalone SeaweedFS **4.52** deployment with this configuration was
@@ -28,11 +28,17 @@ documents `weed mini`, its S3 endpoint, and the Admin UI. The
 [Helm chart documentation](https://github.com/seaweedfs/seaweedfs/blob/master/k8s/charts/seaweedfs/README.md#openshift-support)
 provides an OpenShift path for larger deployments.
 
+> [!WARNING]
+> **Not production grade.** This single-node SeaweedFS setup is for
+> demonstration and learning only. It is not AWS S3 or a production-grade
+> storage service. Do not store production or real customer data here. For
+> production workloads, use object storage approved by your organization.
+
 ## Choose a storage path
 
 | Situation | Path |
 | --- | --- |
-| Your organization already provides S3-compatible storage | Obtain its endpoint, bucket, region, and scoped credentials. Skip to [Create an RHOAI Data Connection](#create-an-rhoai-data-connection). |
+| Your organization already provides S3-compatible storage | Use your organization's process to create or choose a test bucket and upload content. You can skip the SeaweedFS installation in this guide. |
 | You need a self-contained evaluation | Follow the SeaweedFS installation and verification below. |
 
 An existing service might be AWS S3, Red Hat Ceph Object Gateway, IBM Cloud
@@ -99,8 +105,9 @@ PY
 ```
 
 Keep this Secret when reapplying the manifest or restarting the pod. Recreating
-it changes the credentials and requires updating any Data Connection that uses
-them. The Secret is for this evaluation store; do not commit its values.
+it changes the credentials; update clients that use this store before
+reconnecting. The Secret is for this evaluation store; do not commit its
+values.
 
 ### Deploy the store
 
@@ -222,47 +229,26 @@ oc -n "$STORAGE_NAMESPACE" get secret seaweedfs-credentials \
 
 Use your workstation's clipboard utility in place of `pbcopy` on other
 systems. The **Object Store → Buckets** page should show
-`data-registry-example`; open it to browse `sample/hello.txt`. The UI also
-shows cluster status and volume information. Keep the Admin UI internal and
-authenticated rather than adding a public Route for this example.
+`data-registry-example`; open it, then open the `sample` folder to see
+`hello.txt`. The UI also shows cluster status and volume information. Keep the
+Admin UI internal and authenticated rather than adding a public Route for this
+example.
 
-## Create an RHOAI Data Connection
+## Clean up
 
-This step connects an RHOAI project to the object store. It is independent of
-the standalone S3 installation test above. In the RHOAI dashboard, open the
-Data Science project that will own the example asset, select **Connections →
-Create connection**, and choose **S3 compatible object storage - v1**.
+Stop the `oc port-forward` command in the first terminal with **Ctrl+C**.
 
-| Field | SeaweedFS example value |
-| --- | --- |
-| Connection name | `data-registry-storage` |
-| Endpoint | `http://seaweedfs.data-registry-storage.svc:8333` |
-| Access key | `AWS_ACCESS_KEY_ID` from `Secret/seaweedfs-credentials` |
-| Secret key | `AWS_SECRET_ACCESS_KEY` from the same Secret |
-| Region | `us-east-1` |
-| Bucket | `data-registry-example` |
+> [!WARNING]
+> **Only clean up when you are completely finished with this demo store.**
+> The command below deletes the SeaweedFS deployment, credentials, Service,
+> and PVC. If the PV reclaim policy is `Delete`, deleting the PVC also deletes
+> the bucket and its objects. Back up anything you need before continuing.
 
-If you chose another storage namespace, replace `data-registry-storage` in the
-endpoint. The `.svc` address is available inside the cluster, not from a
-workstation browser. Use your organization's approved process to transfer the
-scoped key values into the RHOAI connection Secret. Do not put them into asset
-metadata, Git, screenshots, or a public URL. A NetworkPolicy or service-mesh
-rule may require an explicit path from the project to port 8333.
-
-Return to [Step 2](../02-register-data-asset/README.md) to upload the synthetic
-FAQ and register an unstructured example asset with the connection and path:
-
-```text
-s3://data-registry-example/examples/customer-support/
+```bash
+oc delete namespace "$STORAGE_NAMESPACE" --wait=true
 ```
 
-The Data Registry stores the path and connection reference. Registration does
-not prove that the object exists or that a workbench can read it; the S3 test
-above verifies the object independently. An RHOAI user needs storage access
-through the connection as well as registry metadata access through project
-RBAC.
-
-## Troubleshoot and retain the data
+## Troubleshoot
 
 | Symptom | Check |
 | --- | --- |
@@ -273,10 +259,3 @@ RBAC.
 | UI redirects to login | This is expected. Use the Admin password from the Secret and the forwarded port 12646. |
 | S3 returns `403` with the new Secret, or port forwarding reports an address already in use | Check for an older port forward on 18333 or 12646. Stop it and forward `service/seaweedfs` in the intended namespace. Credentials from one SeaweedFS instance will not authenticate to another. |
 | Forwarded ports stop after restart | Start `oc port-forward` again; it was attached to the replaced pod. |
-| RHOAI workload cannot reach S3 | Verify the endpoint uses the correct namespace and port 8333, then check NetworkPolicy and DNS from the workload namespace. |
-
-The `sample/hello.txt` object is harmless test data. Keep the namespace and
-PVC if you plan to reuse the store. **Deleting the namespace or PVC deletes
-the object data** when the StorageClass uses a delete reclaim policy; make an
-intentional backup and removal decision before cleaning up. Nothing in this
-guide deletes persistent storage or changes an existing object store.
