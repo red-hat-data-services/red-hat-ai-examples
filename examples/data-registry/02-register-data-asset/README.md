@@ -250,7 +250,9 @@ governance metadata. A successful save proves the metadata was registered. The
 upload in section 2 proves the object exists. Step 3 proves an authorized
 workbench can read both the registry metadata and the object.
 
-> **Screenshot to add:** Asset detail page with the connection and path visible.
+![Registered customer-support-faq asset details](images/data-asset-details.png)
+
+*The asset details show its collection, connection, S3 prefix, labels, and properties.*
 
 ## What the fields mean for your own data
 
