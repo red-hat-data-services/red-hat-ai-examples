@@ -10,18 +10,21 @@ in the Data Registry. The registry stores a description and a location. The
 object stays in S3-compatible storage, and the connection holds the credentials.
 Step 3 uses the same asset and connection from a workbench.
 
-This example uses **SeaweedFS** as its S3-compatible store. It is one convenient
-evaluation option, not a Data Registry dependency. If your organization already
-provides S3-compatible storage, use its approved endpoint, bucket, and scoped
-credentials in the connection, and adjust the example path.
+This walkthrough uses the **SeaweedFS evaluation store** from the supplementary
+guide as its default so you can follow along without an AWS account. SeaweedFS
+is not a Data Registry dependency. If your organization already provides an
+S3-compatible store, keep the project, collection, asset, and API steps below;
+use your organization's endpoint, bucket, and scoped credentials wherever the
+SeaweedFS values are shown.
 
 ## Before you start
 
 - Complete [Step 1](../01-configure-data-registry/README.md), or ask an
   administrator to confirm that **AI hub → Data** loads.
 - Follow the [S3-compatible storage guide](../supplementary/s3-compatible-storage.md)
-  to deploy and verify SeaweedFS, or obtain an existing S3 service. The guide
-  explains the internal endpoint, bucket, credential handling, and test upload.
+  to deploy and verify SeaweedFS, or obtain an existing S3 service and its
+  approved credentials. The guide covers the SeaweedFS endpoint, bucket,
+  credentials, and test upload.
 - Have permission to create an RHOAI project, connection, collection, and asset.
 - Keep credentials out of Git, screenshots, asset descriptions, and notebook
   outputs. This example's document contains only synthetic information.
@@ -36,11 +39,11 @@ The example names below are used throughout Steps 2 and 3:
 | Item | Example value | Why it exists |
 | --- | --- | --- |
 | RHOAI project | `data-registry-example` | Project boundary for the connection and registry metadata. |
-| S3 bucket | `data-registry-example` | Holds the example document; it happens to have the same name as the project. |
-| Connection | `data-registry-storage` | Supplies S3 endpoint and credentials to the workbench. |
+| S3 bucket | `data-registry-example` | SeaweedFS example bucket; use your actual bucket with another service. |
+| Connection | `data-registry-storage` | Supplies the selected S3 endpoint and credentials to the workbench. The name is reusable for either storage path. |
 | Collection | `customer-support` | Groups related support knowledge assets. |
 | Asset | `customer-support-faq` | Catalog entry for the document prefix. |
-| Asset path | `s3://data-registry-example/examples/customer-support/` | Bucket and prefix containing the document. |
+| Asset path | `s3://data-registry-example/examples/customer-support/` | SeaweedFS example path; replace the bucket with yours when using another service. |
 
 ## 1. Create the RHOAI project
 
@@ -67,15 +70,17 @@ available as an RHOAI project; it does not grant storage access.
 
 ## 2. Put an example document in S3-compatible storage
 
-The [SeaweedFS guide's S3 verification](../supplementary/s3-compatible-storage.md#verify-the-s3-api)
-creates a small `sample/hello.txt` object. Upload the more representative
-[synthetic FAQ](sample-data/customer-support-faq.md) for this tutorial. It gives
-the asset a real object that Step 3 can list and download. The content is safe
-to inspect, but it is still only fictional demonstration material.
+Upload the [synthetic FAQ](sample-data/customer-support-faq.md) for this
+tutorial. It gives the asset a real object that Step 3 can list and download.
+The content is safe to inspect, but it is still only fictional demonstration
+material.
 
-Keep the guide's `oc port-forward service/seaweedfs 18333:8333` running. In a
-second terminal, load the S3 credentials from `Secret/seaweedfs-credentials`
-as shown in that guide, then run these commands from this directory:
+### SeaweedFS (default)
+
+Follow the [SeaweedFS S3 verification](../supplementary/s3-compatible-storage.md#verify-the-s3-api)
+to start the port-forward and load the credentials from
+`Secret/seaweedfs-credentials`. Keep the port-forward running. From this
+directory, upload the FAQ and confirm the object key:
 
 ```bash
 aws --endpoint-url http://127.0.0.1:18333 s3api put-object \
@@ -91,30 +96,72 @@ unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 ```
 
 The list should show `examples/customer-support/customer-support-faq.md`.
-Keep the `s3://` path in the table above: it describes the bucket and prefix,
-while the connection's endpoint tells an S3 client where to reach the service.
 The registry does not upload this file for you.
+
+### Use an existing S3 service instead
+
+Skip the SeaweedFS port-forward. Use your organization's approved AWS CLI
+profile or credential process, and upload the same fixture to your bucket at
+`examples/customer-support/customer-support-faq.md`. For an S3-compatible
+service other than AWS, include the endpoint supplied by your organization;
+for AWS S3, the AWS CLI uses its regional endpoint by default. Use the region
+configured in your CLI profile or set `AWS_DEFAULT_REGION` to the region your
+service requires. For example, replace the placeholders below with your
+service values:
+
+```bash
+S3_ENDPOINT=https://s3.example.org
+S3_BUCKET=your-approved-bucket
+
+aws --endpoint-url "$S3_ENDPOINT" s3api put-object \
+  --bucket "$S3_BUCKET" \
+  --key examples/customer-support/customer-support-faq.md \
+  --body sample-data/customer-support-faq.md
+
+aws --endpoint-url "$S3_ENDPOINT" s3api list-objects-v2 \
+  --bucket "$S3_BUCKET" \
+  --prefix examples/customer-support/
+```
+
+For AWS S3, omit `--endpoint-url "$S3_ENDPOINT"` from both commands. If your
+organization does not allow workstation access to the endpoint, use its
+approved upload tool. In either case, confirm the object appears under the
+same bucket and prefix you will record in the connection and asset.
 
 ## 3. Create an S3 connection in the project
 
 Open **Projects → data-registry-example → Connections → Create connection**.
 Choose **S3 compatible object storage - v1**. This connection will be attached
-to the workbench in Step 3 and selected on the asset form below. Enter:
+to the workbench in Step 3 and selected on the asset form below. The values
+shown are for the default SeaweedFS path; use your organization's values if you
+chose an existing service.
 
 | Connection field | Example value | What it means |
 | --- | --- | --- |
 | Name | `data-registry-storage` | The connection resource used by the asset and workbench. |
-| Access key | From `Secret/seaweedfs-credentials` | Identifies the S3 client. Do not put it in the asset. |
-| Secret key | From the same Secret | Authenticates the client. Do not include it in screenshots. |
-| Endpoint | `http://seaweedfs.data-registry-storage.svc:8333` | Internal S3 API endpoint; port 12646 is the Admin UI and is not used here. |
-| Region | `us-east-1` | Signing region for this example. |
-| Bucket | `data-registry-example` | Bucket holding the document. |
+| Access key | From `Secret/seaweedfs-credentials` | SeaweedFS only. For another service, use its approved scoped access key. |
+| Secret key | From the same Secret | SeaweedFS only. For another service, use its approved secret key. Never include it in screenshots. |
+| Endpoint | `http://seaweedfs.data-registry-storage.svc:8333` | SeaweedFS S3 API endpoint. For another service, use its endpoint. Do not use SeaweedFS Admin port 12646. |
+| Region | `us-east-1` | SeaweedFS example signing region. For another service, use the region it requires. |
+| Bucket | `data-registry-example` | SeaweedFS example bucket. For another service, use the bucket you uploaded to. |
 
-The [storage guide's connection section](../supplementary/s3-compatible-storage.md#create-an-rhoai-data-connection)
-has the credential transfer procedure and troubleshooting notes. The service
-name contains the **storage namespace**. Replace it if your SeaweedFS instance
-uses another namespace. The internal `.svc` address is for workloads in the
-cluster; the workstation uses the port forward only to upload the fixture.
+For SeaweedFS, copy each key from the Secret without printing it. On macOS, for
+example:
+
+```bash
+oc -n data-registry-storage get secret seaweedfs-credentials \
+  -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' | openssl base64 -d -A | pbcopy
+oc -n data-registry-storage get secret seaweedfs-credentials \
+  -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' | openssl base64 -d -A | pbcopy
+```
+
+Use your workstation's clipboard utility on other systems. If you chose an
+existing S3 service, obtain its credentials through your organization's
+approved process instead; do not reuse the SeaweedFS keys. Keep the connection
+name `data-registry-storage` to use Step 3's default workspace mount and
+notebook settings. The name is only a project connection name; it does not
+identify the storage provider. The `.svc` endpoint is for workloads inside
+the cluster. The workstation uses a port-forward only for the SeaweedFS upload.
 
 After saving, check that `data-registry-storage` appears on the project's
 **Connections** tab. The connection contains configuration and credentials; it
@@ -160,7 +207,7 @@ The registry stores the connection name, not a copy of the S3 keys.
 | Collection | `customer-support` | Groups it with related support knowledge. |
 | Labels | `customer-support`, `synthetic`, `faq` | Short, reusable discovery terms. |
 | Connection | `data-registry-storage` | Points to the S3 configuration in this project. |
-| Path | `s3://data-registry-example/examples/customer-support/` | Prefix containing the FAQ object. |
+| Path | `s3://data-registry-example/examples/customer-support/` | SeaweedFS example prefix; replace the bucket with your actual bucket if using another service. |
 | Purpose | `Demonstrate document discovery and retrieval for a support assistant.` | States the intended use without claiming production suitability. |
 | License | **Internal use** | The synthetic document is for this tutorial; confirm reuse terms for real data. |
 | Maturity | **Experimental** | Signals that this is an evaluation asset. |
@@ -175,9 +222,10 @@ purpose to 200. Labels should follow one agreed vocabulary. Never add a
 password, token, or real personal information to labels, descriptions, paths,
 or custom properties.
 
-If your organization uses a different S3 provider, choose the project
-connection for that provider and record its actual `s3://bucket/prefix/` path.
-The path describes the location; it is not a credential or an upload command.
+If your organization uses a different S3 provider, choose the connection you
+created for it and replace the bucket in the path with the actual bucket, for
+example `s3://your-approved-bucket/examples/customer-support/`. The path
+describes the location; it is not a credential or an upload command.
 
 > **Screenshot to add:** Registration form showing identity and format values.
 >

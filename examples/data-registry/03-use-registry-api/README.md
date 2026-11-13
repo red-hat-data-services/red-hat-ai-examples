@@ -9,8 +9,9 @@ You create a JupyterLab workspace in the project, mount the same S3 connection,
 and run the [guided notebook](data-registry-api-walkthrough.ipynb). The notebook reads the
 collection and asset through the authenticated Data Registry API, checks the
 connection reference and S3 path, then lists and downloads the synthetic FAQ
-from SeaweedFS. This demonstrates the difference between *discovering data*
-through the registry and *reading data* through a storage connection.
+from the selected S3-compatible store. SeaweedFS is the default evaluation
+path; if you used an organization-provided service in Step 2, the notebook
+uses that service through the same project connection.
 
 The notebook follows the discovery, reference-checking, download, and
 verification sequence in the
@@ -23,8 +24,10 @@ a separate producer script. No credentials or bearer tokens are printed.
 Complete [Step 2](../02-register-data-asset/README.md). In
 `data-registry-example`, confirm that the `customer-support` collection and
 `customer-support-faq` asset appear, and that the `data-registry-storage`
-connection exists. The S3 object must already be uploaded under
-`examples/customer-support/`.
+connection exists. Keep that connection name to use the workspace and notebook
+defaults, whether it points to SeaweedFS or your organization's S3 service. The
+S3 object must already be uploaded under `examples/customer-support/` in the
+bucket recorded by the connection and asset.
 
 Ask an RHOAI administrator to confirm that WorkbenchesV2 is enabled. On the
 RHOAI 3.6 installation used for this example, both the parent Workbenches
@@ -78,7 +81,10 @@ The Secret mount is read-only; it contains files named `AWS_ACCESS_KEY_ID`,
 `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT`, `AWS_DEFAULT_REGION`, and
 `AWS_S3_BUCKET`. The notebook reads those files without displaying their
 contents. Older notebook-style workbenches may inject the same settings as
-environment variables, which the notebook also supports.
+environment variables, which the notebook also supports. Because the notebook
+reads the endpoint, region, and bucket from the connection, these steps work
+with SeaweedFS or another S3-compatible service. The selected endpoint must be
+reachable from the workbench.
 
 > **Screenshot to add:** Create workspace form with project, JupyterLab kind,
 > image, Small CPU, and storage; then the Secrets step with
@@ -262,7 +268,7 @@ displayed.
 
 ![Authenticated collection list in the executed notebook](images/notebook-authenticated-collections.jpg)
 
-![SeaweedFS document download and SHA-256 verification](images/notebook-s3-download.jpg)
+![Document download from the configured S3-compatible store and SHA-256 verification](images/notebook-s3-download.jpg)
 
 ![API registration payload for the second asset](images/notebook-api-registration.jpg)
 
@@ -278,9 +284,9 @@ displayed.
 | Registry request returns 403 | Check the workspace pod's actual ServiceAccount and its namespaced admin RoleBinding; check your installed version's authorization mapping. |
 | TLS certificate error | Check the projected `service-ca.crt`, the service hostname, and the cluster's CA rotation. Do not disable verification. |
 | Connection or path differs | Open the asset detail page and correct the metadata in Step 2. The notebook deliberately rejects a different resource. |
-| S3 request returns 403 | Check connection attachment, the bucket policy, and that the connection uses the S3 API endpoint rather than the SeaweedFS Admin port. |
+| S3 request returns 403 | Check the attached connection's keys, bucket policy, and S3 API endpoint. For SeaweedFS, use port 8333 rather than Admin port 12646. |
 | Registry request times out | Check that the workspace pod has `opendatahub.io/feast-integration=true` and can reach the registry Service on port 443. |
-| S3 times out | Check workbench egress and storage ingress NetworkPolicies for the project and port 8333. |
+| S3 times out | Check DNS, the workbench's network access, and the endpoint port. For SeaweedFS, confirm that the workbench can reach its Service on port 8333; for an external provider, check its required egress and firewall rules. |
 | SHA-256 mismatch | Upload the committed fixture to the documented key again only after inspecting the current object and confirming this test key is yours. |
 
 This exercise does not delete assets, connections, bucket objects, workbench
