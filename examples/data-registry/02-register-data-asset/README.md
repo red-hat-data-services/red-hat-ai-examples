@@ -191,7 +191,9 @@ one collection. The `default` collection is fine for a quick test, but a named
 collection makes this example easier to find. Collections do not create an
 additional access boundary inside the project.
 
-> **Screenshot to add:** Manage collections modal with the new collection row.
+![Manage collections with the customer-support collection](images/data-registry-collections.png)
+
+*The `customer-support` collection is available in the selected project.*
 
 ## 5. Register the document as an asset
 
