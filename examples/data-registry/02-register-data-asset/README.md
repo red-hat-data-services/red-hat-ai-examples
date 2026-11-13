@@ -217,7 +217,7 @@ The registry stores the connection name, not a copy of the S3 keys.
 | License | **Internal use** | The synthetic document is for this tutorial; confirm reuse terms for real data. |
 | Maturity | **Experimental** | Signals that this is an evaluation asset. |
 | Domain | `customer-support` | Business area that owns the content. |
-| PII status | **No PII** | Matches the fictional fixture; this is metadata, not an access control. |
+| PII status | **None** | Matches the fictional fixture; this is metadata, not an access control. |
 | Custom properties | `source=synthetic-tutorial`, `review-cadence=on-change` | Extra context useful to downstream readers. |
 
 The owner shown after registration comes from the authenticated creator; it is
