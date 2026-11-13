@@ -235,9 +235,14 @@ describes the location; it is not a credential or an upload command.
 ![Data asset identity and format in the registration form](images/data-asset-identity-format.png)
 
 *The asset identity and format are filled in before choosing the S3 connection and path.*
->
-> **Screenshot to add:** Organization, location, and governance values with
-> `data-registry-storage` selected; no credentials in view.
+
+![Asset location and format with the project S3 connection selected](images/data-asset-location.png)
+
+*The asset points to the SeaweedFS bucket prefix through `data-registry-storage`.*
+
+![Asset properties and PII status](images/data-asset-properties.png)
+
+*The asset's discovery, governance, and custom properties are set before registration.*
 
 Select **Register**. Find `customer-support-faq` in `customer-support` and open
 its details. Confirm the format, description, connection, path, labels, and
