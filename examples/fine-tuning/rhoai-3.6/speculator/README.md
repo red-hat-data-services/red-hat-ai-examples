@@ -319,7 +319,7 @@ Parameters not shown in the examples can still be passed to `SpeculativeDecoding
   git clone https://github.com/red-hat-data-services/red-hat-ai-examples.git
   ```
 
-  Cloning from the workbench terminal (rather than uploading files or opening the repo from your local machine) puts the repository in the workbench home directory on the shared PVC. The notebooks expect to run from inside this clone — several optional cells reference files in the repo, such as `../../manifests/external-vllm/vllm-server.yaml`, via paths relative to the notebook's location.
+  Cloning from the workbench terminal (rather than uploading files or opening the repo from your local machine) puts the repository in the workbench home directory on the shared PVC. The notebooks expect to run from inside this clone — the external vLLM deploy script and the notebooks reference files in the repo, such as `manifests/external-vllm/vllm-server.yaml`, via paths relative to the notebook's location.
 
 - Navigate to the `examples/fine-tuning/rhoai-3.6/speculator` directory.
 

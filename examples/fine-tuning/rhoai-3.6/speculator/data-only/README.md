@@ -150,25 +150,27 @@ Before running this method, you must have a vLLM server running that:
 If you don't already have a vLLM deployment, a ready-to-use Deployment + Service
 manifest is provided at [`manifests/vllm-server.yaml`](../../manifests/external-vllm/vllm-server.yaml),
 with full deploy, verify, customize, and cleanup instructions in the
-[manifests README](../../manifests/external-vllm/README.md). Quick start from the `data-only/`
-directory of the cloned repo:
+[manifests README](../../manifests/external-vllm/README.md). The easiest way to deploy it is
+the deploy script, run from the repo root in a workbench terminal (the namespace is detected
+automatically; pass your user token — `NOTEBOOK_USER_TOKEN` is only set inside the notebook
+kernel, not in terminals — or run `oc login` first, see the
+[manifests README](../../manifests/external-vllm/README.md#deploy) for how to get it) — pass
+`--hs-path` so the server writes hidden states to this notebook's output directory:
 
 ```bash
 # Prerequisites: verifier model on the shared PVC (the notebook's optional
 # download cell does this), a free GPU, and a pull secret for the pinned image.
-oc apply -f ../../manifests/external-vllm/vllm-server.yaml -n <your-namespace>
-oc rollout status deployment/vllm-svc -n <your-namespace>
+python3 manifests/external-vllm/deploy_vllm_server.py --token <your-token> --hs-path /mnt/speculator/run-01/hidden_states
 ```
 
 > [!IMPORTANT]
 >
 > The manifest's `SPECULATOR_HS_PATH` ships with the **OFFLINE notebook's**
 > default (`/mnt/speculator/run-01-offline/hidden_states`). For this example,
-> change it to `/mnt/speculator/run-01/hidden_states` before deploying so it
-> matches this notebook's `hidden_states_path` — or skip the manual step
-> entirely and use the notebook's optional **Deploy an External vLLM Server**
-> cells under Method 2, which set the path on the deployment (derived from
-> `RUN_NAME`) and apply the manifest for you.
+> the script's `--hs-path` flag above points it at this notebook's
+> `hidden_states_path` instead (adjust the path if you changed `RUN_NAME`) —
+> or set it yourself on the live deployment with `oc set env` when deploying
+> by hand.
 
 For a different verifier model or other tuning, see
 [Customize](../../manifests/external-vllm/README.md#customize) in the manifests README.

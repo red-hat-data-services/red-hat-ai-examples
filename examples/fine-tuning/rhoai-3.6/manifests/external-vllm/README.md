@@ -54,28 +54,59 @@ The trainer connects to `http://vllm-svc.<namespace>.svc.cluster.local:8000/v1`.
    On most OpenShift clusters the global pull secret covers it; if your
    namespace needs its own credentials, add an `imagePullSecrets` entry to the
    manifest pointing at a secret with Red Hat registry credentials.
-4. **Permissions** — deploying from a terminal requires a login with rights to
-   create Deployments and Services in the namespace (the namespace owner has
-   these). From a workbench notebook, the provided deploy cells log in with
-   `NOTEBOOK_USER_TOKEN` for the same reason — the workbench pod's service
-   account may lack these permissions.
+4. **Permissions** — deploying requires a login with rights to create
+   Deployments and Services in the namespace (the namespace owner has these).
+   The deploy script can log in for you with a user token (see
+   [Deploy](#deploy)); the workbench pod's own service account may lack these
+   permissions.
 
 ## Deploy
 
-From a terminal where you are logged in as the namespace owner (run from the
-`offline/` or `data-only/` directory of the cloned repo):
+The easiest way is the deploy script from a workbench terminal (or anywhere
+with `oc` installed). It applies the manifest, optionally sets
+`SPECULATOR_HS_PATH`, waits for the rollout, checks the server's health, and
+prints the endpoint URL:
 
 ```bash
-oc apply -f ../../manifests/external-vllm/vllm-server.yaml -n <your-namespace>
+python3 manifests/external-vllm/deploy_vllm_server.py -n <your-namespace> --token <your-token>
 ```
 
-Alternatively, deploy without leaving the notebook: both the
-[offline](../../speculator/offline/speculator-offline-example.ipynb) and
-[data-only](../../speculator/data-only/speculator-data-only-example.ipynb) notebooks include
-optional **Deploy the External vLLM Server** cells that log in with your user
-token, apply the manifest, and wait for readiness.
+**About the token:** it must belong to a user allowed to create Deployments
+and Services in the namespace (e.g., the namespace owner). Get it from either:
+
+- the notebook's **"Authenticate to your OpenShift Cluster"** cell — the value
+  of `NOTEBOOK_USER_TOKEN`. Note that this variable is only set inside the
+  **notebook kernel**; it is **not exported to workbench terminals**, so from
+  a terminal the script's `--token` default (`$NOTEBOOK_USER_TOKEN`) is empty
+  and the token must be passed explicitly (or exported first).
+- the OpenShift console — click your username (top right) → **Copy login
+  command** → **Display token**.
+
+Alternatively, skip the token entirely by running `oc login` in the terminal
+first; the script detects and reuses that session (it verifies the login with
+`oc whoami` and stops with instructions if none is valid). Inside a workbench,
+`--namespace` is detected from the pod automatically and can be omitted.
+
+For the DATA_ONLY Method 2 example, point the hidden states path at that
+notebook's output directory (see
+[Wire It Into a Notebook](#wire-it-into-a-notebook)):
+
+```bash
+python3 manifests/external-vllm/deploy_vllm_server.py --hs-path /mnt/speculator/run-01/hidden_states
+```
+
+Alternatively, apply the manifest by hand from a terminal where you are logged
+in as the namespace owner:
+
+```bash
+oc apply -f manifests/external-vllm/vllm-server.yaml -n <your-namespace>
+```
 
 ## Verify Readiness
+
+The deploy script already waits for the rollout (up to 15 minutes, matching
+the Deployment's `progressDeadlineSeconds`) and probes the server's `/health`
+endpoint. Deployed by hand instead, check it yourself:
 
 ```bash
 oc rollout status deployment/vllm-svc -n <your-namespace>
@@ -105,10 +136,10 @@ the workbench pod), so deploying with the defaults requires no endpoint editing.
 >
 > `SPECULATOR_HS_PATH` in the manifest **must match** the `hidden_states_path`
 > passed to the trainer. The manifest default matches the OFFLINE notebook.
-> The data-only Method 2 deploy cell sets it on the deployed server via
-> `oc set env` (derived from the notebook's `RUN_NAME`); when deploying from a
-> terminal, set it yourself per the table below. The PVC `shared` root maps to
-> `/mnt` in the vLLM pod.
+> The deploy script's `--hs-path` flag sets it on the live deployment for the
+> data-only Method 2 example (derived from the notebook's `RUN_NAME`); when
+> deploying by hand, set it yourself per the table below. The PVC `shared`
+> root maps to `/mnt` in the vLLM pod.
 
 | Notebook | `hidden_states_path` (notebook) | `SPECULATOR_HS_PATH` (manifest) |
 | --- | --- | --- |
@@ -147,22 +178,30 @@ Changing the verifier model also means changing it in the notebook
 
 ## Cleanup
 
+With the deploy script:
+
 ```bash
-oc delete -f ../../manifests/external-vllm/vllm-server.yaml -n <your-namespace>
+python3 manifests/external-vllm/deploy_vllm_server.py --cleanup -n <your-namespace>
 ```
 
-The notebooks also include an optional cleanup cell. Deleting the server does
-**not** remove the extracted hidden states or checkpoints on the PVC.
+Or by hand:
+
+```bash
+oc delete -f manifests/external-vllm/vllm-server.yaml -n <your-namespace>
+```
+
+Deleting the server does **not** remove the extracted hidden states or
+checkpoints on the PVC.
 
 ## Troubleshooting
 
 Deployment-side failures:
 
 - `Forbidden: ... cannot get resource "deployments"` when applying from a
-  workbench — the pod's service account lacks permissions; the notebook's
-  deploy cell logs in with `NOTEBOOK_USER_TOKEN` to run as your user.
-  Deploying from a terminal where you are logged in as the namespace owner also
-  works. Alternatively, an admin can grant the service account edit access:
+  workbench — the pod's service account lacks permissions; the deploy script
+  logs in with `NOTEBOOK_USER_TOKEN` to run as your user. Deploying from a
+  terminal where you are logged in as the namespace owner also works.
+  Alternatively, an admin can grant the service account edit access:
   `oc adm policy add-role-to-user edit -z <service-account> -n <namespace>`
 - Pod stuck in `ImagePullBackOff` — the pinned
   `registry.redhat.io/rhaii-fast/vllm-cuda-rhel9` image requires registry
