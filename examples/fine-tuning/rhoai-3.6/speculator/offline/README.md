@@ -75,24 +75,25 @@ Before running this notebook, you must have a vLLM server running that:
 
 #### Deploying an external vLLM server
 
-A ready-to-use Deployment + Service manifest is provided at
-[`manifests/vllm-server.yaml`](../../manifests/external-vllm/vllm-server.yaml), with full deploy,
-verify, customize, and cleanup instructions in the
-[manifests README](../../manifests/external-vllm/README.md). Quick start from the `offline/`
-directory of the cloned repo:
+If you don't already have a vLLM deployment, a ready-to-use Deployment + Service
+manifest is provided at [`manifests/vllm-server.yaml`](../../manifests/external-vllm/vllm-server.yaml),
+with full deploy, verify, customize, and cleanup instructions in the
+[manifests README](../../manifests/external-vllm/README.md). The easiest way to deploy it is
+the deploy script, run from the repo root in a workbench terminal (the namespace is detected
+automatically; pass your user token — `NOTEBOOK_USER_TOKEN` is only set inside the notebook
+kernel, not in terminals — or run `oc login` first, see the
+[manifests README](../../manifests/external-vllm/README.md#deploy) for how to get it):
 
 ```bash
 # Prerequisites: verifier model on the shared PVC (the notebook's optional
 # download cell does this), a free GPU, and a pull secret for the pinned image.
-oc apply -f ../../manifests/external-vllm/vllm-server.yaml -n <your-namespace>
-oc rollout status deployment/vllm-svc -n <your-namespace>
+python3 manifests/external-vllm/deploy_vllm_server.py --token <your-token>
 ```
 
 The manifest defaults match this notebook: verifier model `Qwen3-0.6B`,
 `TARGET_LAYER_IDS = [2, 14, 25, 28]`, port 8000, and
 `SPECULATOR_HS_PATH` pointing at this notebook's default
-`hidden_states_path` (`run-01-offline`). The notebook also includes optional
-deploy cells that do all of this from the workbench.
+`hidden_states_path` (`run-01-offline`).
 
 For a different verifier model or other tuning, see
 [Customize](../../manifests/external-vllm/README.md#customize) in the manifests README.

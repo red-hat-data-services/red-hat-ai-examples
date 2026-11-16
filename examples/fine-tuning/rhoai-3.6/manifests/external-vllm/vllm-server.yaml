@@ -47,6 +47,12 @@ spec:
   # (e.g. oc set env) then proceed with only one GPU available.
   strategy:
     type: Recreate
+    # 15 minutes (default: 10 min = 600s). A first start on a node must pull
+    # the large vLLM image before the server can start, which alone can take
+    # up to 10 minutes — with the default deadline the Deployment would be
+    # marked ProgressDeadlineExceeded before that allowance expires. Keep the
+    # deploy script's rollout timeout consistent with this value.
+    progressDeadlineSeconds: 900
   selector:
     matchLabels:
       app: vllm-svc
