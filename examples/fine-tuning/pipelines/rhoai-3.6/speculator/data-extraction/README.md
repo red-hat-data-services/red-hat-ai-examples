@@ -67,7 +67,7 @@ Sidecar defaults: 96Gi memory, `gpu_memory_utilization=0.9`.
 
 ## Setup
 
-Work through the [shared prerequisites](../README.md#prerequisites) first:
+Work through the [access checks](../README.md#access-you-need-and-what-your-administrator-must-provide) and the [shared prerequisites](../README.md#prerequisites) first — for this mode, the registry and serving sections do not apply:
 
 - Existing RWX PVC (`p01_persistent_pvc`)
 - Pipeline server configured for the project
