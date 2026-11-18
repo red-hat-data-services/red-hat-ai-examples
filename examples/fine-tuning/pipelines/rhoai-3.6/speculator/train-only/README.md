@@ -58,7 +58,7 @@ Expect roughly 35–70 minutes end-to-end for the example-run configuration, dep
 
 ## Setup
 
-Work through the [shared prerequisites](../README.md#prerequisites), **all of them** — this pipeline additionally requires:
+Work through the [access checks](../README.md#access-you-need-and-what-your-administrator-must-provide) and the [shared prerequisites](../README.md#prerequisites), **all of them** — this pipeline additionally requires:
 
 - **Model Registry**: create/select one in the Red Hat OpenShift AI dashboard (**AI Hub > Models > Model registries**), then find its REST route (`oc get routes -A | grep rest` — for a registry named `bu-registry` it is `bu-registry-rest.apps.<cluster-domain>`) and set `p02_model_registry_address` to the full route URL including the `https://` scheme, with `p45_model_registry_port` = `443`. See the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline) for the full instructions and the in-cluster Service alternative.
 - **RoleBinding**: the pipeline ServiceAccount needs a RoleBinding to `registry-user-<registry-name>` in the registry namespace (command in the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)).

@@ -70,7 +70,7 @@ Total: training GPUs + 1 sidecar GPU + evaluation/serving.
 
 ## Setup
 
-Work through the [shared prerequisites](../README.md#prerequisites):
+Work through the [access checks](../README.md#access-you-need-and-what-your-administrator-must-provide) and the [shared prerequisites](../README.md#prerequisites):
 
 - Existing RWX PVC (`p01_persistent_pvc`)
 - Pipeline server configured for the project

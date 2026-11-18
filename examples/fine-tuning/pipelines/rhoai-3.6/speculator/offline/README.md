@@ -65,7 +65,7 @@ Extraction and training share one runtime (`p37_job_runtime`, default `speculato
 
 ## Setup
 
-Work through the [shared prerequisites](../README.md#prerequisites), plus the offline-specific ones:
+Work through the [access checks](../README.md#access-you-need-and-what-your-administrator-must-provide) and the [shared prerequisites](../README.md#prerequisites), plus the offline-specific ones:
 
 ### External vLLM server
 
