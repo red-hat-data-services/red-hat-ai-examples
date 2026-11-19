@@ -60,7 +60,7 @@ Expect roughly 35–70 minutes end-to-end for the example-run configuration, dep
 
 Work through the [access checks](../README.md#access-you-need-and-what-your-administrator-must-provide) and the [shared prerequisites](../README.md#prerequisites), **all of them** — this pipeline additionally requires:
 
-- **Model Registry**: create/select one in the Red Hat OpenShift AI dashboard (**AI Hub > Models > Model registries**), then find its REST route (`oc get routes -A | grep rest` — for a registry named `bu-registry` it is `bu-registry-rest.apps.<cluster-domain>`) and set `p02_model_registry_address` to the full route URL including the `https://` scheme, with `p45_model_registry_port` = `443`. See the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline) for the full instructions and the in-cluster Service alternative.
+- **Model Registry**: create/select one in the Red Hat OpenShift AI dashboard (**AI Hub > Models > Model registries**), then find its REST route — the registry's page in the dashboard shows it, which is the path available to you; the CLI equivalent (`oc get routes -A | grep rest`) needs cluster-wide read and is an administrator command. For a registry named `bu-registry` the route is `bu-registry-rest.apps.<cluster-domain>`. Set `p02_model_registry_address` to the full route URL including the `https://` scheme, with `p45_model_registry_port` = `443`. See the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline) for the full instructions and the in-cluster Service alternative.
 - **RoleBinding**: the pipeline ServiceAccount needs a RoleBinding to `registry-user-<registry-name>` in the registry namespace (command in the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)).
 - **Serving namespace**: `p04_serving_namespace` must match the PVC namespace and have the required KServe permissions.
 - CTR `speculator-model-opt-cuda` (`p35_job_runtime` default).
@@ -145,6 +145,7 @@ Assumes a completed data-extraction run with defaults, and the verifier cached b
 | `p38_evaluation_max_samples` | `10` | Reduced for quick testing; default `80` for full runs |
 | `p39_evaluation_max_tokens` | `64` | Reduced for quick testing; default `256` for full runs |
 | `p45_model_registry_port` | `443` | **Required with a route address** — the default `8080` only fits the in-cluster service |
+| `p46_model_registry_version` | `1.0.0` | New value for every trained revision; re-using one overwrites what that version means |
 
 The `p38_evaluation_max_samples` and `p39_evaluation_max_tokens` values above are reduced to speed up an example run. For production evaluation, leave them at their defaults (`80` and `256`).
 

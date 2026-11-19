@@ -1,0 +1,63 @@
+# Namespace Role and RoleBinding for the pipeline runner ServiceAccount.
+#
+# Smaller than the engineer Role: only what the pipeline's own API calls make —
+# TrainJob submission and monitoring, the KFP workspace PVC, and the serve
+# stage. No Secret access, no token minting, no workbench management, no
+# pods/exec, no deployment scaling.
+#
+# The pipeline-runner ServiceAccount is created when the pipeline server is
+# configured, so configure the pipeline server first (see ../README.md).
+#
+# Replace before applying:
+#   <project-namespace>  the OpenShift project the pipelines run in
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pipeline-runner
+  namespace: <project-namespace>
+rules:
+  # Trainer job submission and monitoring (the Trainer token identity)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # The KFP workspace PVC the pipeline creates at run time
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: ["trainer.kubeflow.org"]
+    resources: ["trainjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["trainer.kubeflow.org"]
+    resources: ["trainjobs/status"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["trainer.kubeflow.org"]
+    resources: ["trainingruntimes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["jobset.x-k8s.io"]
+    resources: ["jobsets"]
+    verbs: ["get", "list", "watch"]
+  # The serve stage
+  - apiGroups: ["serving.kserve.io"]
+    resources: ["servingruntimes", "inferenceservices"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pipeline-runner
+  namespace: <project-namespace>
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pipeline-runner
+subjects:
+  - kind: ServiceAccount
+    namespace: <project-namespace>
+    name: pipeline-runner

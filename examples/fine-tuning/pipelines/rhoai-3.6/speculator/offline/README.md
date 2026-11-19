@@ -71,14 +71,27 @@ Work through the [access checks](../README.md#access-you-need-and-what-your-admi
 
 > [!IMPORTANT]
 >
-> This endpoint is a **prerequisite you do not create from this guide**. Deploying an extraction-capable vLLM server needs permissions the documented `engineer` access does not include (creating Deployments and Services) and a model/image combination that must be validated against the pipeline's expectations. Ask whoever operates vLLM in your cluster — usually your administrator — to supply the endpoint and confirm all four points below before you start. This guide does not ship a tested Deployment manifest; use the upstream launcher as the reference for how the server must be configured.
->
-> What the administrator must confirm:
->
-> 1. the server runs an image/version that carries the hidden-states connector used by the speculators launcher,
-> 2. its `shared_storage_path` is the same RWX PVC directory the pipeline reads (`p11_hidden_states_path` on `p01_persistent_pvc`), writable by the server's UID under OpenShift's restricted SCC,
-> 3. its `target_layer_ids` match the pipeline's `p15_target_layer_ids`,
-> 4. it serves the verifier model you intend to train against, and is reachable from your project namespace.
+> This endpoint is a **prerequisite you do not create from this guide**. Deploying it needs permissions the documented `engineer` access does not include — creating Deployments and Services — so it is an administrator task (or whoever operates vLLM in your cluster). Have it running and verified before you create a run.
+
+A tested manifest already exists in this repository: [`manifests/external-vllm/vllm-server.yaml`](../../../../rhoai-3.6/manifests/external-vllm/vllm-server.yaml) from the SDK example, with [deployment, verification and cleanup instructions](../../../../rhoai-3.6/manifests/external-vllm/README.md). It deploys a `vllm-svc` Deployment and Service (port 8000) plus a same-namespace NetworkPolicy, on the pinned `registry.redhat.io/rhaii-fast/vllm-cuda-rhel9` image that carries the extraction support — upstream vLLM images do not have it. It mounts PVC `shared` at `/mnt`.
+
+It was written for the SDK notebooks, so four values need mapping to this pipeline before the administrator applies it:
+
+| Manifest env | Default | Set it to |
+| --- | --- | --- |
+| `SPECULATOR_VERIFIER_MODEL` | `/mnt/models/Qwen3-0.6B` | `/mnt/` + your `p02_verifier_model_pvc` — the pipeline's download task writes `models/Qwen--Qwen3-0.6B`, with `--` in place of `/` |
+| `SPECULATOR_HS_PATH` | `/mnt/speculator/run-01-offline/hidden_states` | `/mnt/` + your `p11_hidden_states_path` (default `speculator-output/hidden_states`) |
+| `SPECULATOR_TARGET_LAYER_IDS` | `2, 14, 25, 28` | The same four IDs as `p15_target_layer_ids` |
+| `claimName` | `shared` | Your `p01_persistent_pvc`, in **your project namespace** |
+
+The resulting endpoint for `p03_vllm_endpoint` is `http://vllm-svc.<project-namespace>.svc:8000` — no `/v1` suffix; the pipeline appends the API path itself.
+
+Whatever manifest is used, these four things must hold:
+
+1. the image carries the hidden-states connector (the pinned image above does; a stock vLLM build does not),
+2. `shared_storage_path` resolves to the same RWX PVC directory the pipeline reads (`p11_hidden_states_path` on `p01_persistent_pvc`), writable by the server's UID under OpenShift's restricted SCC,
+3. `target_layer_ids` match `p15_target_layer_ids`,
+4. it serves the verifier you intend to train against and is reachable from your project namespace.
 
 `p03_vllm_endpoint` must point at a vLLM deployment that:
 
@@ -182,11 +195,11 @@ Assumes the verifier was already cached on the PVC (e.g., by a prior data-extrac
 | --- | --- | --- |
 | `p01_persistent_pvc` | `shared` | Your existing RWX PVC name |
 | `p02_verifier_model_pvc` | `models/Qwen--Qwen3-0.6B` | Must already exist on the PVC |
-| `p03_vllm_endpoint` | `http://vllm.my-namespace.svc:8000` | Your external vLLM service |
+| `p03_vllm_endpoint` | `http://vllm.<project-namespace>.svc:8000` | Your extraction-capable vLLM Service — see the namespace note below |
 | `p04_dataset_name` | `ultrachat` | Built-in dataset |
 | `p05_evaluation_dataset_uri` | `RedHatAI/speculator_benchmarks` | HuggingFace evaluation dataset with built-in subsets |
 | `p06_serving_namespace` | `<pvc-namespace>` | Must access the PVC |
-| `p07_data_extraction_max_samples` | `16` | Example run; set `0` for the full dataset |
+| `p07_data_extraction_max_samples` | `16` | **Set this explicitly** — the default is `0`, which extracts the *whole* dataset |
 | `p15_target_layer_ids` | `2,14,25,28` | **Required** |
 | `p38_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the extraction and training jobs |
 | `p40_evaluation_max_samples` | `10` | Reduced for quick testing; default `80` for full runs |
@@ -195,6 +208,18 @@ Assumes the verifier was already cached on the PVC (e.g., by a prior data-extrac
 | `p48_model_registry_port` | `443` | Set alongside a non-empty registry address — the default `8080` only fits the in-cluster service |
 
 Training/evaluation/resource parameters can keep their defaults for a first run.
+
+> [!IMPORTANT]
+>
+> The example endpoint is in **your project namespace** on purpose. The server has to read and write `p01_persistent_pvc`, and PVCs are namespace-scoped — a vLLM running in a different namespace cannot mount that claim. If your vLLM must live elsewhere, it needs its own access to the same underlying storage (for example a PVC in that namespace bound to the same RWX volume), and `p11_hidden_states_path` must resolve to the same directory on both sides.
+
+One parameter in that table is more than a convenience:
+
+> [!WARNING]
+>
+> One default is not safe to keep: `p07_data_extraction_max_samples` defaults to `0`, which means the **full** dataset (ultrachat_200k is ~200,000 conversations). Always set it explicitly for an example run — the table above uses `16`. The data-extraction pipeline defaults to `16` instead, so the two modes differ here.
+
+And one expectation to set about the evaluation stage's runtime:
 
 > [!NOTE]
 >
