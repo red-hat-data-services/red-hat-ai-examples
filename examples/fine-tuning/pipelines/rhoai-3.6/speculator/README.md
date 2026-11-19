@@ -82,7 +82,7 @@ Setting up and running these pipelines involves two personas:
 - **You (the user)** — work in a single OpenShift project (namespace), create runs, watch them, and verify the results.
 - **Your administrator** — grants the roles that make the above possible, and prepares cluster-level resources that cannot be created from within your project: the [ClusterTrainingRuntimes](#clustertrainingruntimes-ctrs), the serving [hardware profile](#cluster-wide-access-only-your-administrator-can-grant), and optionally the [Model Registry](#model-registry-and-kserve-train-only--online--offline).
 
-Work through this section **before** anything else in the Prerequisites. Every permission below is part of a validated recipe — the effective access was verified with `oc auth can-i` impersonation on a live Red Hat OpenShift AI 3.6 cluster. If a check fails, stop and send your administrator the [grant manifests](#what-to-send-your-administrator) instead of discovering the gap after a training run.
+Work through this section **before** anything else in the Prerequisites. The core of this recipe was verified with `oc auth can-i` impersonation on a live Red Hat OpenShift AI 3.6 cluster; the `secrets` and `serviceaccounts/token` grants extend it so you can create the credentials the setup steps require yourself. If a check fails, stop and send your administrator the [grant manifests](#what-to-send-your-administrator) instead of discovering the gap after a training run.
 
 ### Log in and select your project
 
@@ -104,6 +104,9 @@ Your administrator binds a namespace-scoped Role (this guide calls it `engineer`
 | API group | Resources | Verbs | Why the pipelines need it |
 | --- | --- | --- | --- |
 | Core | `configmaps` | get, list, watch, create, update, patch, delete | Trainer job configuration |
+| Core | `secrets` | get, list, watch, create, update, patch, delete | Create and manage the `kubernetes-credentials` and `hf-token` secrets |
+| Core | `serviceaccounts` | get, list | Discover the pipeline runner ServiceAccount |
+| Core | `serviceaccounts/token` | create | Mint the runner's token for the `kubernetes-credentials` secret |
 | Core | `pods`, `persistentvolumeclaims`, `resourcequotas`, `events`, `services` | get, list, watch | Watch run progress, check the PVC and services |
 | Core | `pods/log` | get | Stream logs from extraction/training workers |
 | Core | `pods/portforward`, `pods/exec` | create | Test the served endpoint (`oc port-forward`, `oc exec`) |
@@ -113,6 +116,8 @@ Your administrator binds a namespace-scoped Role (this guide calls it `engineer`
 | `trainer.kubeflow.org` | `trainingruntimes` | get, list, watch | Resolve namespaced TrainingRuntimes |
 | `jobset.x-k8s.io` | `jobsets` | get, list, watch | Inspect the JobSets under a TrainJob |
 | `serving.kserve.io` | `servingruntimes`, `inferenceservices` | get, list, watch, create, update, patch, delete | The serving stage creates and manages these (train-only / online / offline) |
+| `apps` | `deployments` | get, list, watch | Resolve the predictor deployment for `oc exec`/`oc port-forward` and check its state |
+| `apps` | `deployments/scale` | patch | Pause and resume the predictor (`oc scale` in [Cleaning up](#cleaning-up)) — the deployments themselves are created and deleted by the KServe controller, not by you |
 | `kubeflow.org` | `notebooks` | full CRUD | Create a workbench to inspect PVC contents |
 | `image.openshift.io` | `imagestreams` | get, list, watch | Resolve image references |
 
@@ -120,7 +125,7 @@ Your administrator binds a namespace-scoped Role (this guide calls it `engineer`
 
 Two things cannot be granted from inside your project:
 
-1. **ClusterTrainingRuntimes discovery** — the pipelines reference CTRs (`vllm-extract-cuda`, `speculator-model-opt-cuda`) by name, and the Trainer needs to read them cluster-wide. This is a ClusterRole (this guide calls it `speculator-ctr-reader`) granting `get`, `list`, `watch` on `clustertrainingruntimes`.
+1. **ClusterTrainingRuntimes discovery** — the pipelines reference CTRs (`vllm-extract-cuda`, `speculator-model-opt-cuda`) by name, and the Trainer needs to read them cluster-wide. This is a ClusterRole (this guide calls it `speculator-ctr-reader-<project-namespace>`) granting `get`, `list`, `watch` on `clustertrainingruntimes`.
 2. **Project discovery** — Red Hat OpenShift AI can only show your project in the dashboard if your user can `get` it. The same ClusterRole includes a *named-resource* read on your project and namespace — scoped to `<project-namespace>` only, nothing else.
 
 The serving stage additionally depends on a cluster-level resource your administrator controls: a GPU **HardwareProfile** (for example `gpu-profile`) in `redhat-ods-applications`. If it is missing or the pipeline's ServiceAccount cannot read it, InferenceService creation fails **after** training has already completed. Ask your administrator to verify both:
@@ -137,7 +142,7 @@ and to grant the pipeline runner read access to it (see [What to send your admin
 | --- | --- | --- | --- | --- |
 | Project `engineer` Role + CTR discovery | Required | Required | Required | Required |
 | Pipeline server (with S3 object storage) | Required | Required | Required | Required |
-| Serving: KServe writes + HardwareProfile | Not needed | Required | Required | Required |
+| Serving: KServe writes, predictor scale + HardwareProfile | Not needed | Required | Required | Required |
 | Model Registry access | Not needed | Required (always registers) | Optional (skip by leaving the registry address empty) | Optional |
 | External extraction-capable vLLM endpoint | Optional (remote mode) | Not needed | Not needed | Required |
 
@@ -150,11 +155,15 @@ Run these as yourself. Every answer must be `yes` for the modes you plan to use:
 oc auth can-i create trainjobs -n <project-namespace>
 oc auth can-i create persistentvolumeclaims -n <project-namespace>
 oc auth can-i create configmaps -n <project-namespace>
+oc auth can-i create secrets -n <project-namespace>
+oc auth can-i create serviceaccounts/token -n <project-namespace>
 oc auth can-i create notebooks.kubeflow.org -n <project-namespace>
 
 # Serving (train-only / online / offline)
 oc auth can-i create inferenceservices.serving.kserve.io -n <project-namespace>
 oc auth can-i delete inferenceservices.serving.kserve.io -n <project-namespace>
+oc auth can-i get deployments.apps -n <project-namespace>
+oc auth can-i patch deployments.apps/scale -n <project-namespace>
 
 # Cluster-wide discovery (all modes)
 oc auth can-i list clustertrainingruntimes
@@ -165,7 +174,7 @@ If any answer is `no`, collect the failing checks and send them with the manifes
 
 ### What to send your administrator
 
-Everything below is ready to paste. Replace `<project-namespace>` with your project name and `<your-username>` with your OpenShift login. These manifests reproduce the validated recipe exactly; if your organization already has equivalent roles, binding those instead is fine as long as the [checks above](#check-your-own-access-before-you-start) pass.
+Everything below is ready to paste. Replace `<project-namespace>` with your project name and `<your-username>` with your OpenShift login. Each binding has two subjects on purpose: your user for the CLI and dashboard work, and the `pipeline-runner` ServiceAccount for the pipeline's own API calls (TrainJob submission, CTR discovery). These manifests extend the impersonation-validated recipe with the runner bindings and the credential-creation grants the setup steps require; if your organization already has equivalent roles, binding those instead is fine as long as the [checks above](#check-your-own-access-before-you-start) pass.
 
 **1. Namespace Role + binding** (applied by the administrator):
 
@@ -179,6 +188,15 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    verbs: ["create"]
   - apiGroups: [""]
     resources: ["pods", "persistentvolumeclaims", "resourcequotas", "events", "services"]
     verbs: ["get", "list", "watch"]
@@ -215,6 +233,12 @@ rules:
   - apiGroups: ["serving.kserve.io"]
     resources: ["servingruntimes", "inferenceservices"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["patch"]
   - apiGroups: ["kubeflow.org"]
     resources: ["notebooks"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
@@ -235,7 +259,12 @@ subjects:
   - kind: User
     apiGroup: rbac.authorization.k8s.io
     name: <your-username>
+  - kind: ServiceAccount
+    namespace: <project-namespace>
+    name: pipeline-runner
 ```
+
+The two subjects serve different purposes: `<your-username>` runs the `oc` commands and dashboard steps in this guide, while `pipeline-runner` is the ServiceAccount whose token authenticates TrainJob submission (see [Kubernetes authentication secret](#kubernetes-authentication-secret)) — without this binding, a token minted from `pipeline-runner` cannot create TrainJobs.
 
 **2. ClusterRole + binding** for CTR discovery and project visibility (applied by the administrator):
 
@@ -243,7 +272,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: speculator-ctr-reader
+  name: speculator-ctr-reader-<project-namespace>
 rules:
   - apiGroups: ["trainer.kubeflow.org"]
     resources: ["clustertrainingruntimes"]
@@ -260,16 +289,25 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: engineer-cluster
+  name: engineer-cluster-<project-namespace>
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: speculator-ctr-reader
+  name: speculator-ctr-reader-<project-namespace>
 subjects:
   - kind: User
     apiGroup: rbac.authorization.k8s.io
     name: <your-username>
+  - kind: ServiceAccount
+    namespace: <project-namespace>
+    name: pipeline-runner
 ```
+
+As with the RoleBinding above, `pipeline-runner` needs the CTR read too: the TrainJobs it submits reference ClusterTrainingRuntimes by name.
+
+> [!NOTE]
+>
+> The `-<project-namespace>` suffix is deliberate: the ClusterRole embeds your project in `resourceNames`, and the binding embeds your user and runner — so these objects are **per project and user**. Distinct names keep grants for different projects side by side; applying a second copy with the same fixed name would silently *replace* the first project's access. If your organization prefers one shared binding, add new subjects to the existing ClusterRoleBinding (`oc edit clusterrolebinding`) and append the project to the ClusterRole's `resourceNames` lists instead of re-applying this manifest.
 
 **3. HardwareProfile read for the pipeline runner** (train-only / online / offline; applied by the administrator in `redhat-ods-applications`):
 
@@ -277,7 +315,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: speculator-hardwareprofile-reader
+  name: speculator-hardwareprofile-reader-<project-namespace>
   namespace: redhat-ods-applications
 rules:
   - apiGroups: ["infrastructure.opendatahub.io"]
@@ -287,12 +325,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: speculator-hardwareprofile-reader
+  name: speculator-hardwareprofile-reader-<project-namespace>
   namespace: redhat-ods-applications
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: speculator-hardwareprofile-reader
+  name: speculator-hardwareprofile-reader-<project-namespace>
 subjects:
   - kind: ServiceAccount
     namespace: <project-namespace>
@@ -350,7 +388,7 @@ Work through the [access checks](#access-you-need-and-what-your-administrator-mu
 
 - **Every mode** needs the [RWX PVC](#existing-rwx-pvc), the [pipeline server](#configure-the-pipeline-server), the [Kubernetes authentication secret](#kubernetes-authentication-secret), and the [CTRs](#clustertrainingruntimes-ctrs).
 - **train-only, online, and offline** additionally need the [Model Registry and KServe setup](#model-registry-and-kserve-train-only--online--offline) (registry access is mandatory for train-only, optional for online/offline).
-- **data-extraction** stops after the first two sections — it does not train, serve, or register.
+- **data-extraction** needs only the four sections in the first bullet — RWX PVC, pipeline server, Kubernetes authentication secret, and CTRs — because it does not train, serve, or register, it skips the Model Registry and KServe setup.
 
 All `oc` commands below assume you ran `oc project <project-namespace>` — see [Log in and select your project](#log-in-and-select-your-project). The [Quick Start](#quick-start) assumes all of the applicable sections are in place.
 
@@ -418,6 +456,27 @@ The pipeline submits Trainer jobs through the Kubernetes API and requires a secr
 | `KUBERNETES_SERVER_URL` | Kubernetes API server URL (e.g., `https://api.cluster.example.com:6443`) |
 | `KUBERNETES_AUTH_TOKEN` | Service account token with permissions to create Trainer jobs |
 
+The token's identity is the **Trainer token identity** — the pipeline uses it to submit TrainJobs through the Kubernetes API, so it needs at minimum:
+
+| API group | Resources | Verbs |
+| --- | --- | --- |
+| `trainer.kubeflow.org` | `trainjobs` | get, list, watch, create, update, patch |
+| `trainer.kubeflow.org` | `trainingruntimes`, `clustertrainingruntimes` | get, list, watch |
+| Core | `configmaps` | get, list, watch, create, update, patch |
+
+The `pipeline-runner` ServiceAccount is already bound to the `engineer` Role and the `speculator-ctr-reader-<project-namespace>` ClusterRole by the manifests in [What to send your administrator](#what-to-send-your-administrator), so it satisfies this baseline as-is. Create a long-lived token for it **first** — the secret command below reads this file. Set a restrictive `umask` so the file is readable only by you:
+
+```bash
+umask 077   # token file: owner-only, before it is written
+oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/to/token-file
+```
+
+> [!IMPORTANT]
+>
+> Tokens expire. An expired token fails every run at job submission with a `401 Unauthorized` — if runs suddenly stop starting, re-run the steps in this section to mint a fresh token and update the secret.
+
+With the token file in hand, create the secret:
+
 ```bash
 oc create secret generic kubernetes-credentials \
   --from-literal=KUBERNETES_SERVER_URL="https://api.your-cluster.com:6443" \
@@ -428,23 +487,11 @@ oc create secret generic kubernetes-credentials \
 >
 > `--from-file` keeps the token out of your shell history and process listings — prefer it over `--from-literal` for secret values. This is the only **required** secret and is non-optional for all four pipelines. It is mounted only in the KFP launcher tasks, never forwarded to Trainer workers.
 
-The token's identity is the **Trainer token identity** — the pipeline uses it to submit TrainJobs through the Kubernetes API, so it needs at minimum:
-
-| API group | Resources | Verbs |
-| --- | --- | --- |
-| `trainer.kubeflow.org` | `trainjobs` | get, list, watch, create, update, patch |
-| `trainer.kubeflow.org` | `trainingruntimes`, `clustertrainingruntimes` | get, list, watch |
-| Core | `configmaps` | get, list, watch, create, update, patch |
-
-A ServiceAccount bound to the same `engineer` Role plus the `speculator-ctr-reader` ClusterRole from [What to send your administrator](#what-to-send-your-administrator) is a working baseline. Create a long-lived token for it and use that file:
+The token now lives in the secret — remove the plaintext file:
 
 ```bash
-oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/to/token-file
+rm /path/to/token-file
 ```
-
-> [!IMPORTANT]
->
-> Tokens expire. An expired token fails every run at job submission with a `401 Unauthorized` — if runs suddenly stop starting, regenerate the token and update the secret.
 
 Verify:
 
@@ -734,7 +781,7 @@ oc get nodes -o custom-columns=NAME:.metadata.name,GPUs:.status.allocatable.'nvi
 **4. Keep what matters.** Shutting down compute does not delete data:
 
 - The PVC — verifier, hidden states, processed datasets, `final_model` — is untouched by endpoint deletion.
-- Model Registry entries survive. But remember the weights-swap warning in each mode guide: registry versions reference the shared `final_model` path on the PVC, so a later rerun changes what a previously registered version points at. To preserve a revision, copy its `final_model` to a unique path (or a separate PVC) before retraining.
+- Model Registry entries survive. But remember the weights-swap warning in each mode guide: registry versions reference the shared `final_model` path on the PVC, so a later rerun changes what a previously registered version points at. Copying `final_model` to a unique path preserves the **files** but does **not** repoint the registry — the version keeps referencing `final_model`. To keep a registered revision tied to its original weights, either run the next revision against a **separate PVC** (the existing version's reference stays intact on the original one), or re-register the preserved copy as a **new version** pointing at its unique path — by running with that path as the output, or through the Model Registry UI/API.
 
 **5. (Optional) Tidy the pipeline UI.** Delete finished runs from the **Pipelines > Runs** page if the list gets noisy — this does not affect endpoints, PVCs, or registry entries.
 

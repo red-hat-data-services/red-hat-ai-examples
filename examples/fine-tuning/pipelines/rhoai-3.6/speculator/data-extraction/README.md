@@ -181,12 +181,23 @@ Point `p11_vllm_endpoint` at your own vLLM deployment. Requirements:
 - Set `p07_hidden_states_path` to match the connector's `shared_storage_path` on the shared PVC — it must line up with what the service writes.
 - Use the `speculator-model-opt-cuda` CTR (`p23_job_runtime`).
 
-Test that the endpoint is reachable from the project namespace before running:
+Test that the endpoint is reachable from the project namespace before running. The `engineer` access documented in the [common prerequisites](../README.md#access-you-need-and-what-your-administrator-must-provide) does **not** include creating pods, so `oc run` is not available to most users — use whichever path below fits your project:
 
-```bash
-oc run vllm-probe --rm -it --restart=Never --image=curlimages/curl -- \
-  curl -s <p11_vllm_endpoint>/v1/models
-```
+- **If the project already has a pod with `curl`** — a workbench is the usual case (workbench pods ship curl, and the `engineer` Role can create workbenches and exec into pods). Find the pod name, then exec the probe from inside it:
+
+  ```bash
+  oc get pods -n <project-namespace>
+  oc exec -n <project-namespace> <pod-name> -- curl -s <p11_vllm_endpoint>/v1/models
+  ```
+
+- **Otherwise, ask an administrator to run the probe** — pod creation requires access beyond the [documented Role](../README.md#access-you-need-and-what-your-administrator-must-provide):
+
+  ```bash
+  oc run vllm-probe --rm -it --restart=Never --image=curlimages/curl -- \
+    curl -s <p11_vllm_endpoint>/v1/models
+  ```
+
+  If the probe fails with an image pull error on a restricted cluster, the administrator should substitute any image the cluster serves that contains curl.
 
 ## Verifier model and target layer IDs
 
