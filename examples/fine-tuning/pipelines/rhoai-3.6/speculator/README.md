@@ -104,7 +104,7 @@ Your administrator binds a namespace-scoped Role (this guide calls it `engineer`
 | API group | Resources | Verbs | Why the pipelines need it |
 | --- | --- | --- | --- |
 | Core | `configmaps` | get, list, watch, create, update, patch, delete | Trainer job configuration |
-| Core | `secrets` | get, create, update, patch, delete — **scoped by name** to `kubernetes-credentials` and `hf-token` | Create and manage the two secrets the setup requires; reading or listing *other* secrets in the project is deliberately not granted |
+| Core | `secrets` | create (collection-level); get, update, patch, delete — **scoped by name** to `kubernetes-credentials` and `hf-token` | Create the two secrets the setup requires and manage them afterwards. Kubernetes RBAC cannot restrict `create` by resource name, so creation is collection-level and permits creating a Secret with any name in the project — reading, changing, or deleting other Secrets remains denied |
 | Core | `serviceaccounts` | get, list | Discover the pipeline runner ServiceAccount |
 | Core | `serviceaccounts/token` | create — **scoped by name** to `pipeline-runner` | Mint the runner's token for the `kubernetes-credentials` secret; minting tokens for other ServiceAccounts is deliberately not granted |
 | Core | `pods`, `persistentvolumeclaims`, `resourcequotas`, `events`, `services` | get, list, watch | Watch run progress, check the PVC and services |
@@ -157,7 +157,7 @@ Run these as yourself. Every answer must be `yes` for the modes you plan to use:
 oc auth can-i create trainjobs -n <project-namespace>
 oc auth can-i create persistentvolumeclaims -n <project-namespace>
 oc auth can-i create configmaps -n <project-namespace>
-oc auth can-i create secrets/kubernetes-credentials -n <project-namespace>
+oc auth can-i create secrets -n <project-namespace>
 oc auth can-i get secrets/kubernetes-credentials -n <project-namespace>
 oc auth can-i create notebooks.kubeflow.org -n <project-namespace>
 
@@ -178,6 +178,8 @@ If any answer is `no`, collect the failing checks and send them with the manifes
 
 Everything below is ready to paste. Replace `<project-namespace>` with your project name and `<your-username>` with your OpenShift login. Note the split: the `engineer` Role binds to **your user** (CLI and dashboard work, credential setup), while the `pipeline-runner` ServiceAccount gets its own smaller Role for the pipeline's API calls — the two identities get different grants on purpose. These manifests extend the impersonation-validated recipe with the runner bindings and the scoped credential-creation grants the setup steps require; if your organization already has equivalent roles, binding those instead is fine as long as the [checks above](#check-your-own-access-before-you-start) pass.
 
+One boundary to be aware of: these grants stop at your project. They do **not** authorize listing Roles across namespaces or creating a RoleBinding in the Model Registry's namespace — the registry setup commands in [Model Registry and KServe](#model-registry-and-kserve-train-only--online--offline) are marked as administrator tasks for exactly that reason.
+
 **1. Namespace Role + binding** (applied by the administrator):
 
 ```yaml
@@ -192,8 +194,11 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
     resourceNames: ["kubernetes-credentials", "hf-token"]
-    verbs: ["get", "create", "update", "patch", "delete"]
+    verbs: ["get", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["get", "list"]
@@ -265,7 +270,7 @@ subjects:
     name: <your-username>
 ```
 
-The `engineer` Role is bound to your user only. The two `resourceNames` scopes matter: they limit secret access to exactly the two secret names this guide creates, and token minting to the `pipeline-runner` ServiceAccount — so neither you nor the runner can read unrelated secrets or mint tokens for other (possibly more privileged) ServiceAccounts. If your runner has a different name, update the `resourceNames` entries and the bindings below to match.
+The `engineer` Role is bound to your user only. The `resourceNames` scopes matter: they limit secret read/modify/delete to exactly the two secret names this guide uses, and token minting to the `pipeline-runner` ServiceAccount — so neither you nor the runner can read unrelated secrets or mint tokens for other (possibly more privileged) ServiceAccounts. Secret **creation** is the deliberate exception: `oc create secret` sends a collection-level request whose name is only in the request body, which RBAC `resourceNames` cannot match — so `create` is granted at collection level and can create a Secret with any name (though only the two documented names can be read back). Organizations that run an admission policy engine such as Kyverno or Gatekeeper can restrict creation to the two documented names with a policy — RBAC alone cannot do it. If your runner has a different name, update the `resourceNames` entries and the bindings below to match.
 
 **2. Pipeline runner Role + binding** — the smaller Role for the ServiceAccount the pipeline runs as (applied by the administrator). It contains only what the pipeline's own API calls need:
 
@@ -403,7 +408,7 @@ The recipe above is intentionally minimal. As a user you **cannot**:
 
 - Create or delete pods directly (pods are created by the Trainer and pipeline controllers, not by you).
 - Create, update, or delete image streams.
-- Read, list, or create secrets other than `kubernetes-credentials` and `hf-token`, or mint tokens for any ServiceAccount other than `pipeline-runner` — both grants are scoped by name.
+- Read, list, modify, or delete secrets other than `kubernetes-credentials` and `hf-token`, or mint tokens for any ServiceAccount other than `pipeline-runner` — those grants are scoped by name. Secret **creation** is the one exception: Kubernetes RBAC cannot restrict `create` by resource name, so you can create a Secret with any name in the project, but you cannot read it back unless it is one of the two documented names.
 - Access or administer other projects — the cluster-scoped grant is a named read of your project only.
 - Modify cluster-wide configuration or act as `cluster-admin`.
 
@@ -534,7 +539,21 @@ oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/
 
 > [!IMPORTANT]
 >
-> Tokens expire. An expired token fails every run at job submission with a `401 Unauthorized` — if runs suddenly stop starting, re-run the steps in this section to mint a fresh token and update the secret.
+> Tokens expire — the mint above uses a one-year duration. An expired token fails every run at job submission with a `401 Unauthorized`; if runs suddenly stop starting, that is the symptom.
+
+**When the token expires**, mint a fresh token file exactly as above (`umask 077`, then `oc create token ...`), but do **not** re-run `oc create secret` — it fails on the existing secret with `AlreadyExists`. Update the existing one instead, re-supplying both keys so the configured server URL is preserved:
+
+```bash
+umask 077
+oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/to/token-file
+oc create secret generic kubernetes-credentials \
+  --from-literal=KUBERNETES_SERVER_URL="https://api.your-cluster.com:6443" \
+  --from-file=KUBERNETES_AUTH_TOKEN=/path/to/token-file \
+  --dry-run=client -o yaml | oc apply -f -
+rm /path/to/token-file
+```
+
+The `--dry-run=client -o yaml | oc apply -f -` form creates the secret when it does not exist and updates it in place when it does — use the same `KUBERNETES_SERVER_URL` value you started with; it does not change on renewal.
 
 With the token file in hand, create the secret:
 
@@ -597,7 +616,7 @@ The train-only pipeline **always** registers the draft — registry setup is man
 > [!WARNING]
 > **SCREENSHOT TODO — REPLACE BEFORE MERGE.** This image shows an existing registry list, not the creation flow step 1 describes. Retake it from the **Create registry** dialog, or the moment the new registry appears with its REST URL visible.
 
-**2. Find the registry's REST route.** Red Hat OpenShift AI gives each model registry its own dedicated REST route, named after the registry. Find yours with:
+**2. Find the registry's REST route.** Red Hat OpenShift AI gives each model registry its own dedicated REST route, named after the registry. The **dashboard** shows the route on the registry's page — that is the user path. Listing routes across all namespaces with `oc` needs cluster-wide read, which the [documented access](#access-you-need-and-what-your-administrator-must-provide) does not include — if you prefer the CLI, an administrator runs:
 
 ```bash
 oc get routes -A | grep rest
@@ -614,7 +633,7 @@ For a registry named `bu-registry`, the route host looks like `bu-registry-rest.
 >
 > - Include the scheme in the address, matching how the endpoint is served — `https://` for Red Hat OpenShift AI routes, which is the normal case. Without a scheme the pipeline falls back to plain HTTP, which the route does not serve. If your endpoint is plain HTTP (a custom ingress without TLS, or a route with an insecure-edge policy), use `http://` and that endpoint's port; the same rules apply.
 > - Do **not** paste the dashboard's REST URL (`https://<dashboard-host>/model-registry/<name>/api/model_registry/v1alpha3`). The pipeline appends the `/api/...` path itself, and the extra `/model-registry/<name>` prefix breaks the request. Always use the dedicated `-rest` route.
-> - Alternative, in-cluster: the registry's Service works too — address `model-registry-<name>.<namespace>.svc` (no scheme), port `8080`. Find it with `oc get svc -A | grep model-registry`.
+> - Alternative, in-cluster: the registry's Service works too — address `model-registry-<name>.<namespace>.svc` (no scheme), port `8080`. Finding it with `oc get svc -A` again needs cluster-wide read — ask an administrator to run it and give you the Service name.
 
 **3. Grant the pipeline runner access.** Pipeline runs execute under a ServiceAccount in your project — Red Hat OpenShift AI creates `pipeline-runner` when the pipeline server is configured. Confirm the name before binding:
 
@@ -622,7 +641,7 @@ For a registry named `bu-registry`, the route host looks like `bu-registry-rest.
 oc get serviceaccounts -n <project-namespace>
 ```
 
-The grant a Red Hat OpenShift AI Model Registry installs is a **namespaced Role** in the registry's namespace (`registry-user-<registry-name>`), not a ClusterRole. Check what your registry created, then bind it with the matching kind:
+The grant a Red Hat OpenShift AI Model Registry installs is a **namespaced Role** in the registry's namespace (`registry-user-<registry-name>`), not a ClusterRole. That namespace is outside the [documented access](#access-you-need-and-what-your-administrator-must-provide): the grants do not authorize listing Roles across namespaces or creating a RoleBinding there. **Your administrator (or whoever manages the registry) runs the discovery and binding:**
 
 ```bash
 # Discover the grant and its kind (Role vs ClusterRole):
@@ -635,7 +654,7 @@ oc create rolebinding registry-access-<project> \
   --serviceaccount=<project-namespace>:pipeline-runner
 ```
 
-If your administrator instead created a ClusterRole for the registry, substitute `--clusterrole=` in the binding — the discovery command above tells you which case you are in. Binding with the wrong kind fails the register stage with a permission error after training has already completed.
+If the administrator instead created a ClusterRole for the registry, they substitute `--clusterrole=` in the binding — the discovery command above tells them which case applies. Binding with the wrong kind fails the register stage with a permission error after training has already completed.
 
 **4. Serving namespace.** The serving namespace must be able to access the persistent PVC, and the pipeline ServiceAccount needs permission to manage ServingRuntimes and InferenceServices there. Using the same namespace as the PVC (typically your project namespace) is the simplest working setup. Serving also reads the GPU **HardwareProfile** from `redhat-ods-applications` — see [Cluster-wide access only your administrator can grant](#cluster-wide-access-only-your-administrator-can-grant) for the profile and its read grant, or the serve stage fails at InferenceService creation.
 
