@@ -43,9 +43,9 @@ Stage by stage:
 
 A failure at any node stops everything after it, and that node's logs are where to look. The two nodes that fail most often in practice are **evaluate** (vLLM startup timeout — raise `p43_evaluation_startup_timeout_seconds`) and **register** (wrong host/port split or missing RoleBinding — see [Troubleshooting](#troubleshooting)).
 
-![Training node logs](../docs/speculator-train-only-training-logs.png)
+![Training node logs](../images/speculator-train-only-training-logs.png)
 
-![Completed train-only run graph](../docs/speculator-train-only-run.png)
+![Completed train-only run graph](../images/speculator-train-only-run.png)
 
 ## Hardware requirements (Qwen3-0.6B)
 
@@ -65,15 +65,7 @@ Work through the [access checks](../README.md#access-you-need-and-what-your-admi
 - **Serving namespace**: `p04_serving_namespace` must match the PVC namespace and have the required KServe permissions.
 - CTR `speculator-model-opt-cuda` (`p35_job_runtime` default).
 
-The three setup steps this mode depends on, as they look in the dashboard:
-
-![Project storage view with the RWX PVC](../docs/speculator-storage-pvc.png)
-
-![Configure pipeline server dialog](../docs/speculator-pipeline-server.png)
-
-![Model registry creation with REST URL](../docs/speculator-model-registry.png)
-
-All are covered step by step — with verification commands — in the [common prerequisites](../README.md#prerequisites).
+The setup steps this mode depends on are covered step by step — with verification commands and dashboard screenshots — in the [common prerequisites](../README.md#prerequisites).
 
 ## Wiring it to a data-extraction run
 
@@ -120,17 +112,20 @@ PYTHONPATH=$(pwd) python pipelines/training/speculator/train_only/pipeline.py
 
 This writes `pipelines/training/speculator/train_only/pipeline.yaml`.
 
-**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). The imported definition is named `speculator-training-pipeline`.
+**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). It appears in the **Pipeline definitions** list under the display name you entered when importing.
 
-**Step 3 — create a run.** Open the pipeline definition, click **Create run**, and fill in the parameters from the table below. Leave everything not listed at its default. Use a **new** `p46_model_registry_version` for every trained revision — re-using a version number overwrites the registry entry's meaning.
+**Step 3 — create a run.** Open the pipeline definition, open the **Actions** menu, and choose **Create run**. Fill in the parameters from the table below. Leave everything not listed at its default. Use a **new** `p46_model_registry_version` for every trained revision — re-using a version number overwrites the registry entry's meaning.
 
 > [!WARNING]
 >
-> Leave the **ML experiment** checkbox unticked. These pipelines have not been tested with an MLflow experiment association, and enabling it may cause the run to fail or behave unexpectedly.
+> Disable **MLflow tracking** in the run dialog — the toggle is on by default. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
 
-![Create run dialog with train-only parameters](../docs/speculator-train-only-create-run.png)
+![Create run dialog with train-only parameters](../images/speculator-train-only-create-run.png)
 
-**Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough — what each of the four tasks does and how long it takes — is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
+> [!WARNING]
+> **SCREENSHOT TODO — VERIFY BEFORE MERGE.** Retake if this image does not show the **Run group** field and the **MLflow tracking** toggle being disabled — the guide now tells customers to disable it, and the screenshot must match what they see.
+
+**Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough — what each of the four tasks does and how long it takes — is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
 
 ### Example: Qwen3-0.6B
 
@@ -161,7 +156,7 @@ Only the draft model — the verifier is never modified. Defaults train a 1-laye
 
 The **evaluation task** benchmarks the served draft with GuideLLM and logs its results as KFP **metrics artifacts** — not plain log output. To find them: open the run in the Red Hat OpenShift AI UI, click the evaluation node, and look at its **Artifacts / Metrics** output.
 
-![Evaluation metrics artifacts](../docs/speculator-train-only-evaluation.png)
+![Evaluation metrics artifacts](../images/speculator-train-only-evaluation.png)
 
 ### Acceptance metrics
 
@@ -199,7 +194,7 @@ One more thing to set expectations before you judge a first run:
 
 After the run succeeds, the draft appears in the Model Registry: **AI Hub > Models > Model registries > your registry**, under the name you set in `p03_model_registry_name`, with the version from `p46_model_registry_version`.
 
-![Model registry entry for the draft](../docs/speculator-train-only-model-registry.png)
+![Model registry entry for the draft](../images/speculator-train-only-model-registry.png)
 
 ## Testing the served endpoint
 
@@ -223,7 +218,7 @@ oc exec -n <p04_serving_namespace> deploy/<p05_serving_endpoint_name>-predictor 
 
 The answer is in `choices[0].message.content`. Note the server is vLLM behind KServe; the first request after the run may take a moment while the model loads into GPU.
 
-![Deployed endpoint](../docs/speculator-train-only-deployment.png)
+![Deployed endpoint](../images/speculator-train-only-deployment.png)
 
 A note on reading the result: with speculative decoding the output is still **correct** regardless of draft quality — the verifier guarantees the tokens; a bad draft only costs speed. So a sensible answer tells you the whole stack works; whether the draft is *good* is what the [acceptance metrics](#interpreting-the-evaluation-results) tell you.
 

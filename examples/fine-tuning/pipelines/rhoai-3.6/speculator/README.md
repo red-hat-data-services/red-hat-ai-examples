@@ -35,6 +35,37 @@ Every pipeline that trains also **evaluates** the draft with GuideLLM (acceptanc
 
 New to the two-step vs one-run distinction? Start with [data-extraction](data-extraction/), verify its output on the PVC as its guide describes, then move on to [train-only](train-only/).
 
+## Choosing a mode
+
+Work through this page top to bottom before touching a cluster — by the end you should know your mode, know your cluster can support it, and know what (if anything) to request from your administrator.
+
+**1. Match your goal to a mode:**
+
+| What do you need? | Choose | What must already be available? |
+| --- | --- | --- |
+| One run that manages extraction and training together | **ONLINE** | Capacity for the training worker and managed vLLM sidecar together; no external extraction server to prepare. |
+| Extraction and training using a verifier endpoint you already operate | **OFFLINE** | A reachable, extraction-capable vLLM endpoint, compatible versions/layers, and shared PVC paths. An ordinary chat-serving endpoint is insufficient. The pipeline still needs training compute. |
+| Reusable extraction outputs for separate training runs | **DATA_ONLY**, followed by **TRAIN_ONLY** | Extraction compute or an extraction-capable remote endpoint, plus persistent storage for the verifier, hidden states and preprocessed dataset. Extraction alone does not produce a trained draft. |
+| Train another draft from compatible extraction outputs you already have | **TRAIN_ONLY** | The matching verifier weights, hidden states and preprocessed dataset on the PVC, training compute, and access to the required model registry. |
+
+**2. Check the resource implications.** For the default Qwen3-0.6B configuration: ONLINE needs **two GPUs together** in the Trainer pod (worker + sidecar); managed DATA_ONLY needs **one** extraction GPU; TRAIN_ONLY and OFFLINE need **one** pipeline GPU during their sequential GPU stages. Count the external OFFLINE server and any endpoints retained from previous runs separately — see [Hardware requirements](#hardware-requirements) and each mode guide's component table. A cluster-wide GPU count alone does not prove the pod can schedule: CPU, memory, GPU memory, and placement all matter.
+
+**3. Check access.** Run the `oc auth can-i` checks in [Access you need](#access-you-need-and-what-your-administrator-must-provide). If any check fails, stop and send your administrator the grant manifests — the rest of this guide assumes they pass.
+
+**4. Your path through this guide:**
+
+1. This section — choose the mode.
+2. [Access you need](#access-you-need-and-what-your-administrator-must-provide) — self-check, administrator handoff if needed.
+3. [Prerequisites](#prerequisites) — shared setup you do **once** per project.
+4. [Quick Start](#quick-start) — compile the pipeline YAML, import it, create a run.
+5. Your mode's guide — the parameter table, the stage-by-stage walkthrough, and how to verify that mode's actual outputs (extraction files before TRAIN_ONLY; evaluation metrics and a real endpoint request for the training modes).
+6. [Testing the served endpoint](#testing-the-served-endpoint) — training modes only.
+7. [Cleaning up](#cleaning-up) — release serving GPUs when you are done.
+
+> [!NOTE]
+>
+> The example runs use deliberately small settings (16 extraction samples, 10 evaluation samples) — they prove the workflow end to end, not speedup. Establishing a speedup number requires a separate baseline run under matching conditions.
+
 ## Red Hat OpenShift AI compatibility
 
 This example is compatible with Red Hat OpenShift AI 3.6. The pipelines additionally require:
@@ -297,20 +328,21 @@ If a step in this guide seems to need something from that list, it is a step for
 
 Values below are for the default **Qwen3-0.6B** verifier. Requirements scale with verifier model size.
 
-| Pipeline | Training GPU | vLLM sidecar GPU | Evaluation / Serving GPU | Total GPUs (min) |
+| Pipeline | Training GPU | vLLM sidecar GPU | Evaluation / Serving GPU | Peak concurrent pipeline GPUs |
 | --- | --- | --- | --- | --- |
 | data-extraction (managed vLLM) | — | 1 | — | 1 |
 | data-extraction (remote vLLM) | — | — (external) | — | 0 |
-| train-only | 1 | — | ~1 | 2 |
+| train-only | 1 | — | ~1 | 1 |
 | online | 1 | 1 | ~1 | 2 |
-| offline | 1 | — (external) | ~1 | 2 |
+| offline | 1 | — (external) | ~1 | 1 |
 
 > [!NOTE]
 >
 > - The vLLM sidecar currently supports exactly 1 GPU (`p12_vllm_resource_gpu`).
 > - Evaluation (GuideLLM) and the KServe endpoint each consume roughly one GPU while active.
-> - Stages run sequentially — evaluation and serving start after the training job completes and reuse its freed GPUs, so the totals reflect **peak concurrent** usage. The online total of 2 is its training job (worker + sidecar) running together.
-> - Offline mode uses your external vLLM server's own resources — size it separately.
+> - Stages run sequentially — evaluation and serving start after the training job completes and reuse its freed GPUs, so the totals reflect **peak concurrent** usage: one pipeline GPU for train-only and offline, two for online (its training worker + vLLM sidecar run together in one Trainer pod).
+> - Offline mode uses your external vLLM server's own resources — size it separately, on top of the pipeline totals.
+> - Every training run leaves a GPU-backed endpoint behind. If you do not [clean it up](#cleaning-up), its GPU counts toward the cluster total during your *next* run.
 
 ## Prerequisites
 
@@ -333,7 +365,7 @@ These pipelines store all models, datasets, hidden states, checkpoints, and outp
 > 1. **Your persistent PVC** (`p01_persistent_pvc`) — pre-existing, holds the verifier, datasets, hidden states, checkpoints, and the final draft. Must be RWX and exist in the same namespace as the pipeline and the serving endpoint — PVCs are namespace-scoped and cannot be mounted across namespaces.
 > 2. **The KFP workspace PVC** — created by the pipeline itself at run time (200Gi, storage class `nfs-csi`, ReadWriteMany) for the Kubeflow Pipelines launcher tasks. Its size and storage class are set at compile time; see [Customizing before you compile](#customizing-before-you-compile).
 
-Create the PVC once in the Red Hat OpenShift AI dashboard: open your project, choose the **Storage** tab, click **Add workbench storage** (or equivalent), name it (this guide uses `shared`), set size 100Gi, and select a storage class with **ReadWriteMany** access. Alternatively with `oc`:
+Create the PVC once in the Red Hat OpenShift AI dashboard: in the left navigation, open **Cluster storage** and click **Add cluster storage**. Name it (this guide uses `shared`), set size 100Gi, and explicitly select a storage class with **ReadWriteMany** access — the dialog's default class is often RWO-only. Alternatively with `oc`:
 
 ```bash
 oc apply -f - <<EOF
@@ -352,7 +384,10 @@ EOF
 
 Replace `<your-rwx-storage-class>` with the name of a storage class on your cluster that provisions **ReadWriteMany** volumes — list what is available with `oc get storageclass`. Omitting `storageClassName` binds the PVC to the cluster's default class, which is often RWO-only and leaves the PVC stuck `Pending` or mounted read-only.
 
-![Project storage view with the RWX PVC](docs/speculator-storage-pvc.png)
+![Project storage view with the RWX PVC](images/speculator-storage-pvc.png)
+
+> [!WARNING]
+> **SCREENSHOT TODO — REPLACE BEFORE MERGE.** This image shows storage inside *Create workbench*, but the step above documents the standalone **Cluster storage → Add cluster storage** route. Retake it from that route with the name (`shared`), size (100Gi), and an explicit **ReadWriteMany** storage-class selection visible.
 
 Verify it's bound:
 
@@ -362,11 +397,15 @@ oc get pvc shared
 
 Expected: `STATUS Bound`.
 
+> [!TIP]
+>
+> Attaching the PVC to a workbench is **optional** and separate from creating it — the pipelines mount it themselves at run time. Attach it in **Create workbench** (or a workbench's **Add storage** action) only if you want a terminal that mounts the PVC for [inspecting outputs](data-extraction/README.md#verifying-the-output-on-the-pvc); the attachment does not affect the pipelines.
+
 ### Configure the pipeline server
 
 The pipeline server must be running for your project before you can import or run pipelines. In the Red Hat OpenShift AI dashboard, open your project, choose the **Pipelines** tab, and click **Configure pipeline server** if it is not already configured. Provide the object storage connection details it asks for (an S3-compatible bucket — the same kind used for any pipeline work; artifacts land there).
 
-![Configure pipeline server dialog](docs/speculator-pipeline-server.png)
+![Configure pipeline server dialog](images/speculator-pipeline-server.png)
 
 For the official documentation, see [configuring a pipeline server](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines#configuring-a-pipeline-server_ai-pipelines).
 
@@ -445,7 +484,10 @@ The train-only pipeline **always** registers the draft — registry setup is man
 
 **1. Create or select a registry.** In the Red Hat OpenShift AI dashboard, open **AI Hub > Models > Model registries** and create or select a registry.
 
-![Model registry creation with REST URL](docs/speculator-model-registry.png)
+![Model registry creation with REST URL](images/speculator-model-registry.png)
+
+> [!WARNING]
+> **SCREENSHOT TODO — REPLACE BEFORE MERGE.** This image shows an existing registry list, not the creation flow step 1 describes. Retake it from the **Create registry** dialog, or the moment the new registry appears with its REST URL visible.
 
 **2. Find the registry's REST route.** Red Hat OpenShift AI gives each model registry its own dedicated REST route, named after the registry. Find yours with:
 
@@ -551,23 +593,31 @@ Work through [Prerequisites](#prerequisites): PVC, pipeline server, `kubernetes-
    - **Pipeline file**: select **Upload a file** and choose the `pipeline.yaml` you compiled in step 1.
 6. Click **Import**.
 
-![Import pipeline dialog](docs/speculator-import-pipeline.png)
+![Import pipeline dialog](images/speculator-import-pipeline.png)
 
-**Expected result:** the pipeline appears in the **Pipeline definitions** list. The definition name is taken from the YAML: `speculator-hidden-state-extraction-pipeline` (data-extraction), `speculator-training-pipeline` (train-only), `speculator-online-pipeline` (online), `speculator-offline-pipeline` (offline).
+**Expected result:** the pipeline appears in the **Pipeline definitions** list under the **display name you entered in the dialog** — imported definitions are listed by that name, not by the name embedded in the YAML.
 
-![Pipeline definitions list](docs/speculator-pipeline-definitions.png)
+![Pipeline definitions list](images/speculator-pipeline-definitions.png)
 
 ### 4. Create a run and set parameters
 
 1. On the **Pipeline definitions** page, click the imported pipeline.
-2. Click **Create run**.
+2. Open the **Actions** menu on the definition page and choose **Create run**.
+
+> [!WARNING]
+> **SCREENSHOT TODO — NEW (optional).** Consider adding a screenshot of the definition page's **Actions → Create run** menu here — customers now enter the run dialog through it, and no current image shows that path.
+
 3. In the run dialog:
    - **Run name**: something meaningful, e.g. `speculator-extraction-1`
-   - **Experiment**: leave the default experiment or create one
-   - **Parameters**: fill in the values from the mode's example table (linked below). Parameters appear in `p01…` order — booleans render as toggles, and everything with a default can be left alone unless the table says otherwise.
-4. Click **Start**.
+   - **Run group**: leave the default run group or create one — this only groups runs in the UI
+   - **MLflow tracking**: **disable it** (the toggle is on by default). These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
+   - **Parameters**: fill in the values from the mode's example table (linked below). Parameters appear in `p01…` order — booleans render as **True/False** dropdowns, and everything with a default can be left alone unless the table says otherwise.
+4. Click **Create run**.
 
-![Create run dialog with parameters](docs/speculator-create-run.png)
+![Create run dialog with parameters](images/speculator-create-run.png)
+
+> [!WARNING]
+> **SCREENSHOT TODO — REPLACE BEFORE MERGE.** This image shows only run metadata. Retake it scrolled so the fields a customer actually enters are visible: **Run name**, **Run group**, the **MLflow tracking** toggle shown being disabled, and the first parameter fields with example values filled in.
 
 The ready-to-copy parameter tables:
 
@@ -583,7 +633,7 @@ The ready-to-copy parameter tables:
 3. Click any node to open its detail pane — **Logs** for stdout/stderr, **Artifacts** for its outputs.
 4. Tasks run sequentially in these pipelines (extraction before training, training before evaluation, etc.), so a failure early in the graph stops everything downstream. The failing node's logs are the first place to look.
 
-![Running pipeline graph](docs/speculator-run-graph.png)
+![Running pipeline graph](images/speculator-run-graph.png)
 
 When the run succeeds, continue with the mode's guide — for the two-step workflow that means [verifying the output on the PVC](data-extraction/README.md#verifying-the-output-on-the-pvc) and then the [train-only pipeline](train-only/README.md), whose guide covers [interpreting the evaluation results](train-only/README.md#interpreting-the-evaluation-results).
 
@@ -650,6 +700,43 @@ oc exec -n <project-namespace> deploy/<name>-predictor -c kserve-container -- \
 ```
 
 For an interactive session (repeated questions, or a conversation that keeps history), port-forward once as in step 4 and drive `http://localhost:5000` with curl or a small script — every request is independent unless you pass the full message history yourself.
+
+## Cleaning up
+
+Every training run leaves a **GPU-backed KServe endpoint** behind, and offline mode additionally depends on your **external extraction server**. Neither needs to keep running after verification — release the GPUs while keeping the data that matters.
+
+**1. Pause or remove the serving endpoint (train-only / online / offline).** To pause it and keep the deployment for later (resumable):
+
+```bash
+oc scale deploy/<name>-predictor -n <project-namespace> --replicas=0
+# ...and later, to serve again:
+oc scale deploy/<name>-predictor -n <project-namespace> --replicas=1
+```
+
+To remove it entirely:
+
+```bash
+oc get inferenceservices,servingruntimes -n <project-namespace>
+oc delete inferenceservice <name> -n <project-namespace>
+```
+
+Deleting the InferenceService removes its predictor Deployment and Pods and releases the GPU. If the pipeline created a dedicated ServingRuntime for the run, delete that too — the listing above shows what exists.
+
+**2. Stop the external extraction server (offline only).** Its GPUs are outside the pipeline's control — scale it to zero or tear it down however you deployed it.
+
+**3. Verify the GPUs were released:**
+
+```bash
+oc get pods -n <project-namespace>          # no *-predictor pods should remain
+oc get nodes -o custom-columns=NAME:.metadata.name,GPUs:.status.allocatable.'nvidia\.com/gpu'
+```
+
+**4. Keep what matters.** Shutting down compute does not delete data:
+
+- The PVC — verifier, hidden states, processed datasets, `final_model` — is untouched by endpoint deletion.
+- Model Registry entries survive. But remember the weights-swap warning in each mode guide: registry versions reference the shared `final_model` path on the PVC, so a later rerun changes what a previously registered version points at. To preserve a revision, copy its `final_model` to a unique path (or a separate PVC) before retraining.
+
+**5. (Optional) Tidy the pipeline UI.** Delete finished runs from the **Pipelines > Runs** page if the list gets noisy — this does not affect endpoints, PVCs, or registry entries.
 
 ## Default verifier model
 
