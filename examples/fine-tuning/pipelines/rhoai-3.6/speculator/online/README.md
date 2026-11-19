@@ -66,7 +66,7 @@ The sidecar takes minutes to load the verifier into GPU before extraction starts
 | vLLM sidecar | 1 (hardcoded — always exactly 1) | — | 96Gi |
 | Evaluation / serving | ~1 | — | — |
 
-Total: training GPUs + 1 sidecar GPU + evaluation/serving.
+**Peak concurrent: 2 GPUs** — the training worker and its sidecar run together in one Trainer pod. Evaluation and serving start only after that job finishes and reuse the freed GPUs, so they do not add to the peak; an endpoint left over from an *earlier* run does, because it is still holding a GPU when the next run starts. This matches the [common hardware requirements](../README.md#hardware-requirements) table.
 
 ## Setup
 
@@ -146,7 +146,7 @@ This writes `pipelines/training/speculator/online/pipeline.yaml`.
 | `p06_dataset_name` | `ultrachat` | Built-in dataset |
 | `p07_evaluation_dataset_uri` | `RedHatAI/speculator_benchmarks` | HuggingFace evaluation dataset with built-in subsets |
 | `p08_serving_namespace` | `<pvc-namespace>` | Must access the PVC |
-| `p09_data_extraction_max_samples` | `16` | Example run; set `0` for the full dataset |
+| `p09_data_extraction_max_samples` | `16` | **Set this explicitly** — the default is `0`, which extracts the *whole* dataset |
 | `p35_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the online Trainer job |
 | `p37_evaluation_max_samples` | `10` | Reduced for quick testing; default `80` for full runs |
 | `p38_evaluation_max_tokens` | `64` | Reduced for quick testing; default `256` for full runs |
@@ -154,6 +154,12 @@ This writes `pipelines/training/speculator/online/pipeline.yaml`.
 | `p44_model_registry_port` | `443` | Set alongside a non-empty registry address — the default `8080` only fits the in-cluster service |
 
 Training/evaluation/resource parameters can keep their defaults for a first run.
+
+> [!WARNING]
+>
+> One default is not safe to keep: `p09_data_extraction_max_samples` defaults to `0`, which means the **full** dataset (ultrachat_200k is ~200,000 conversations). Always set it explicitly for an example run — the table above uses `16`. The data-extraction pipeline defaults to `16` instead, so the two modes differ here.
+
+And one expectation to set about the evaluation stage's runtime:
 
 > [!NOTE]
 >

@@ -126,14 +126,14 @@ These commands run **inside a pod that mounts the shared PVC**. If you did the s
 
 1. In the Red Hat OpenShift AI dashboard, open your project and select **Workbenches → Create workbench**.
 2. Pick the smallest available image and container size — this workbench only lists files, so it needs no GPU and no accelerator profile.
-3. Under **Cluster storage**, choose **Attach existing storage** and select the shared PVC (`shared` in these examples). Note the **Mount path** you give it — that is your `PVC_MOUNT` below. Red Hat OpenShift AI's default workbench working directory is `/opt/app-root/src`; a PVC attached as `/opt/app-root/src/shared` means `PVC_MOUNT=/opt/app-root/src/shared`.
+3. Under **Cluster storage**, choose **Attach existing storage**, select the shared PVC (`shared` in these examples) and give it a **Mount path**. The commands below assume `/opt/app-root/src/shared`, which is the workbench's default working directory plus the claim name; whatever you enter here is your `PVC_MOUNT`.
 4. Start the workbench, open it, and use its terminal. Stop the workbench when you are finished — a stopped workbench releases its compute while the PVC data stays.
 
 The commands assume the default output directory (`p06_output_dir=speculator-output`, hidden states at `speculator-output/hidden_states`); if you customized it, substitute your path.
 
 ```bash
 # The mount path you gave the shared PVC in the workbench:
-PVC_MOUNT=/opt/app-root/src
+PVC_MOUNT=/opt/app-root/src/shared
 
 # What the extraction run produced:
 ls -laR $PVC_MOUNT/speculator-output | head -40
@@ -154,16 +154,16 @@ What you should see:
 
 If `hidden_states/` is empty or missing, the extraction did not do what you expected — see [Troubleshooting](#troubleshooting) before re-running.
 
-If `safetensors` is available in the workbench, peek at one tensor to confirm the data is real (export `PVC_MOUNT` first if you changed it — the snippet reads it from the environment):
+If `safetensors` is available in the workbench, peek at one tensor to confirm the data is real (the snippet reads `PVC_MOUNT` from the environment, so export your mount path first):
 
 ```bash
-export PVC_MOUNT=/opt/app-root/src
+export PVC_MOUNT=/opt/app-root/src/shared
 
 python3 - <<'EOF'
 import os
 from safetensors import safe_open
 from pathlib import Path
-mount = os.environ.get("PVC_MOUNT", "/opt/app-root/src")
+mount = os.environ.get("PVC_MOUNT", "/opt/app-root/src/shared")
 files = sorted(Path(mount, "speculator-output/hidden_states").rglob("*.safetensors"))
 print(f"{len(files)} file(s):", [f.name for f in files])
 with safe_open(files[0], framework="numpy") as f:
@@ -185,7 +185,7 @@ The pipeline adds a vLLM sidecar to the Trainer job. No infrastructure beyond th
 Point `p11_vllm_endpoint` at your own vLLM deployment. Requirements:
 
 - The external service must be able to access the verifier at `p03_verifier_model_pvc` on the shared PVC (remote mode always requires the PVC-backed path).
-- The server must be launched **with hidden-states extraction enabled** — a standard vLLM deployment is not sufficient. Use the speculators [`launch_vllm.py`](https://github.com/vllm-project/speculators/blob/main/scripts/launch_vllm.py) script in extraction mode: it configures the `ExampleHiddenStatesConnector` (`kv_connector`) with a `shared_storage_path`, and `target_layer_ids` matching `p18_target_layer_ids`. A plain vLLM deployment answers `/v1/models` but produces no hidden states.
+- The server must be launched **with hidden-states extraction enabled** — a standard vLLM deployment answers `/v1/models` but produces no hidden states. The quickest route is the tested manifest in this repository, [`manifests/external-vllm/vllm-server.yaml`](../../../../rhoai-3.6/manifests/external-vllm/vllm-server.yaml) (see its [README](../../../../rhoai-3.6/manifests/external-vllm/README.md), and the [parameter mapping](../offline/README.md#external-vllm-server) in the offline guide — the same mapping applies here, with `p07_hidden_states_path` and `p18_target_layer_ids`). Deploying it needs Deployment/Service creation, which the documented access does not grant, so an administrator applies it. The alternative is the speculators [`launch_vllm.py`](https://github.com/vllm-project/speculators/blob/main/scripts/launch_vllm.py) script in extraction mode, which configures the same `ExampleHiddenStatesConnector` (`kv_connector`) and `shared_storage_path`.
 - Set `p07_hidden_states_path` to match the connector's `shared_storage_path` on the shared PVC — it must line up with what the service writes.
 - Use the `speculator-model-opt-cuda` CTR (`p23_job_runtime`).
 
