@@ -122,9 +122,17 @@ Everything else can keep its default. For remote mode instead, see [Managed vs r
 
 Before handing off to the train-only pipeline, check what extraction actually produced. This is the gate between the two steps — training fails immediately if the hidden states are missing, so two minutes here saves a confusing failure there.
 
-Run these from any pod that mounts the PVC — a workbench terminal in the project is the natural choice. (If the PVC is mounted at a different path in your workbench, adjust `PVC_MOUNT`; `/opt/app-root/src` is the Red Hat OpenShift AI workbench default.) The commands assume the default output directory (`p06_output_dir=speculator-output`, hidden states at `speculator-output/hidden_states`); if you customized it, substitute your path.
+These commands run **inside a pod that mounts the shared PVC**. If you did the setup from your workstation, nothing mounts it yet — the pipeline's own pods are gone once the run finishes. Create a workbench to get a terminal that does (the documented `engineer` access permits this; it does not permit `oc run`):
+
+1. In the Red Hat OpenShift AI dashboard, open your project and select **Workbenches → Create workbench**.
+2. Pick the smallest available image and container size — this workbench only lists files, so it needs no GPU and no accelerator profile.
+3. Under **Cluster storage**, choose **Attach existing storage** and select the shared PVC (`shared` in these examples). Note the **Mount path** you give it — that is your `PVC_MOUNT` below. Red Hat OpenShift AI's default workbench working directory is `/opt/app-root/src`; a PVC attached as `/opt/app-root/src/shared` means `PVC_MOUNT=/opt/app-root/src/shared`.
+4. Start the workbench, open it, and use its terminal. Stop the workbench when you are finished — a stopped workbench releases its compute while the PVC data stays.
+
+The commands assume the default output directory (`p06_output_dir=speculator-output`, hidden states at `speculator-output/hidden_states`); if you customized it, substitute your path.
 
 ```bash
+# The mount path you gave the shared PVC in the workbench:
 PVC_MOUNT=/opt/app-root/src
 
 # What the extraction run produced:

@@ -69,6 +69,17 @@ Work through the [access checks](../README.md#access-you-need-and-what-your-admi
 
 ### External vLLM server
 
+> [!IMPORTANT]
+>
+> This endpoint is a **prerequisite you do not create from this guide**. Deploying an extraction-capable vLLM server needs permissions the documented `engineer` access does not include (creating Deployments and Services) and a model/image combination that must be validated against the pipeline's expectations. Ask whoever operates vLLM in your cluster — usually your administrator — to supply the endpoint and confirm all four points below before you start. This guide does not ship a tested Deployment manifest; use the upstream launcher as the reference for how the server must be configured.
+>
+> What the administrator must confirm:
+>
+> 1. the server runs an image/version that carries the hidden-states connector used by the speculators launcher,
+> 2. its `shared_storage_path` is the same RWX PVC directory the pipeline reads (`p11_hidden_states_path` on `p01_persistent_pvc`), writable by the server's UID under OpenShift's restricted SCC,
+> 3. its `target_layer_ids` match the pipeline's `p15_target_layer_ids`,
+> 4. it serves the verifier model you intend to train against, and is reachable from your project namespace.
+
 `p03_vllm_endpoint` must point at a vLLM deployment that:
 
 - is reachable from the pipeline namespace,
@@ -184,6 +195,10 @@ Assumes the verifier was already cached on the PVC (e.g., by a prior data-extrac
 | `p48_model_registry_port` | `443` | Set alongside a non-empty registry address — the default `8080` only fits the in-cluster service |
 
 Training/evaluation/resource parameters can keep their defaults for a first run.
+
+> [!NOTE]
+>
+> `p40_evaluation_max_samples` and `p41_evaluation_max_tokens` bound the GuideLLM **benchmark sweep** only. They do not cap the evaluator's initial pass, which issues its own requests against the endpoint and generates up to the backend's token limit (4096). Lowering them shortens the sweep but does not make the evaluation stage short: expect the full stage duration and one GPU held for the duration even with the example values.
 
 ## Interpreting the results
 

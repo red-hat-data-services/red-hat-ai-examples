@@ -155,6 +155,10 @@ This writes `pipelines/training/speculator/online/pipeline.yaml`.
 
 Training/evaluation/resource parameters can keep their defaults for a first run.
 
+> [!NOTE]
+>
+> `p37_evaluation_max_samples` and `p38_evaluation_max_tokens` bound the GuideLLM **benchmark sweep** only. They do not cap the evaluator's initial pass, which issues its own requests against the endpoint and generates up to the backend's token limit (4096). Lowering them shortens the sweep but does not make the evaluation stage short: expect the full stage duration and one GPU held for the duration even with the example values.
+
 ## Interpreting the results
 
 Same evaluation task and metrics as the train-only pipeline — see [Interpreting the evaluation results](../train-only/README.md#interpreting-the-evaluation-results) in that guide for the full metric table and how to read it. The short version: check `acceptance_length` (mean tokens per verifier pass; higher is better, 1 means the draft contributes nothing), and remember the pipeline emits **no speedup ratio** — only absolute throughput numbers.

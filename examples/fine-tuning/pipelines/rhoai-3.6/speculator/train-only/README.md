@@ -16,7 +16,7 @@ This guide covers the **speculator-training-pipeline** — the second step of th
 The pipeline expects the verifier model, hidden states, and preprocessed dataset from a previous data-extraction run to already exist on the shared PVC. It does **not** download the verifier. Stages:
 
 1. **Train** the Eagle3 draft from the hidden states (Trainer job, `speculator-model-opt-cuda` CTR).
-2. **Evaluate** with GuideLLM — acceptance metrics against the verifier without speculation.
+2. **Evaluate** with GuideLLM — it benchmarks the served **speculative** endpoint (verifier + draft) and reports acceptance metrics. It does not run a verifier-only baseline; see [Interpreting the evaluation results](#interpreting-the-evaluation-results) for why a separate baseline is needed to claim a speedup.
 3. **Register** the draft to the Kubeflow Model Registry (unconditional).
 4. **Serve** via a cluster-local KServe InferenceService for speculative decoding.
 
@@ -147,6 +147,10 @@ Assumes a completed data-extraction run with defaults, and the verifier cached b
 | `p45_model_registry_port` | `443` | **Required with a route address** — the default `8080` only fits the in-cluster service |
 
 The `p38_evaluation_max_samples` and `p39_evaluation_max_tokens` values above are reduced to speed up an example run. For production evaluation, leave them at their defaults (`80` and `256`).
+
+> [!NOTE]
+>
+> These two parameters bound the GuideLLM **benchmark sweep** only. They do not cap the evaluator's initial pass, which issues its own requests against the endpoint and generates up to the backend's token limit (4096). Lowering them shortens the sweep but does not make the evaluation stage short: expect the full ~15–30 minutes and one GPU held for the duration even with the example values.
 
 ## What gets trained
 
