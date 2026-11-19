@@ -246,7 +246,7 @@ The IDs are **verifier-specific** — for any other model (e.g. Llama-3.2-1B-Ins
 | Extraction completes but hidden states are empty | Managed/remote path mismatch, or `p08_max_samples=0` semantics misunderstood | Managed mode writes to `<p06_output_dir>/hidden_states`; in remote mode align `p07_hidden_states_path` with the service's write location |
 | Run fails with ClusterTrainingRuntime not found | Wrong CTR for the mode | Managed needs `vllm-extract-cuda`; remote needs `speculator-model-opt-cuda` |
 | Extraction slow on shared storage | Concurrent I/O saturating NFS | Keep `p19_data_extraction_concurrency=1` |
-| Download task fails with 401 | Gated model without `hf-token` secret | Create the `hf-token` secret |
+| Download task fails with 401 | Gated model without `hf-token` secret | Ask your administrator to create the `hf-token` secret |
 
 Compile-time problems (`ModuleNotFoundError`, storage class, package-index issues) are covered in the [common troubleshooting table](../README.md#troubleshooting).
 
