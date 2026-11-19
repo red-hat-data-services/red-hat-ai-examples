@@ -82,7 +82,7 @@ Defaults line up out of the box. If you customized the extraction output directo
 
 > [!WARNING]
 >
-> A common mistake is setting `p06_verifier_model_pvc` to the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name (`models/Qwen--Qwen3-0.6B`). The download task replaces `/` with `--` in the model ID — always check `ls $PVC_MOUNT/models/` to confirm the actual directory name before creating a train-only run.
+> A common mistake is setting `p06_verifier_model_pvc` to the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name (`models/Qwen--Qwen3-0.6B`). The download task replaces `/` with `--` in the model ID — always list `models/` on the shared PVC and use the directory name you actually see before creating a train-only run (the [data-extraction guide](../data-extraction/README.md#verifying-the-output-on-the-pvc) has the workbench terminal procedure).
 
 ## Preparing the evaluation dataset
 
@@ -300,7 +300,7 @@ Watch the acceptance metrics after each iteration and keep the best revision in 
 | Serving task fails with forbidden | ServiceAccount lacks KServe permissions in `p04_serving_namespace` | Grant ServingRuntime/InferenceService manage rights |
 | Training pod OOM-killed | Verifier too large for defaults | Raise `p33_training_resource_memory` |
 | Older registry versions break after a re-run | `final_model` on the PVC is overwritten each run | Use a separate PVC per revision if old versions must keep referencing their weights |
-| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p06_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. Check with `ls $PVC_MOUNT/models/` |
+| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p06_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm — see [Verifying the output on the PVC](../data-extraction/README.md#verifying-the-output-on-the-pvc) |
 | Chat request to the endpoint returns "model not found" | Wrong model id — the server registers the model under the InferenceService name | Discover the id via `/v1/models`; see [Testing the served endpoint](#testing-the-served-endpoint) |
 
 Compile-time problems and endpoint-access problems (cluster-local DNS, port-forwarding) are covered in the [common troubleshooting table](../README.md#troubleshooting).
