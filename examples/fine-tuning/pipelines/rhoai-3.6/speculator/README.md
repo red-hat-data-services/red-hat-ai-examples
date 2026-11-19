@@ -16,7 +16,7 @@ This page covers what is shared across all four modes — background, prerequisi
 
 Large language models generate tokens one at a time during inference. Each token requires reading the entire model from GPU memory (e.g., 140 GB for a 70B model in FP16), but the actual computation for one token is tiny. The GPU spends most of its time waiting for data to arrive from memory — running at under 1% compute utilization during normal token generation. This is called being **memory-bound**.
 
-Speculative decoding exploits a key insight: verifying multiple tokens at once costs almost the same as generating one, because the expensive part (reading the model from memory) is identical and the GPU's compute units are idle anyway. A small, fast **draft model** (~1.2 GB with Qwen3-0.6B) quickly guesses the next several tokens, then the large **verifier model** checks all guesses at once in a single forward pass. Correct guesses become output; at the first rejected guess, the verifier's own token is used and the draft model starts guessing again. The output is mathematically identical to normal decoding — no quality loss.
+Speculative decoding exploits a key insight: verifying multiple tokens at once costs almost the same as generating one, because the expensive part (reading the model from memory) is identical and the GPU's compute units are idle anyway. A small, fast **draft model** quickly guesses the next several tokens, then the larger **verifier model** — `Qwen/Qwen3-0.6B` in these examples, kept deliberately small so an example run finishes quickly — checks all guesses at once in a single forward pass. Correct guesses become output; at the first rejected guess, the verifier's own token is used and the draft model starts guessing again. The output is mathematically identical to normal decoding — no quality loss.
 
 For more background — why custom draft models matter after fine-tuning, and how the Eagle3 architecture reads hidden states from four intermediate verifier layers — see the [SDK example README](../../../rhoai-3.6/speculator/README.md#what-is-speculative-decoding).
 
@@ -120,8 +120,7 @@ Your administrator binds a namespace-scoped Role (this guide calls it `engineer`
 | `trainer.kubeflow.org` | `trainingruntimes` | get, list, watch | Resolve namespaced TrainingRuntimes |
 | `jobset.x-k8s.io` | `jobsets` | get, list, watch | Inspect the JobSets under a TrainJob |
 | `serving.kserve.io` | `servingruntimes`, `inferenceservices` | get, list, watch, create, update, patch, delete | The serving stage creates and manages these (train-only / online / offline) |
-| `apps` | `deployments` | get, list, watch | Resolve the predictor deployment for `oc exec`/`oc port-forward` and check its state |
-| `apps` | `deployments/scale` | patch | Pause and resume the predictor (`oc scale` in [Cleaning up](#cleaning-up)) — the deployments themselves are created and deleted by the KServe controller, not by you |
+| `apps` | `deployments` | get, list, watch | Resolve the predictor deployment for `oc exec`/`oc port-forward` and check its state — the deployments themselves are created, stopped and deleted by the KServe controller, not by you |
 | `kubeflow.org` | `notebooks` | full CRUD | Create a workbench to inspect PVC contents |
 | `image.openshift.io` | `imagestreams` | get, list, watch | Resolve image references |
 
@@ -149,7 +148,7 @@ and to grant the pipeline runner read access to it (see [What to send your admin
 | --- | --- | --- | --- | --- |
 | Project `engineer` Role + CTR discovery | Required | Required | Required | Required |
 | Pipeline server with S3 object storage (administrator-configured) | Required | Required | Required | Required |
-| Serving: KServe writes, predictor scale + HardwareProfile | Not needed | Required | Required | Required |
+| Serving: KServe writes, predictor stop/start + HardwareProfile | Not needed | Required | Required | Required |
 | Model Registry access | Not needed | Required (always registers) | Optional (skip by leaving the registry address empty) | Optional |
 | External extraction-capable vLLM endpoint | Optional (remote mode) | Not needed | Not needed | Required |
 
@@ -170,7 +169,6 @@ oc auth can-i create pods --subresource=exec -n <project-namespace>
 oc auth can-i create inferenceservices.serving.kserve.io -n <project-namespace>
 oc auth can-i delete inferenceservices.serving.kserve.io -n <project-namespace>
 oc auth can-i get deployments.apps -n <project-namespace>
-oc auth can-i patch deployments.apps --subresource=scale -n <project-namespace>
 
 # Cluster-wide discovery (all modes)
 oc auth can-i list clustertrainingruntimes.trainer.kubeflow.org
@@ -660,22 +658,24 @@ For an interactive session (repeated questions, or a conversation that keeps his
 
 Every training run leaves a **GPU-backed KServe endpoint** behind, and offline mode additionally depends on your **external extraction server**. Neither needs to keep running after verification — release the GPUs while keeping the data that matters.
 
-**1. Pause or remove the serving endpoint (train-only / online / offline).** To pause it and keep the deployment for later (resumable):
+**1. Stop, restart, or remove the serving endpoint (train-only / online / offline).** The endpoint the run created is listed in the dashboard under **AI Hub > Models > Deployments**. Its action menu offers the three things you need:
+
+| Action | What happens | When to use it |
+| --- | --- | --- |
+| **Stop** | KServe deletes the predictor pods and releases the GPU, keeping the InferenceService | You are done for now but expect to query the endpoint again |
+| **Start** | Recreates the predictor from the same InferenceService — no pipeline re-run | Resuming a stopped endpoint; the first request is slow again while vLLM loads the model |
+| **Delete** | Removes the InferenceService, its predictor and the GPU it held, permanently | You are finished with this draft, or you want the name free for the next run |
+
+Confirm a stop or delete from the CLI:
 
 ```bash
-oc scale deploy/<name>-predictor -n <project-namespace> --replicas=0
-# ...and later, to serve again:
-oc scale deploy/<name>-predictor -n <project-namespace> --replicas=1
+oc get pods -n <project-namespace> | grep predictor   # nothing should remain
+oc get inferenceservice -n <project-namespace>        # after Stop the entry stays, READY False
 ```
 
-To remove it entirely:
+A stopped InferenceService reports `Stopped=True` in its status conditions, so `READY False` means paused, not broken.
 
-```bash
-oc get inferenceservices,servingruntimes -n <project-namespace>
-oc delete inferenceservice <name> -n <project-namespace>
-```
-
-Deleting the InferenceService removes its predictor Deployment and Pods and releases the GPU. If the pipeline created a dedicated ServingRuntime for the run, delete that too — the listing above shows what exists.
+The CLI equivalent of **Delete** is `oc delete inferenceservice <name> -n <project-namespace>`. Either way, if the pipeline created a dedicated ServingRuntime for the run, that is a separate object — list what exists with `oc get inferenceservices,servingruntimes -n <project-namespace>` and delete the runtime too.
 
 **2. Stop the external extraction server (offline only).** Its GPUs are outside the pipeline's control — scale it to zero or tear it down however you deployed it.
 
