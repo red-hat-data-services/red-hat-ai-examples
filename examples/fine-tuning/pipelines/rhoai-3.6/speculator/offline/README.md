@@ -83,14 +83,25 @@ The last point matters: extraction requires the server to expose the verifier's 
 
 A plain vLLM deployment answers `/v1/models` and passes the probe below, but produces no hidden states — the extraction stage then fails or writes nothing.
 
-Verify reachability from the project namespace before running:
+Verify reachability from the project namespace before running. Note that the `engineer` access documented in the [common prerequisites](../README.md#access-you-need-and-what-your-administrator-must-provide) does **not** include creating pods, so `oc run` is not available to most users — use whichever path below fits your project:
 
-```bash
-oc run vllm-probe --rm -it --restart=Never --image=curlimages/curl -- \
-  curl -s <p03_vllm_endpoint>/v1/models
-```
+- **If the project already has a pod with `curl`** — a workbench is the usual case (workbench pods ship curl, and the `engineer` Role can create workbenches and exec into pods). Find the pod name, then exec the probe from inside it:
 
-If the probe fails with an image pull error on a restricted cluster, substitute any image your cluster serves that contains curl. If it fails to connect, fix networking (NetworkPolicy, endpoint URL) before running the pipeline — the pipeline's first extraction request will fail the same way.
+  ```bash
+  oc get pods -n <project-namespace>
+  oc exec -n <project-namespace> <pod-name> -- curl -s <p03_vllm_endpoint>/v1/models
+  ```
+
+- **Otherwise, ask an administrator to run the probe** — pod creation requires access beyond the [documented Role](../README.md#access-you-need-and-what-your-administrator-must-provide):
+
+  ```bash
+  oc run vllm-probe --rm -it --restart=Never --image=curlimages/curl -- \
+    curl -s <p03_vllm_endpoint>/v1/models
+  ```
+
+  If the probe fails with an image pull error on a restricted cluster, the administrator should substitute any image the cluster serves that contains curl.
+
+If the probe fails to connect, fix networking (NetworkPolicy, endpoint URL) before running the pipeline — the pipeline's first extraction request will fail the same way.
 
 ### Verifier already on the PVC
 
