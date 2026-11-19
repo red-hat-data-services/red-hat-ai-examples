@@ -604,8 +604,8 @@ Work through [Prerequisites](#prerequisites): PVC, pipeline server, `kubernetes-
 1. On the **Pipeline definitions** page, click the imported pipeline.
 2. Open the **Actions** menu on the definition page and choose **Create run**.
 
-> [!WARNING]
-> **SCREENSHOT TODO — NEW (optional).** Consider adding a screenshot of the definition page's **Actions → Create run** menu here — customers now enter the run dialog through it, and no current image shows that path.
+   > [!WARNING]
+   > **SCREENSHOT TODO — NEW (optional).** Consider adding a screenshot of the definition page's **Actions → Create run** menu here — customers now enter the run dialog through it, and no current image shows that path.
 
 3. In the run dialog:
    - **Run name**: something meaningful, e.g. `speculator-extraction-1`
