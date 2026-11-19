@@ -87,8 +87,10 @@ Set `PIP_INDEX_URL`/`PIP_EXTRA_INDEX_URL` via `p36_job_envs` if you need a custo
 
 `p02_verifier_model` is the optional HuggingFace model ID, used for downloading or resolving the default cached directory. `p04_download_model` defaults to `false`:
 
-- Downloads enabled → the model ID is downloaded before training.
-- Downloads disabled → supply an existing directory with `p03_verifier_model_pvc` (relative path or matching `pvc://` URI), or the default cache directory derived from the model ID is used.
+- Downloads enabled → the model ID is downloaded onto the PVC before training; evaluation and serving then read it from there.
+- Downloads disabled → training can load the verifier directly from HuggingFace, but the **complete pipeline still needs it on the PVC**: the evaluation stage reads the verifier directory and fails with `FileNotFoundError` when it is missing. The verifier must already exist at `p03_verifier_model_pvc` (relative path or matching `pvc://` URI), or at the default cache directory derived from the model ID.
+
+Unless the verifier is already cached on the PVC (for example by a prior data-extraction run with downloads enabled), keep `p04_download_model=true`.
 
 Create the optional `hf-token` secret if downloading requires authentication.
 
@@ -188,7 +190,7 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | `p08_serving_namespace` | `str` | `None` | Required KServe namespace; must access the PVC. |
 | `p02_verifier_model` | `str` | `""` | Optional HuggingFace model ID used for downloading or resolving the default cached directory. |
 | `p03_verifier_model_pvc` | `str` | `""` | Optional existing verifier directory on the shared PVC. Use the on-disk directory name (`models/Qwen--Qwen3-0.6B`), not the HuggingFace model ID — the download task replaces `/` with `--`. Used when `p04_download_model` is false. |
-| `p04_download_model` | `bool` | `False` | Download the model specified by `p02_verifier_model` to the shared PVC. When `false`, the verifier is taken from `p03_verifier_model_pvc` if set, or from the default cache directory derived from `p02_verifier_model` — no PVC copy is strictly required in online (managed) mode. |
+| `p04_download_model` | `bool` | `False` | Download the model specified by `p02_verifier_model` to the shared PVC. When `false`, the verifier must already exist on the PVC, either at `p03_verifier_model_pvc` or at the default cache directory derived from `p02_verifier_model` — training can load it from HuggingFace, but the evaluation stage requires the PVC directory and fails with `FileNotFoundError` when it is missing. |
 | `p09_data_extraction_max_samples` | `int` | `0` | Maximum training examples extracted by the sidecar; `0` processes the full dataset. |
 | `p10_data_extraction_regenerate_responses` | `bool` | `False` | Regenerate assistant responses with the verifier; built-in datasets only. |
 | `p11_data_extraction_concurrency` | `int` | `1` | vLLM request concurrency and training `datagen_concurrency`. Use `1` on shared/NFS PVCs. |

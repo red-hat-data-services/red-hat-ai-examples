@@ -104,9 +104,9 @@ Your administrator binds a namespace-scoped Role (this guide calls it `engineer`
 | API group | Resources | Verbs | Why the pipelines need it |
 | --- | --- | --- | --- |
 | Core | `configmaps` | get, list, watch, create, update, patch, delete | Trainer job configuration |
-| Core | `secrets` | get, list, watch, create, update, patch, delete | Create and manage the `kubernetes-credentials` and `hf-token` secrets |
+| Core | `secrets` | get, create, update, patch, delete — **scoped by name** to `kubernetes-credentials` and `hf-token` | Create and manage the two secrets the setup requires; reading or listing *other* secrets in the project is deliberately not granted |
 | Core | `serviceaccounts` | get, list | Discover the pipeline runner ServiceAccount |
-| Core | `serviceaccounts/token` | create | Mint the runner's token for the `kubernetes-credentials` secret |
+| Core | `serviceaccounts/token` | create — **scoped by name** to `pipeline-runner` | Mint the runner's token for the `kubernetes-credentials` secret; minting tokens for other ServiceAccounts is deliberately not granted |
 | Core | `pods`, `persistentvolumeclaims`, `resourcequotas`, `events`, `services` | get, list, watch | Watch run progress, check the PVC and services |
 | Core | `pods/log` | get | Stream logs from extraction/training workers |
 | Core | `pods/portforward`, `pods/exec` | create | Test the served endpoint (`oc port-forward`, `oc exec`) |
@@ -120,6 +120,8 @@ Your administrator binds a namespace-scoped Role (this guide calls it `engineer`
 | `apps` | `deployments/scale` | patch | Pause and resume the predictor (`oc scale` in [Cleaning up](#cleaning-up)) — the deployments themselves are created and deleted by the KServe controller, not by you |
 | `kubeflow.org` | `notebooks` | full CRUD | Create a workbench to inspect PVC contents |
 | `image.openshift.io` | `imagestreams` | get, list, watch | Resolve image references |
+
+The `engineer` Role is bound to **you** only. The `pipeline-runner` ServiceAccount gets its own, smaller Role — limited to what the pipeline's own API calls need (TrainJob submission, the KFP workspace PVC, serving resources) and **without** secret access, token minting, workbench management, or pod exec — see the manifests in [What to send your administrator](#what-to-send-your-administrator). This keeps a compromised runner from borrowing your credentials or escalating through another ServiceAccount.
 
 ### Cluster-wide access only your administrator can grant
 
@@ -155,26 +157,26 @@ Run these as yourself. Every answer must be `yes` for the modes you plan to use:
 oc auth can-i create trainjobs -n <project-namespace>
 oc auth can-i create persistentvolumeclaims -n <project-namespace>
 oc auth can-i create configmaps -n <project-namespace>
-oc auth can-i create secrets -n <project-namespace>
-oc auth can-i create serviceaccounts/token -n <project-namespace>
+oc auth can-i create secrets/kubernetes-credentials -n <project-namespace>
+oc auth can-i get secrets/kubernetes-credentials -n <project-namespace>
 oc auth can-i create notebooks.kubeflow.org -n <project-namespace>
 
 # Serving (train-only / online / offline)
 oc auth can-i create inferenceservices.serving.kserve.io -n <project-namespace>
 oc auth can-i delete inferenceservices.serving.kserve.io -n <project-namespace>
 oc auth can-i get deployments.apps -n <project-namespace>
-oc auth can-i patch deployments.apps/scale -n <project-namespace>
+oc auth can-i patch deployments.apps --subresource=scale -n <project-namespace>
 
 # Cluster-wide discovery (all modes)
 oc auth can-i list clustertrainingruntimes
 oc auth can-i get namespaces/<project-namespace>
 ```
 
-If any answer is `no`, collect the failing checks and send them with the manifests below to your administrator — do not start the setup.
+If any answer is `no`, collect the failing checks and send them with the manifests below to your administrator — do not start the setup. The `serviceaccounts/token` grant is scoped to the `pipeline-runner` name, so the [token mint](#kubernetes-authentication-secret) later in this guide doubles as its functional check — a clear RBAC error there means the grant is missing.
 
 ### What to send your administrator
 
-Everything below is ready to paste. Replace `<project-namespace>` with your project name and `<your-username>` with your OpenShift login. Each binding has two subjects on purpose: your user for the CLI and dashboard work, and the `pipeline-runner` ServiceAccount for the pipeline's own API calls (TrainJob submission, CTR discovery). These manifests extend the impersonation-validated recipe with the runner bindings and the credential-creation grants the setup steps require; if your organization already has equivalent roles, binding those instead is fine as long as the [checks above](#check-your-own-access-before-you-start) pass.
+Everything below is ready to paste. Replace `<project-namespace>` with your project name and `<your-username>` with your OpenShift login. Note the split: the `engineer` Role binds to **your user** (CLI and dashboard work, credential setup), while the `pipeline-runner` ServiceAccount gets its own smaller Role for the pipeline's API calls — the two identities get different grants on purpose. These manifests extend the impersonation-validated recipe with the runner bindings and the scoped credential-creation grants the setup steps require; if your organization already has equivalent roles, binding those instead is fine as long as the [checks above](#check-your-own-access-before-you-start) pass.
 
 **1. Namespace Role + binding** (applied by the administrator):
 
@@ -190,12 +192,14 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    resourceNames: ["kubernetes-credentials", "hf-token"]
+    verbs: ["get", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["get", "list"]
   - apiGroups: [""]
     resources: ["serviceaccounts/token"]
+    resourceNames: ["pipeline-runner"]
     verbs: ["create"]
   - apiGroups: [""]
     resources: ["pods", "persistentvolumeclaims", "resourcequotas", "events", "services"]
@@ -259,14 +263,68 @@ subjects:
   - kind: User
     apiGroup: rbac.authorization.k8s.io
     name: <your-username>
+```
+
+The `engineer` Role is bound to your user only. The two `resourceNames` scopes matter: they limit secret access to exactly the two secret names this guide creates, and token minting to the `pipeline-runner` ServiceAccount — so neither you nor the runner can read unrelated secrets or mint tokens for other (possibly more privileged) ServiceAccounts. If your runner has a different name, update the `resourceNames` entries and the bindings below to match.
+
+**2. Pipeline runner Role + binding** — the smaller Role for the ServiceAccount the pipeline runs as (applied by the administrator). It contains only what the pipeline's own API calls need:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pipeline-runner
+  namespace: <project-namespace>
+rules:
+  # Trainer job submission and monitoring (the Trainer token identity)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # The KFP workspace PVC the pipeline creates at run time
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: ["trainer.kubeflow.org"]
+    resources: ["trainjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["trainer.kubeflow.org"]
+    resources: ["trainjobs/status"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["trainer.kubeflow.org"]
+    resources: ["trainingruntimes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["jobset.x-k8s.io"]
+    resources: ["jobsets"]
+    verbs: ["get", "list", "watch"]
+  # The serve stage
+  - apiGroups: ["serving.kserve.io"]
+    resources: ["servingruntimes", "inferenceservices"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pipeline-runner
+  namespace: <project-namespace>
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pipeline-runner
+subjects:
   - kind: ServiceAccount
     namespace: <project-namespace>
     name: pipeline-runner
 ```
 
-The two subjects serve different purposes: `<your-username>` runs the `oc` commands and dashboard steps in this guide, while `pipeline-runner` is the ServiceAccount whose token authenticates TrainJob submission (see [Kubernetes authentication secret](#kubernetes-authentication-secret)) — without this binding, a token minted from `pipeline-runner` cannot create TrainJobs.
+The runner deliberately does **not** get: secret access (its pipelines mount the credentials it needs), token minting, workbench (`notebooks`) management, pod exec/port-forward, or deployment scaling — those are your operations, not the pipeline's. Granting them to the runner would let pipeline code borrow your credentials or escalate through another ServiceAccount.
 
-**2. ClusterRole + binding** for CTR discovery and project visibility (applied by the administrator):
+**3. ClusterRole + binding** for CTR discovery and project visibility (applied by the administrator):
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -309,7 +367,7 @@ As with the RoleBinding above, `pipeline-runner` needs the CTR read too: the Tra
 >
 > The `-<project-namespace>` suffix is deliberate: the ClusterRole embeds your project in `resourceNames`, and the binding embeds your user and runner — so these objects are **per project and user**. Distinct names keep grants for different projects side by side; applying a second copy with the same fixed name would silently *replace* the first project's access. If your organization prefers one shared binding, add new subjects to the existing ClusterRoleBinding (`oc edit clusterrolebinding`) and append the project to the ClusterRole's `resourceNames` lists instead of re-applying this manifest.
 
-**3. HardwareProfile read for the pipeline runner** (train-only / online / offline; applied by the administrator in `redhat-ods-applications`):
+**4. HardwareProfile read for the pipeline runner** (train-only / online / offline; applied by the administrator in `redhat-ods-applications`):
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -345,8 +403,11 @@ The recipe above is intentionally minimal. As a user you **cannot**:
 
 - Create or delete pods directly (pods are created by the Trainer and pipeline controllers, not by you).
 - Create, update, or delete image streams.
+- Read, list, or create secrets other than `kubernetes-credentials` and `hf-token`, or mint tokens for any ServiceAccount other than `pipeline-runner` — both grants are scoped by name.
 - Access or administer other projects — the cluster-scoped grant is a named read of your project only.
 - Modify cluster-wide configuration or act as `cluster-admin`.
+
+The **pipeline runner** is held to an even tighter line: its Role omits secret access, token minting, workbench management, pod exec/port-forward, and deployment scaling entirely — the pipeline's code never needs them, and granting them would turn the runner into a privilege-escalation path.
 
 If a step in this guide seems to need something from that list, it is a step for your administrator — PVC creation and deletion are the only infrastructure-level writes granted, and only inside your project.
 
@@ -464,7 +525,7 @@ The token's identity is the **Trainer token identity** — the pipeline uses it 
 | `trainer.kubeflow.org` | `trainingruntimes`, `clustertrainingruntimes` | get, list, watch |
 | Core | `configmaps` | get, list, watch, create, update, patch |
 
-The `pipeline-runner` ServiceAccount is already bound to the `engineer` Role and the `speculator-ctr-reader-<project-namespace>` ClusterRole by the manifests in [What to send your administrator](#what-to-send-your-administrator), so it satisfies this baseline as-is. Create a long-lived token for it **first** — the secret command below reads this file. Set a restrictive `umask` so the file is readable only by you:
+The `pipeline-runner` ServiceAccount is already bound to the `pipeline-runner` Role and the `speculator-ctr-reader-<project-namespace>` ClusterRole by the manifests in [What to send your administrator](#what-to-send-your-administrator), so it satisfies this baseline as-is. Create a long-lived token for it **first** — the secret command below reads this file. Set a restrictive `umask` so the file is readable only by you:
 
 ```bash
 umask 077   # token file: owner-only, before it is written
