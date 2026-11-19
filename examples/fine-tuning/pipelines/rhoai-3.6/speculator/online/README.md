@@ -92,7 +92,7 @@ Set `PIP_INDEX_URL`/`PIP_EXTRA_INDEX_URL` via `p36_job_envs` if you need a custo
 
 Unless the verifier is already cached on the PVC (for example by a prior data-extraction run with downloads enabled), keep `p04_download_model=true`.
 
-Create the optional `hf-token` secret if downloading requires authentication.
+If downloading requires authentication, ask your administrator to create the optional `hf-token` secret (see the [common prerequisites](../README.md#optional-hf-token-secret)).
 
 > [!IMPORTANT]
 >
