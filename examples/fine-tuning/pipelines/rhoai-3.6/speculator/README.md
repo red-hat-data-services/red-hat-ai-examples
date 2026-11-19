@@ -123,7 +123,7 @@ Your administrator binds a namespace-scoped Role (this guide calls it `engineer`
 | `kubeflow.org` | `notebooks` | full CRUD | Create a workbench to inspect PVC contents |
 | `image.openshift.io` | `imagestreams` | get, list, watch | Resolve image references |
 
-The `engineer` Role is bound to **you** only. It deliberately grants **no secret access and no token minting** — the `kubernetes-credentials` and `hf-token` secrets are created by your administrator (see [Kubernetes authentication secret](#kubernetes-authentication-secret)). The `pipeline-runner` ServiceAccount gets its own smaller Role — limited to what the pipeline's own API calls need (TrainJob submission, the KFP workspace PVC, serving resources) and equally without secret access or token minting. Keeping credential creation — and with it the ability to mint ServiceAccount tokens — out of both identities closes the privilege-escalation path of creating a `kubernetes.io/service-account-token` Secret that references a more privileged ServiceAccount.
+The `engineer` Role is bound to **you** only. It deliberately grants **no direct secret permissions and no token minting** (see [What this access deliberately does not grant](#what-this-access-deliberately-does-not-grant) for what submitting a TrainJob still reaches) — the `kubernetes-credentials` and `hf-token` secrets are created by your administrator (see [Kubernetes authentication secret](#kubernetes-authentication-secret)). The `pipeline-runner` ServiceAccount gets its own smaller Role — limited to what the pipeline's own API calls need (TrainJob submission, the KFP workspace PVC, serving resources) and equally without secret access or token minting. Keeping credential creation — and with it the ability to mint ServiceAccount tokens — out of both identities closes the privilege-escalation path of creating a `kubernetes.io/service-account-token` Secret that references a more privileged ServiceAccount.
 
 ### Cluster-wide access only your administrator can grant
 
@@ -259,7 +259,7 @@ subjects:
     name: <your-username>
 ```
 
-The `engineer` Role is bound to your user only and grants **no secret access and no token minting** — credential creation is an administrator task by design. This is not just minimalism: on clusters that populate manually created `kubernetes.io/service-account-token` Secrets, a role combining secret creation with secret read can mint a token for a more privileged ServiceAccount (create a Secret of that type pointing at the ServiceAccount, wait for the token controller to populate it, read it back). Keeping both capabilities away from your user and the runner closes that path. If your runner has a different name, update the `resourceNames` entries and the bindings below to match.
+The `engineer` Role is bound to your user only and grants **no direct secret permissions and no token minting** — credential creation is an administrator task by design. This is not just minimalism: on clusters that populate manually created `kubernetes.io/service-account-token` Secrets, a role combining secret creation with secret read can mint a token for a more privileged ServiceAccount (create a Secret of that type pointing at the ServiceAccount, wait for the token controller to populate it, read it back). Keeping both capabilities away from your user and the runner closes that path. If your runner has a different name, update the `resourceNames` entries and the bindings below to match.
 
 **2. Pipeline runner Role + binding** — the smaller Role for the ServiceAccount the pipeline runs as (applied by the administrator). It contains only what the pipeline's own API calls need:
 
@@ -397,7 +397,7 @@ The recipe above is intentionally minimal. As a user you **cannot**:
 
 - Create or delete pods directly (pods are created by the Trainer and pipeline controllers, not by you).
 - Create, update, or delete image streams.
-- Create, read, or modify any Secret, or mint tokens for any ServiceAccount — credential setup ([Kubernetes authentication secret](#kubernetes-authentication-secret)) is an administrator task, which also closes the path of creating a `kubernetes.io/service-account-token` Secret that references a more privileged ServiceAccount.
+- Create, read, or modify any Secret **through the Role's own permissions**, or mint tokens for any ServiceAccount — the Role grants no direct Secret or ServiceAccount-token permissions. Credential setup ([Kubernetes authentication secret](#kubernetes-authentication-secret)) is an administrator task, which also closes the path of creating a `kubernetes.io/service-account-token` Secret that references a more privileged ServiceAccount. (Secrets in the project remain indirectly reachable through TrainJob submission — see the trust-boundary note below.)
 - Access or administer other projects — the cluster-scoped grant is a named read of your project only.
 - Modify cluster-wide configuration or act as `cluster-admin`.
 
@@ -548,9 +548,10 @@ A failed run may leave the token file behind — it is owner-only (`umask 077`) 
 >
 > `--from-file` keeps the token out of shell history and process listings — prefer it over `--from-literal` for secret values. This is the only **required** secret and is non-optional for all four pipelines. It is mounted only in the KFP launcher tasks, never forwarded to Trainer workers.
 
-**Administrator procedure — renew an expired token.** Tokens expire (the mint above uses a one-year duration). An expired token fails every run at job submission with a `401 Unauthorized`; if runs suddenly stop starting, that is the symptom. Mint a fresh token file as above, then update the existing secret — do **not** re-run `oc create secret`, which fails with `AlreadyExists` — re-supplying both keys so the configured server URL is preserved. As above, the chain stops before the apply if the mint fails or the file is empty, so the existing valid secret is preserved:
+**Administrator procedure — renew an expired token.** Tokens expire (the mint above uses a one-year duration). An expired token fails every run at job submission with a `401 Unauthorized`; if runs suddenly stop starting, that is the symptom. Mint a fresh token file as above, then update the existing secret — do **not** re-run `oc create secret`, which fails with `AlreadyExists` — re-supplying both keys so the configured server URL is preserved. As above, the chain stops before the apply if the mint fails or the file is empty, so the existing valid secret is preserved; `set -o pipefail` additionally makes a failed render fail the pipeline instead of being masked by `oc apply`:
 
 ```bash
+set -o pipefail   # so a failed render is not masked by the pipe below
 umask 077
 oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/to/token-file \
   && [ -s /path/to/token-file ] \
@@ -881,7 +882,7 @@ Compile and run-time problems, ordered roughly by when you'd hit them:
 | "Configure pipeline server" prompt never goes away | Pipeline server not running/configured for the project | See [Configure the pipeline server](#configure-the-pipeline-server) |
 | Run fails immediately with `storageclass.storage.k8s.io "nfs-csi" not found` | Cluster has no `nfs-csi` storage class; the KFP workspace PVC cannot be created | Find your RWX class with `oc get storageclass`, then [recompile](#customizing-before-you-compile) with your class name |
 | PVC stuck `Pending` | No RWX dynamic provisioner, or capacity exhausted | Talk to your cluster admin; RWX storage is required |
-| Trainer submit task fails with 401/403 | `kubernetes-credentials` secret missing or token lacks Trainer permissions | Recreate the secret; scope the token to Trainer job creation |
+| Trainer submit task fails with 401/403 | `kubernetes-credentials` secret missing, or its token expired or lacks Trainer permissions | Ask your administrator to create or renew it with the [documented procedure](#kubernetes-authentication-secret) — the `engineer` Role grants no secret access, and `oc create secret` fails on an existing secret |
 | Run fails with ClusterTrainingRuntime not found | CTR from `pNN_job_runtime` not deployed | `oc get clustertrainingruntimes`; deploy the missing runtime |
 | Training pod OOM-killed | Verifier too large for defaults, or `gpu_memory_utilization` too high | Raise `pNN_training_resource_memory`; lower `gpu_memory_utilization` |
 | Registry task fails with connection refused or 404 | Wrong registry address/port, or missing RoleBinding | Use the registry's `-rest` route with the `https://` scheme and port `443` (or the in-cluster service with port `8080`); add the RoleBinding per [Prerequisites](#model-registry-and-kserve-train-only--online--offline) |
