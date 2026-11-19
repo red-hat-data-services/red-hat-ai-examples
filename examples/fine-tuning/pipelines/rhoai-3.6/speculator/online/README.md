@@ -44,9 +44,9 @@ The defining feature is the **second node**: a single Trainer job that does extr
 
 What the cluster side looks like during the run is covered next, in [What a running job looks like](#what-a-running-job-looks-like).
 
-![Completed online run graph](../docs/speculator-online-run.png)
+![Completed online run graph](../images/speculator-online-run.png)
 
-![Online training node logs](../docs/speculator-online-training-logs.png)
+![Online training node logs](../images/speculator-online-training-logs.png)
 
 ## What a running job looks like
 
@@ -79,15 +79,7 @@ Work through the [access checks](../README.md#access-you-need-and-what-your-admi
 - Serving namespace permissions — **always required**; every online run serves the draft
 - Model Registry + RoleBinding — only if you keep registration enabled. To register, use the registry's `-rest` route URL (`https://...`, scheme included) with port `443` in `p44_model_registry_port`; see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)
 
-The three setup steps this mode depends on, as they look in the dashboard:
-
-![Project storage view with the RWX PVC](../docs/speculator-storage-pvc.png)
-
-![Configure pipeline server dialog](../docs/speculator-pipeline-server.png)
-
-![Model registry creation with REST URL](../docs/speculator-model-registry.png)
-
-All are covered step by step — with verification commands — in the [common prerequisites](../README.md#prerequisites).
+The setup steps this mode depends on are covered step by step — with verification commands and dashboard screenshots — in the [common prerequisites](../README.md#prerequisites).
 
 Set `PIP_INDEX_URL`/`PIP_EXTRA_INDEX_URL` via `p36_job_envs` if you need a custom package index for `p35_packages_to_install`.
 
@@ -126,17 +118,20 @@ PYTHONPATH=$(pwd) python pipelines/training/speculator/online/pipeline.py
 
 This writes `pipelines/training/speculator/online/pipeline.yaml`.
 
-**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). The imported definition is named `speculator-online-pipeline`.
+**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). It appears in the **Pipeline definitions** list under the display name you entered when importing.
 
-**Step 3 — create a run.** Open the pipeline definition, click **Create run**, and fill in the parameters from the table below. Leave everything not listed at its default. Use a new `p46_model_registry_version` per revision if registering.
+**Step 3 — create a run.** Open the pipeline definition, open the **Actions** menu, and choose **Create run**. Fill in the parameters from the table below. Leave everything not listed at its default. Use a new `p46_model_registry_version` per revision if registering.
 
 > [!WARNING]
 >
-> Leave the **ML experiment** checkbox unticked. These pipelines have not been tested with an MLflow experiment association, and enabling it may cause the run to fail or behave unexpectedly.
+> Disable **MLflow tracking** in the run dialog — the toggle is on by default. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
 
-![Create run dialog with online parameters](../docs/speculator-online-create-run.png)
+![Create run dialog with online parameters](../images/speculator-online-create-run.png)
 
-**Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
+> [!WARNING]
+> **SCREENSHOT TODO — VERIFY BEFORE MERGE.** Retake if this image does not show the **Run group** field and the **MLflow tracking** toggle being disabled — the guide now tells customers to disable it, and the screenshot must match what they see.
+
+**Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
 
 ### Example: Qwen3-0.6B
 
@@ -164,11 +159,11 @@ Same evaluation task and metrics as the train-only pipeline — see [Interpretin
 
 The evaluation task's metrics in the Red Hat OpenShift AI UI:
 
-![Online run evaluation metrics](../docs/speculator-online-evaluation.png)
+![Online run evaluation metrics](../images/speculator-online-evaluation.png)
 
 If you kept registration enabled (`p43_model_registry_address` set), the draft appears in the Model Registry afterwards under `p45_model_registry_name` / `p46_model_registry_version` — find it via **AI Hub > Models > Model registries > your registry**:
 
-![Online run registry entry](../docs/speculator-online-model-registry.png)
+![Online run registry entry](../images/speculator-online-model-registry.png)
 
 ## Testing the served endpoint
 
@@ -176,7 +171,7 @@ Follow [Testing the served endpoint](../README.md#testing-the-served-endpoint) i
 
 The deployed endpoint in the Red Hat OpenShift AI UI:
 
-![Online run deployed endpoint](../docs/speculator-online-deployment.png)
+![Online run deployed endpoint](../images/speculator-online-deployment.png)
 
 ## Iterating / customization
 

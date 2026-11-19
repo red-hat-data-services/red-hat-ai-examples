@@ -52,9 +52,9 @@ You'll see one TrainJob with the extraction worker and the vLLM sidecar containe
 
 When every node is green, the run is done — but "green" only means the pipeline finished. Confirm the output is real before moving on to the train-only pipeline: [Verifying the output on the PVC](#verifying-the-output-on-the-pvc).
 
-![Extraction task logs](../docs/speculator-data-extraction-logs.png)
+![Extraction task logs](../images/speculator-data-extraction-logs.png)
 
-![Completed data-extraction run graph](../docs/speculator-data-extraction-run.png)
+![Completed data-extraction run graph](../images/speculator-data-extraction-run.png)
 
 ## Hardware requirements (Qwen3-0.6B)
 
@@ -74,13 +74,7 @@ Work through the [access checks](../README.md#access-you-need-and-what-your-admi
 - `kubernetes-credentials` secret (required)
 - CTR: `vllm-extract-cuda` for managed mode, `speculator-model-opt-cuda` for remote mode — check with `oc get clustertrainingruntimes`
 
-The two setup steps this mode depends on, as they look in the dashboard:
-
-![Project storage view with the RWX PVC](../docs/speculator-storage-pvc.png)
-
-![Configure pipeline server dialog](../docs/speculator-pipeline-server.png)
-
-Both are covered step by step — with verification commands — in the [common prerequisites](../README.md#prerequisites). This mode does not need the Model Registry.
+The setup steps this mode depends on are covered step by step — with verification commands and dashboard screenshots — in the [common prerequisites](../README.md#prerequisites). This mode does not need the Model Registry or serving access.
 
 ## Running the pipeline
 
@@ -92,17 +86,20 @@ PYTHONPATH=$(pwd) python pipelines/training/speculator/data_extraction/pipeline.
 
 This writes `pipelines/training/speculator/data_extraction/pipeline.yaml`.
 
-**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). The imported definition is named `speculator-hidden-state-extraction-pipeline`.
+**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). It appears in the **Pipeline definitions** list under the display name you entered when importing.
 
-**Step 3 — create a run.** Open the pipeline definition, click **Create run**, and fill in the parameters from the table below. Leave everything not listed at its default.
+**Step 3 — create a run.** Open the pipeline definition, open the **Actions** menu, and choose **Create run**. Fill in the parameters from the table below. Leave everything not listed at its default.
 
 > [!WARNING]
 >
-> Leave the **ML experiment** checkbox unticked. These pipelines have not been tested with an MLflow experiment association, and enabling it may cause the run to fail or behave unexpectedly.
+> Disable **MLflow tracking** in the run dialog — the toggle is on by default. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
 
-![Create run dialog with data-extraction parameters](../docs/speculator-data-extraction-create-run.png)
+![Create run dialog with data-extraction parameters](../images/speculator-data-extraction-create-run.png)
 
-**Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough of what the graph does and how long each node takes is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run. With the example-run values below (16 samples, Qwen3-0.6B, managed vLLM), expect the run to complete in minutes — most of it is the vLLM sidecar loading the verifier.
+> [!WARNING]
+> **SCREENSHOT TODO — VERIFY BEFORE MERGE.** Retake if this image does not show the **Run group** field and the **MLflow tracking** toggle being disabled — the guide now tells customers to disable it, and the screenshot must match what they see.
+
+**Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough of what the graph does and how long each node takes is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run. With the example-run values below (16 samples, Qwen3-0.6B, managed vLLM), expect the run to complete in minutes — most of it is the vLLM sidecar loading the verifier.
 
 ### Example: Qwen3-0.6B
 

@@ -47,11 +47,11 @@ Like online, this is a one-run pipeline — but the extraction stage talks to **
 
 A failure at **extract hidden states** with a connection error is almost always the external endpoint (wrong URL, or a NetworkPolicy blocking the path) — not the pipeline. Verify with the probe command in [Setup](#external-vllm-server) before debugging anything else.
 
-![Completed offline run graph](../docs/speculator-offline-run.png)
+![Completed offline run graph](../images/speculator-offline-run.png)
 
-![Offline extraction node logs](../docs/speculator-offline-extraction-logs.png)
+![Offline extraction node logs](../images/speculator-offline-extraction-logs.png)
 
-![Offline training node logs](../docs/speculator-offline-training-logs.png)
+![Offline training node logs](../images/speculator-offline-training-logs.png)
 
 ## Hardware requirements (Qwen3-0.6B)
 
@@ -107,15 +107,7 @@ The cache path follows the `models/<org>--<model>` naming (model ID with `/` rep
 - Serving namespace permissions — **always required**; every offline run serves the draft
 - Model Registry + RoleBinding — only if you keep registration enabled. To register, use the registry's `-rest` route URL (`https://...`, scheme included) with port `443` in `p48_model_registry_port`; see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)
 
-The three setup steps this mode depends on, as they look in the dashboard:
-
-![Project storage view with the RWX PVC](../docs/speculator-storage-pvc.png)
-
-![Configure pipeline server dialog](../docs/speculator-pipeline-server.png)
-
-![Model registry creation with REST URL](../docs/speculator-model-registry.png)
-
-All are covered step by step — with verification commands — in the [common prerequisites](../README.md#prerequisites).
+The setup steps this mode depends on are covered step by step — with verification commands and dashboard screenshots — in the [common prerequisites](../README.md#prerequisites).
 
 > [!IMPORTANT]
 >
@@ -145,17 +137,20 @@ PYTHONPATH=$(pwd) python pipelines/training/speculator/offline/pipeline.py
 
 This writes `pipelines/training/speculator/offline/pipeline.yaml`.
 
-**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). The imported definition is named `speculator-offline-pipeline`.
+**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). It appears in the **Pipeline definitions** list under the display name you entered when importing.
 
-**Step 3 — create a run.** Open the pipeline definition, click **Create run**, and fill in the parameters from the table below. Leave everything not listed at its default. Use a new `p50_model_registry_version` per revision if registering.
+**Step 3 — create a run.** Open the pipeline definition, open the **Actions** menu, and choose **Create run**. Fill in the parameters from the table below. Leave everything not listed at its default. Use a new `p50_model_registry_version` per revision if registering.
 
 > [!WARNING]
 >
-> Leave the **ML experiment** checkbox unticked. These pipelines have not been tested with an MLflow experiment association, and enabling it may cause the run to fail or behave unexpectedly.
+> Disable **MLflow tracking** in the run dialog — the toggle is on by default. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
 
-![Create run dialog with offline parameters](../docs/speculator-offline-create-run.png)
+![Create run dialog with offline parameters](../images/speculator-offline-create-run.png)
 
-**Step 4 — start the run and watch it.** Click **Start**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
+> [!WARNING]
+> **SCREENSHOT TODO — VERIFY BEFORE MERGE.** Retake if this image does not show the **Run group** field and the **MLflow tracking** toggle being disabled — the guide now tells customers to disable it, and the screenshot must match what they see.
+
+**Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
 
 ### Example: Qwen3-0.6B
 
@@ -185,11 +180,11 @@ Same evaluation task and metrics as the train-only pipeline — see [Interpretin
 
 The evaluation task's metrics in the Red Hat OpenShift AI UI:
 
-![Offline run evaluation metrics](../docs/speculator-offline-evaluation.png)
+![Offline run evaluation metrics](../images/speculator-offline-evaluation.png)
 
 If you kept registration enabled (`p47_model_registry_address` set), the draft appears in the Model Registry afterwards under `p49_model_registry_name` / `p50_model_registry_version` — find it via **AI Hub > Models > Model registries > your registry**:
 
-![Offline run registry entry](../docs/speculator-offline-model-registry.png)
+![Offline run registry entry](../images/speculator-offline-model-registry.png)
 
 ## Testing the served endpoint
 
@@ -197,7 +192,7 @@ Follow [Testing the served endpoint](../README.md#testing-the-served-endpoint) i
 
 The deployed endpoint in the Red Hat OpenShift AI UI:
 
-![Offline run deployed endpoint](../docs/speculator-offline-deployment.png)
+![Offline run deployed endpoint](../images/speculator-offline-deployment.png)
 
 ## Customization
 
