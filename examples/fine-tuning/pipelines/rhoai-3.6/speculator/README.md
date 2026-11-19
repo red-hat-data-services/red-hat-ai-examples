@@ -403,6 +403,10 @@ The recipe above is intentionally minimal. As a user you **cannot**:
 
 The **pipeline runner** is held to an even tighter line: its Role omits secret access, token minting, workbench management, pod exec/port-forward, and deployment scaling entirely — the pipeline's code never needs them, and granting them would turn the runner into a privilege-escalation path.
 
+> [!IMPORTANT]
+>
+> **The project namespace is the trust boundary — one capability cannot be scoped away.** TrainJob submission, the entire point of this example, lets the submitter choose container images, commands, environment variables, and volume mounts (the Trainer API's `trainer.env`, `image`, and `podSpecOverrides` fields). Any identity that can create TrainJobs in a namespace can therefore read every Secret in it — for example by injecting one through `env.valueFrom.secretKeyRef` into a job — and run arbitrary code there. This is inherent to training-job submission, not a flaw in the Role above: removing other grants such as workbench (`notebooks`) creation or `pods/exec` does not reduce this access, because the same operations are available through a TrainJob. Administrators should treat the project as a single trust domain: keep cluster-privileged ServiceAccounts and unrelated high-value Secrets out of it, and enforce finer-grained limits — blocking secret mounts, restricting images — with an admission policy engine such as Kyverno or Gatekeeper where required.
+
 If a step in this guide seems to need something from that list, it is a step for your administrator — PVC creation and deletion are the only infrastructure-level writes granted, and only inside your project.
 
 ## Requirements
@@ -525,34 +529,37 @@ The `pipeline-runner` ServiceAccount is already bound to the `pipeline-runner` R
 >
 > The documented `engineer` access deliberately grants no secret creation and no token minting — on clusters that populate manually created `kubernetes.io/service-account-token` Secrets, those capabilities combined would allow minting a token for a more privileged ServiceAccount. **This setup is therefore an administrator task.** Ask your administrator to run the commands below in your project namespace.
 
-**Administrator procedure — create the secret.** Mint a long-lived token for the runner (with a restrictive `umask` so the file is owner-only), create the secret from it, then remove the plaintext file:
+**Administrator procedure — create the secret.** Mint a long-lived token for the runner (with a restrictive `umask` so the file is owner-only), create the secret from it, then remove the plaintext file. The `&&` chain stops at the first failure — if the mint fails or writes an empty file, the secret is never touched:
 
 ```bash
 umask 077   # token file: owner-only, before it is written
-oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/to/token-file
-
-oc create secret generic kubernetes-credentials -n <project-namespace> \
-  --from-literal=KUBERNETES_SERVER_URL="https://api.your-cluster.com:6443" \
-  --from-file=KUBERNETES_AUTH_TOKEN=/path/to/token-file
-
-rm /path/to/token-file
-oc get secret kubernetes-credentials -n <project-namespace>
+oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/to/token-file \
+  && [ -s /path/to/token-file ] \
+  && oc create secret generic kubernetes-credentials -n <project-namespace> \
+       --from-literal=KUBERNETES_SERVER_URL="https://api.your-cluster.com:6443" \
+       --from-file=KUBERNETES_AUTH_TOKEN=/path/to/token-file \
+  && rm /path/to/token-file \
+  && oc get secret kubernetes-credentials -n <project-namespace>
 ```
+
+A failed run may leave the token file behind — it is owner-only (`umask 077`) and safe to delete.
 
 > [!NOTE]
 >
 > `--from-file` keeps the token out of shell history and process listings — prefer it over `--from-literal` for secret values. This is the only **required** secret and is non-optional for all four pipelines. It is mounted only in the KFP launcher tasks, never forwarded to Trainer workers.
 
-**Administrator procedure — renew an expired token.** Tokens expire (the mint above uses a one-year duration). An expired token fails every run at job submission with a `401 Unauthorized`; if runs suddenly stop starting, that is the symptom. Mint a fresh token file as above, then update the existing secret — do **not** re-run `oc create secret`, which fails with `AlreadyExists` — re-supplying both keys so the configured server URL is preserved:
+**Administrator procedure — renew an expired token.** Tokens expire (the mint above uses a one-year duration). An expired token fails every run at job submission with a `401 Unauthorized`; if runs suddenly stop starting, that is the symptom. Mint a fresh token file as above, then update the existing secret — do **not** re-run `oc create secret`, which fails with `AlreadyExists` — re-supplying both keys so the configured server URL is preserved. As above, the chain stops before the apply if the mint fails or the file is empty, so the existing valid secret is preserved:
 
 ```bash
 umask 077
-oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/to/token-file
-oc create secret generic kubernetes-credentials -n <project-namespace> \
-  --from-literal=KUBERNETES_SERVER_URL="https://api.your-cluster.com:6443" \
-  --from-file=KUBERNETES_AUTH_TOKEN=/path/to/token-file \
-  --dry-run=client -o yaml | oc apply -n <project-namespace> -f -
-rm /path/to/token-file
+oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/to/token-file \
+  && [ -s /path/to/token-file ] \
+  && oc create secret generic kubernetes-credentials -n <project-namespace> \
+       --from-literal=KUBERNETES_SERVER_URL="https://api.your-cluster.com:6443" \
+       --from-file=KUBERNETES_AUTH_TOKEN=/path/to/token-file \
+       --dry-run=client -o yaml \
+  | oc apply -n <project-namespace> -f - \
+  && rm /path/to/token-file
 ```
 
 The `--dry-run=client -o yaml | oc apply -f -` form creates the secret when it does not exist and updates it in place when it does — use the same `KUBERNETES_SERVER_URL` value as the initial setup; it does not change on renewal.
