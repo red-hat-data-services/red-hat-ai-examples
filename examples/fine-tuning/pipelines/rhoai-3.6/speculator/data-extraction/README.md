@@ -71,7 +71,7 @@ Work through the [access checks](../README.md#access-you-need-and-what-your-admi
 
 - Existing RWX PVC (`p01_persistent_pvc`)
 - Pipeline server configured for the project
-- `kubernetes-credentials` secret (required)
+- `kubernetes-credentials` secret — required, and **your administrator creates it**: the documented access grants no secret permissions ([procedure](../README.md#kubernetes-authentication-secret))
 - CTR: `vllm-extract-cuda` for managed mode, `speculator-model-opt-cuda` for remote mode — check with `oc get clustertrainingruntimes`
 
 The setup steps this mode depends on are covered step by step — with verification commands and dashboard screenshots — in the [common prerequisites](../README.md#prerequisites). This mode does not need the Model Registry or serving access.
@@ -148,7 +148,7 @@ ls $PVC_MOUNT/models/
 
 What you should see:
 
-- **`speculator-output/hidden_states/`** containing one `.safetensors` file **per extracted sample**, each holding the captured verifier hidden states for that sample. Files should be non-trivially sized (tens of MB total for the example run; more with `p08_max_samples=0`).
+- **`speculator-output/hidden_states/`** containing one `.safetensors` file **per extracted sample**, each holding that sample's verifier hidden states as `[seq_len, num_layers, hidden_size]` in bfloat16 — roughly `seq_len × 4 × 1024 × 2` bytes, so a few MB for a short conversation and about 17 MB at the 2048-token cap (`p16_total_seq_len`). Files are named `hs_<index>.safetensors`, one per sample. A 16-sample example run produces 16 files ranging from about 5 MB to 17 MB — longer conversations are truncated at the cap — for roughly **170 MB** in total, and proportionally more with `p08_max_samples=0`. A directory of a few MB means extraction wrote almost nothing.
 - **Processed dataset files** under `speculator-output/` — the preprocessed training data the train-only pipeline reads.
 - **`models/Qwen--Qwen3-0.6B/`** — the cached verifier. The download task replaces `/` with `--` in the model ID to form the directory name: `Qwen/Qwen3-0.6B` becomes `Qwen--Qwen3-0.6B`. This exact directory name is what `p06_verifier_model_pvc` needs in the train-only run — using the HuggingFace model ID (`models/Qwen3-0.6B` without the `Qwen--` prefix) causes an `HFValidationError` at training time.
 
