@@ -319,4 +319,4 @@ Compile-time problems and endpoint-access problems are covered in the [common tr
 
 ## Source
 
-Pipeline source: [`pipelines-components/pipelines/training/speculator/offline`](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/speculator/offline). The parameter table above is derived from that directory's `README.md` and `pipeline.py`; re-check it against your imported definition after pulling upstream changes.
+Pipeline source: [`pipelines-components/pipelines/training/speculator/offline`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/offline). The parameter table above is derived from that directory's `README.md` and `pipeline.py`; re-check it against your imported definition after pulling the `rhoai-3.6` branch.

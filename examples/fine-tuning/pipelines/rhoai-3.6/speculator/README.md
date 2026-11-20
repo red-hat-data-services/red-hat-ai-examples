@@ -40,7 +40,7 @@ For more background — why custom draft models matter after fine-tuning, and ho
 
 ### Pipelines Overview
 
-There are four pipelines, one per training mode. Each is a separate pipeline definition in the [`pipelines-components`](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/speculator) repository, with a subfolder here holding its guide:
+There are four pipelines, one per training mode. Each is a separate pipeline definition in the [`pipelines-components`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator) repository, with a subfolder here holding its guide:
 
 | Pipeline | SDK-mode analog | Use Case | Guide |
 | --- | --- | --- | --- |
@@ -514,19 +514,20 @@ The compiled pipeline YAML is not included in this repository — you generate i
 **Requirements:** Python 3.11+ and the KFP SDK.
 
 ```bash
-# Clone the pipelines repository
-git clone https://github.com/red-hat-data-services/pipelines-components.git
+# Clone the rhoai-3.6 branch, matching the supported Red Hat OpenShift AI release
+git clone --branch rhoai-3.6 https://github.com/red-hat-data-services/pipelines-components.git
 cd pipelines-components
 
 # Set up an isolated environment
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install the repository. This is required — the pipelines import shared
-# `kfp_components` modules, and compilation fails with ModuleNotFoundError
-# without it. The KFP SDK (kfp, kfp-kubernetes) comes with it: both are
-# declared as dependencies in the repository's pyproject.toml.
-pip install -e .
+# Pin the KFP SDK to the version your cluster's task images can install,
+# then install the repository without letting pip float those pins. The
+# install is required: the pipelines import shared `kfp_components`
+# modules and compilation fails with ModuleNotFoundError without it.
+pip install 'kfp==2.16.0' 'kfp-kubernetes==2.16.0'
+pip install -e . --no-deps
 
 # Compile the pipeline you want (one of: data_extraction, train_only, online, offline)
 PYTHONPATH=$(pwd) python pipelines/training/speculator/data_extraction/pipeline.py
@@ -545,7 +546,9 @@ done
 
 > [!NOTE]
 >
-> - `pip install -e .` installs whichever KFP release satisfies the repository's declared range (`>=2.16.1`) — usually the latest. For the exact versions the repository itself is tested with, install from its hash-pinned requirements instead: `pip install -r requirements.txt`.
+> - **The KFP version you compile with is baked into every task.** Each one runs `pip install kfp==<that version>` when it starts, so the version must exist in the package index that pod uses — and the task pods do not all share one. `2.16.0` is the version verified end to end for these pipelines: it is available both in the Red Hat OpenShift AI 3.6 index a workbench uses and in the older index the registration task's image is pinned to. Leave the pin out and `pip install -e .` resolves the declared range (`>=2.16.1`) to whatever is newest where you happen to compile, producing a pipeline whose tasks cannot install their own dependencies.
+> - Verify what landed before importing: `grep -o "kfp==[0-9][0-9.]*" pipelines/training/speculator/<mode>/pipeline.yaml | sort -u`. Expect **two** entries: `kfp==2.16.0`, baked into every task, and `kfp==2.17.0`, which the evaluation component installs itself. Both must be available to your task pods.
+> - The repository's `requirements.txt` is an alternative, but it forces a Red Hat Linux (el9) package index, so it resolves only on a matching Linux host — a workbench, not a macOS laptop.
 > - Compilation is **not** byte-reproducible — each pipeline embeds an archive of its component sources, so two compiles of the same commit produce slightly different files. This is expected and does not affect the pipeline.
 
 **Expected result:** four `pipeline.yaml` files (or the one you need), one under each `pipelines/training/speculator/<mode>/` directory. Each is roughly 100–200 KB.
@@ -747,8 +750,10 @@ Compile and run-time problems, ordered roughly by when you'd hit them:
 | --- | --- | --- |
 | Compile fails: `ModuleNotFoundError: No module named 'kfp_components'` | The `pipelines-components` repo was not installed as a package | Run `pip install -e .` from the repository root |
 | Compile fails: `ModuleNotFoundError: No module named 'components'` | `PYTHONPATH` not set to the repository root | Prefix the command with `PYTHONPATH=$(pwd)` and run it from the repo root |
-| `pip install -e .` fails to resolve dependencies | Your package index (e.g. an internal mirror) doesn't carry a required package or version | Install from the repo's hash-pinned requirements instead: `pip install -r requirements.txt` |
-| Import into Red Hat OpenShift AI rejected | YAML built with an incompatible KFP SDK version | Re-compile with the pinned versions in step 1 |
+| `pip install -e .` fails to resolve dependencies | Your package index (e.g. an internal mirror) doesn't carry a required package or version | On a Linux (el9) host, install the repo's hash-pinned set instead: `pip install -r requirements.txt`, then `pip install -e . --no-deps` |
+| Import into Red Hat OpenShift AI rejected | YAML built with an incompatible KFP SDK version | Re-compile with the pinned versions in [step 1](#1-generate-the-pipeline-yaml) |
+| A task fails with `No matching distribution found for kfp==<version>` | Every task installs the KFP version baked in at compile time, and the task pods do not all use the same package index — the registration task's image is pinned to an older one than the rest | Re-compile with the pin in [step 1](#1-generate-the-pipeline-yaml). The error lists what that pod can reach (`from versions: …`); the pin has to be a version every task's index offers, which is why this guide uses `2.16.0` |
+| Evaluation fails with a tensor shape error on the draft's `fc` weights | The draft's `config.json` and its weights disagree on the number of auxiliary layers. The export that reconciles them runs in the Trainer job, so it depends on the runtime image and the `speculators` version installed by `pNN_packages_to_install` — not on the pipeline source | Check the training log for `Updated … Eagle3 draft config.json file(s) (target_hidden_size=…)`, and that `pNN_packages_to_install` pins `speculators==0.6.0.1`. Without that pin, the runtime image's own `speculators` build decides the export |
 | "Configure pipeline server" prompt never goes away | Pipeline server not configured for the project — an administrator task | Ask your administrator to configure it, then re-check with `oc get serviceaccounts -n <project-namespace> \| grep pipeline-runner`; see [Configure the pipeline server](#configure-the-pipeline-server) |
 | Run fails immediately with `storageclass.storage.k8s.io "nfs-csi" not found` | Cluster has no `nfs-csi` storage class; the KFP workspace PVC cannot be created | Find your RWX class with `oc get storageclass`, then [recompile](#customizing-before-you-compile) with your class name |
 | PVC stuck `Pending` | No RWX dynamic provisioner, or capacity exhausted | Talk to your cluster admin; RWX storage is required |
@@ -768,6 +773,6 @@ More mode-specific symptoms are in each subfolder's guide.
 
 ### Source
 
-The pipelines documented here live in [`red-hat-data-services/pipelines-components`](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/speculator) under `pipelines/training/speculator/`. The parameter tables in the mode guides are derived from that repository's own pipeline READMEs. Since the pipelines may change, re-generate your YAML after pulling upstream changes and re-check the parameter list against the imported definition.
+The pipelines documented here live in [`red-hat-data-services/pipelines-components`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator) under `pipelines/training/speculator/`, on the **`rhoai-3.6`** branch — the one this guide compiles from, and the one whose runtime images match Red Hat OpenShift AI 3.6. The parameter tables in the mode guides are derived from that branch's pipeline sources and READMEs. The pipelines still change within a release branch, so re-generate your YAML after pulling `rhoai-3.6` and re-check the parameter list against the imported definition.
 
 [↑ Contents](#contents)
