@@ -454,6 +454,7 @@ For a registry named `bu-registry`, the route host looks like `bu-registry-rest.
 > - Include the scheme in the address, matching how the endpoint is served — `https://` for Red Hat OpenShift AI routes, which is the normal case. Without a scheme the pipeline falls back to plain HTTP, which the route does not serve. If your endpoint is plain HTTP (a custom ingress without TLS, or a route with an insecure-edge policy), use `http://` and that endpoint's port; the same rules apply.
 > - Do **not** paste the dashboard's REST URL (`https://<dashboard-host>/model-registry/<name>/api/model_registry/v1alpha3`). The pipeline appends the `/api/...` path itself, and the extra `/model-registry/<name>` prefix breaks the request. Always use the dedicated `-rest` route.
 > - Alternative, in-cluster: the registry's Service works too — address `model-registry-<name>.<namespace>.svc` (no scheme), port `8080`. Finding it with `oc get svc -A` again needs cluster-wide read — ask an administrator to run it and give you the Service name.
+> - The field's own description in the run form says to enter only the hostname and omit the scheme. That is written for the in-cluster Service above, where the endpoint is plain HTTP on port `8080`. For the `-rest` route it does not hold: drop the `https://` and the client talks HTTP to a TLS endpoint, and the register stage fails after training has completed.
 
 **3. Grant the pipeline runner access.** Pipeline runs execute under a ServiceAccount in your project — Red Hat OpenShift AI creates `pipeline-runner` when the pipeline server is configured. Confirm the name before binding:
 
@@ -557,7 +558,7 @@ Work through [Prerequisites](#prerequisites): PVC, pipeline server, `kubernetes-
    - **Run name**: something meaningful, e.g. `speculator-extraction-1`
    - **Run group**: leave the default run group or create one — this only groups runs in the UI
    - **MLflow integration**: clear the **Enable MLflow experiment tracking** checkbox — it is **checked by default**, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
-   - **Parameters**: fill in the values from the mode's example table (linked below). Parameters appear in `p01…` order — booleans render as **True/False** dropdowns, and everything with a default can be left alone unless the table says otherwise.
+   - **Parameters**: fill in the values from the mode's example table (linked below). Parameters appear in `p01…` order, each with its own description underneath — booleans render as **True/False** radio buttons, numbers as steppers, and everything with a default can be left alone unless the table says otherwise.
 4. Click **Create run**.
 
 ![Create run form showing Run details, Run group, MLflow integration left disabled, and the first parameters](images/speculator-create-run.png)

@@ -94,7 +94,7 @@ This writes `pipelines/training/speculator/data_extraction/pipeline.yaml`.
 >
 > In the run form's **MLflow integration** step, clear the **Enable MLflow experiment tracking** checkbox — it is checked by default, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
 
-![Create run form with data-extraction parameters](../images/speculator-data-extraction-create-run.png)
+![Run details for the data-extraction run, with MLflow experiment tracking unticked](../images/speculator-data-extraction-create-run.png)
 
 **Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough of what the graph does and how long each node takes is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run. With the example-run values below (16 samples, Qwen3-0.6B, managed vLLM), expect the run to complete in minutes — most of it is the vLLM sidecar loading the verifier.
 
@@ -114,6 +114,10 @@ Minimal managed-mode parameter set for an example run:
 | `p20_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the extraction job |
 
 Everything else can keep its default. For remote mode instead, see [Managed vs remote vLLM](#managed-vs-remote-vllm).
+
+The same values in the run form's **Parameters** step — each field carries the parameter's own description underneath, so you can check a value without leaving the page:
+
+![Parameters step of the data-extraction run form, showing the first example values entered](../images/speculator-data-extraction-parameters.png)
 
 ## Verifying the output on the PVC
 

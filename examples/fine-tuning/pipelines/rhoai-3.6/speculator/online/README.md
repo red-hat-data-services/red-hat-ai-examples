@@ -128,7 +128,7 @@ This writes `pipelines/training/speculator/online/pipeline.yaml`.
 >
 > In the run form's **MLflow integration** step, clear the **Enable MLflow experiment tracking** checkbox — it is checked by default, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
 
-![Create run form with online parameters](../images/speculator-online-create-run.png)
+![Run details for the online run, with MLflow experiment tracking unticked](../images/speculator-online-create-run.png)
 
 **Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
 
@@ -161,6 +161,10 @@ And one expectation to set about the evaluation stage's runtime:
 > [!NOTE]
 >
 > `p37_evaluation_max_samples` and `p38_evaluation_max_tokens` bound the GuideLLM **benchmark sweep** only. They do not cap the evaluator's initial pass, which issues its own requests against the endpoint and generates up to the backend's token limit (4096). Lowering them shortens the sweep but does not make the evaluation stage short: expect the full stage duration and one GPU held for the duration even with the example values.
+
+The first of those values in the run form's **Parameters** step — each field carries the parameter's own description underneath, so you can check one without leaving the page:
+
+![Parameters step of the online run form, showing the first example values entered](../images/speculator-online-parameters.png)
 
 ## Interpreting the results
 
@@ -232,7 +236,7 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | `p40_evaluation_num_speculative_tokens` | `int` | `5` | Draft tokens proposed per step in evaluation and serving. |
 | `p41_evaluation_gpu_memory_utilization` | `float` | `0.9` | GPU memory fraction for evaluation and serving, in `(0, 1]`. |
 | `p42_evaluation_startup_timeout_seconds` | `int` | `900` | Maximum wait for the evaluation vLLM server to become ready. |
-| `p43_model_registry_address` | `str` | `""` | Model Registry REST endpoint: the registry's `https://<name>-rest.apps.<cluster-domain>` route URL (scheme included), or the in-cluster service hostname. Empty (default) skips registration. |
+| `p43_model_registry_address` | `str` | `""` | Model Registry REST endpoint: the registry's `https://<name>-rest.apps.<cluster-domain>` route URL (scheme included), or the in-cluster service hostname. Empty (default) skips registration. The run form's own description says to enter only the hostname — that applies to the in-cluster Service; a `-rest` route needs the `https://` scheme, see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline). |
 | `p44_model_registry_port` | `int` | `8080` | Registry REST port: `443` for the `-rest` route, `8080` for the in-cluster service. |
 | `p45_model_registry_name` | `str` | `speculator-online-draft` | Name assigned to the registered draft model. |
 | `p46_model_registry_version` | `str` | `1.0.0` | Version label for this registration; new value per revision. |

@@ -120,7 +120,7 @@ This writes `pipelines/training/speculator/train_only/pipeline.yaml`.
 >
 > In the run form's **MLflow integration** step, clear the **Enable MLflow experiment tracking** checkbox — it is checked by default, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
 
-![Create run form with train-only parameters](../images/speculator-train-only-create-run.png)
+![Run details for the train-only run, with MLflow experiment tracking unticked](../images/speculator-train-only-create-run.png)
 
 **Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough — what each of the four tasks does and how long it takes — is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
 
@@ -149,6 +149,10 @@ The `p38_evaluation_max_samples` and `p39_evaluation_max_tokens` values above ar
 > [!NOTE]
 >
 > These two parameters bound the GuideLLM **benchmark sweep** only. They do not cap the evaluator's initial pass, which issues its own requests against the endpoint and generates up to the backend's token limit (4096). Lowering them shortens the sweep but does not make the evaluation stage short: expect the full ~15–30 minutes and one GPU held for the duration even with the example values.
+
+The first of those values in the run form's **Parameters** step. Note `p02_model_registry_address` carries the `https://` scheme even though the field's own description says to enter only the hostname — that description is written for the in-cluster Service, and a `-rest` route needs the scheme:
+
+![Parameters step of the train-only run form, showing the first example values entered](../images/speculator-train-only-parameters.png)
 
 ## What gets trained
 
