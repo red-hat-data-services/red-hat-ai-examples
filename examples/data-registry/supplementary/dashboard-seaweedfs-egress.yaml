@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dashboard-seaweedfs-egress
+  namespace: redhat-ods-applications
+spec:
+  podSelector:
+    matchLabels:
+      app: rhods-dashboard
+      app.kubernetes.io/part-of: rhods-dashboard
+      app.opendatahub.io/rhods-dashboard: "true"
+      deployment: rhods-dashboard
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: data-registry-storage
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: seaweedfs
+      ports:
+        - protocol: TCP
+          port: 8333
