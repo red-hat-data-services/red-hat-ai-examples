@@ -11,6 +11,14 @@ Everything an administrator needs to apply so one user can run the four speculat
 
 Neither identity gets Secret access or ServiceAccount token minting. Credential setup is a separate administrator procedure — see [Kubernetes authentication secret](../README.md#kubernetes-authentication-secret).
 
+## Why the grants look like this
+
+**The user Role has no secret permissions.** This is not just minimalism: on clusters that populate manually created `kubernetes.io/service-account-token` Secrets, a role combining secret creation with secret read can mint a token for a more privileged ServiceAccount — create a Secret of that type pointing at the ServiceAccount, wait for the token controller to populate it, read it back. Keeping both capabilities away from the user and the runner closes that path, which is why credential setup is an administrator procedure instead.
+
+**The runner Role is smaller still.** It deliberately does not get secret access, token minting, workbench (`notebooks`) management, pod exec/port-forward, or deployment scaling — none of those are pipeline operations, and granting them would let pipeline code borrow credentials or escalate through another ServiceAccount. It *does* get the ClusterTrainingRuntime read from `cluster-access.yaml`, because the TrainJobs it submits reference CTRs by name.
+
+**What neither Role can fence off.** Any identity that can create TrainJobs in a namespace can read that namespace's Secrets and run arbitrary code in it, through the Trainer API's own fields. The project is therefore a single trust domain — see [the trust-boundary note](../README.md#what-this-access-deliberately-does-not-grant) in the main guide. Removing grants such as notebooks or `pods/exec` does not change that; admission policy (Kyverno, Gatekeeper) is the enforcement point.
+
 ## Before you apply
 
 Configure the **pipeline server** for the project first. It creates the `pipeline-runner` ServiceAccount these manifests bind, and it stores object-storage credentials in a Secret, so it is an administrator task too — see [Configure the pipeline server](../README.md#configure-the-pipeline-server).
