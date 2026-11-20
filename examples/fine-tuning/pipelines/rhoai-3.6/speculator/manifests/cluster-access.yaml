@@ -1,0 +1,52 @@
+# ClusterRole and ClusterRoleBinding for cluster-scoped reads.
+#
+# Three things that cannot be granted from inside a project:
+#   - ClusterTrainingRuntimes discovery (the TrainJobs reference CTRs by name)
+#   - a named read of this project, so it appears in the dashboard
+#   - storage class discovery, to pick a ReadWriteMany class for the PVC
+#
+# The names carry the project suffix on purpose: the resourceNames and subjects
+# are per project and user, so a second project gets its own pair instead of
+# replacing the first one's access. To share one binding across projects,
+# add subjects to the existing ClusterRoleBinding and append to resourceNames
+# rather than re-applying this file with a different project.
+#
+# Replace before applying:
+#   <project-namespace>  the OpenShift project the pipelines run in
+#   <your-username>      the OpenShift login of the user doing the work
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: speculator-ctr-reader-<project-namespace>
+rules:
+  - apiGroups: ["trainer.kubeflow.org"]
+    resources: ["clustertrainingruntimes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list"]
+  - apiGroups: ["project.openshift.io"]
+    resources: ["projects"]
+    resourceNames: ["<project-namespace>"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames: ["<project-namespace>"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: engineer-cluster-<project-namespace>
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: speculator-ctr-reader-<project-namespace>
+subjects:
+  - kind: User
+    apiGroup: rbac.authorization.k8s.io
+    name: <your-username>
+  - kind: ServiceAccount
+    namespace: <project-namespace>
+    name: pipeline-runner
