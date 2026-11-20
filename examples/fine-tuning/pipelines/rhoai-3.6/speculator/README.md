@@ -12,7 +12,25 @@ This page covers what is shared across all four modes — background, prerequisi
 >
 > Prefer driving TrainJobs directly from a notebook instead of pipelines? See the SDK-based examples at [`../../../rhoai-3.6/speculator/`](../../../rhoai-3.6/speculator/) — same four training modes, executed via the Kubeflow SDK `SpeculativeDecodingTrainer`.
 
-## What is Speculative Decoding?
+## Contents
+
+| Step | What it covers |
+| --- | --- |
+| **[1. Understand the pipelines](#1-understand-the-pipelines)** | [What speculative decoding is](#what-is-speculative-decoding) · [the four pipelines](#pipelines-overview) |
+| **[2. Choose your mode](#2-choose-your-mode)** | [Match your goal](#1-match-your-goal-to-a-mode) · [resources](#2-check-the-resource-implications) · [access](#3-check-access) · [your path](#4-your-path-through-this-guide) |
+| **[3. Check your cluster](#3-check-your-cluster)** | [Compatibility](#red-hat-openshift-ai-compatibility) · [requirements](#requirements) · [hardware](#hardware-requirements) |
+| **[4. Get access](#4-get-access)** | [Log in](#log-in-and-select-your-project) · [what you need](#what-you-need-in-your-project-namespace) · [per mode](#which-access-does-your-mode-need) · [check yourself](#check-your-own-access-before-you-start) · [send to your administrator](#what-to-send-your-administrator) · [limits](#what-this-access-deliberately-does-not-grant) |
+| **[5. Set up your project](#5-set-up-your-project)** | [RWX PVC](#existing-rwx-pvc) · [pipeline server](#configure-the-pipeline-server) · [credentials](#kubernetes-authentication-secret) · [hf-token](#optional-hf-token-secret) · [CTRs](#clustertrainingruntimes-ctrs) · [registry and KServe](#model-registry-and-kserve-train-only--online--offline) |
+| **[6. Run a pipeline](#6-run-a-pipeline)** | [Compile](#1-generate-the-pipeline-yaml) · [import](#3-import-the-pipeline-into-red-hat-openshift-ai) · [create a run](#4-create-a-run-and-set-parameters) · [watch it](#5-watch-the-run) |
+| **[7. Test the served endpoint](#7-test-the-served-endpoint)** | [Find it](#1-find-the-inferenceservice-and-its-url) · [model id](#2-discover-the-model-id) · [chat request](#3-send-a-chat-request) · [from your laptop](#4-access-from-your-laptop-optional) |
+| **[8. Clean up](#8-clean-up)** | [Stop or delete the endpoint](#1-stop-restart-or-remove-the-serving-endpoint) · [external server](#2-stop-the-external-extraction-server-offline-only) · [check the GPUs](#3-verify-the-gpus-were-released) · [what is kept](#4-keep-what-matters) |
+| **[Reference](#reference)** | [Default verifier](#default-verifier-model) · [compile-time settings](#customizing-before-you-compile) · [troubleshooting](#troubleshooting) · [source](#source) |
+
+Each mode has its own guide with a stage-by-stage walkthrough and full parameter reference: [data-extraction](data-extraction/) · [train-only](train-only/) · [online](online/) · [offline](offline/).
+
+## 1. Understand the pipelines
+
+### What is Speculative Decoding?
 
 Large language models generate tokens one at a time during inference. Each token requires reading the entire model from GPU memory (e.g., 140 GB for a 70B model in FP16), but the actual computation for one token is tiny. The GPU spends most of its time waiting for data to arrive from memory — running at under 1% compute utilization during normal token generation. This is called being **memory-bound**.
 
@@ -20,7 +38,7 @@ Speculative decoding exploits a key insight: verifying multiple tokens at once c
 
 For more background — why custom draft models matter after fine-tuning, and how the Eagle3 architecture reads hidden states from four intermediate verifier layers — see the [SDK example README](../../../rhoai-3.6/speculator/README.md#what-is-speculative-decoding).
 
-## Pipelines Overview
+### Pipelines Overview
 
 There are four pipelines, one per training mode. Each is a separate pipeline definition in the [`pipelines-components`](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/speculator) repository, with a subfolder here holding its guide:
 
@@ -33,11 +51,13 @@ There are four pipelines, one per training mode. Each is a separate pipeline def
 
 Every pipeline that trains also **evaluates** the draft with GuideLLM (acceptance metrics), optionally **registers** it to the Kubeflow Model Registry (mandatory in train-only), and **serves** it with a KServe speculative-decoding endpoint.
 
-## Choosing a mode
+[↑ Contents](#contents)
+
+## 2. Choose your mode
 
 Work through this page top to bottom before touching a cluster — by the end you should know your mode, know your cluster can support it, and know what (if anything) to request from your administrator.
 
-**1. Match your goal to a mode:**
+### 1. Match your goal to a mode
 
 | What do you need? | Choose | What must already be available? |
 | --- | --- | --- |
@@ -50,11 +70,15 @@ Work through this page top to bottom before touching a cluster — by the end yo
 >
 > **First time through?** ONLINE is the fewest moving parts — one run, nothing to wire between runs — but it needs **two GPUs together** in the Trainer pod. If that capacity is not available, or if you expect to tune hyperparameters more than once, run **DATA_ONLY** then **TRAIN_ONLY** instead: one GPU at a time, extraction paid for once, and a verification step on the PVC between the two.
 
-**2. Check the resource implications.** For the default Qwen3-0.6B configuration: ONLINE needs **two GPUs together** in the Trainer pod (worker + sidecar); managed DATA_ONLY needs **one** extraction GPU; TRAIN_ONLY and OFFLINE need **one** pipeline GPU during their sequential GPU stages. Count the external OFFLINE server and any endpoints retained from previous runs separately — see [Hardware requirements](#hardware-requirements) and each mode guide's component table. A cluster-wide GPU count alone does not prove the pod can schedule: CPU, memory, GPU memory, and placement all matter.
+### 2. Check the resource implications
 
-**3. Check access.** Run the `oc auth can-i` checks in [Access you need](#access-you-need-and-what-your-administrator-must-provide). If any check fails, stop and send your administrator the grant manifests — the rest of this guide assumes they pass.
+For the default Qwen3-0.6B configuration: ONLINE needs **two GPUs together** in the Trainer pod (worker + sidecar); managed DATA_ONLY needs **one** extraction GPU; TRAIN_ONLY and OFFLINE need **one** pipeline GPU during their sequential GPU stages. Count the external OFFLINE server and any endpoints retained from previous runs separately — see [Hardware requirements](#hardware-requirements) and each mode guide's component table. A cluster-wide GPU count alone does not prove the pod can schedule: CPU, memory, GPU memory, and placement all matter.
 
-**4. Your path through this guide:**
+### 3. Check access
+
+Run the `oc auth can-i` checks in [Access you need](#access-you-need-and-what-your-administrator-must-provide). If any check fails, stop and send your administrator the grant manifests — the rest of this guide assumes they pass.
+
+### 4. Your path through this guide
 
 1. This section — choose the mode.
 2. [Access you need](#access-you-need-and-what-your-administrator-must-provide) — self-check, administrator handoff if needed.
@@ -68,7 +92,11 @@ Work through this page top to bottom before touching a cluster — by the end yo
 >
 > The example runs use deliberately small settings (16 extraction samples, 10 evaluation samples) — they prove the workflow end to end, not speedup. Establishing a speedup number requires a separate baseline run under matching conditions.
 
-## Red Hat OpenShift AI compatibility
+[↑ Contents](#contents)
+
+## 3. Check your cluster
+
+### Red Hat OpenShift AI compatibility
 
 This example is compatible with Red Hat OpenShift AI 3.6. The pipelines additionally require:
 
@@ -77,14 +105,50 @@ This example is compatible with Red Hat OpenShift AI 3.6. The pipelines addition
 - For the training pipelines: Model Registry **>= 0.3.4**, KServe **>= 2.10.0**, vLLM ServingRuntime **>= 0.24.0**
 - Kubernetes (OpenShift) **>= 1.28**
 
-## Access you need (and what your administrator must provide)
+### Requirements
 
-Setting up and running these pipelines involves two personas:
+- An OpenShift cluster with Red Hat OpenShift AI 3.6 installed:
+  - The **dashboard**, **trainer**, and **datasciencepipelines** components enabled
+  - The **pipeline server** running — see [Prerequisites](#configure-the-pipeline-server)
+  - The **modelregistry** component enabled (required for the train-only pipeline; optional elsewhere)
+- Speculator **ClusterTrainingRuntimes (CTRs)** deployed — see [ClusterTrainingRuntimes](#clustertrainingruntimes-ctrs)
+- Worker nodes with **NVIDIA GPUs** (Ampere or newer recommended) — the CTRs are CUDA-based
+- An **existing ReadWriteMany PVC** — see [Existing RWX PVC](#existing-rwx-pvc)
+- Python 3.11+ on your workstation or workbench, to generate the pipeline YAML
+- A HuggingFace account and token (recommended, to avoid rate limits; Qwen3-0.6B is not gated)
 
-- **You (the user)** — work in a single OpenShift project (namespace), create runs, watch them, and verify the results.
-- **Your administrator** — grants the roles that make the above possible, and prepares cluster-level resources that cannot be created from within your project: the [ClusterTrainingRuntimes](#clustertrainingruntimes-ctrs), the serving [hardware profile](#cluster-wide-access-only-your-administrator-can-grant), the [pipeline server](#configure-the-pipeline-server) and its object-storage credentials, and optionally the [Model Registry](#model-registry-and-kserve-train-only--online--offline).
+### Hardware requirements
 
-Work through this section **before** anything else in the Prerequisites. The recipe was verified with `oc auth can-i` impersonation on a live Red Hat OpenShift AI 3.6 cluster. If a check fails, stop and send your administrator the [grant manifests](#what-to-send-your-administrator) instead of discovering the gap after a training run.
+Values below are for the default **Qwen3-0.6B** verifier. Requirements scale with verifier model size.
+
+| Pipeline | Training GPU | vLLM sidecar GPU | Evaluation / Serving GPU | Peak concurrent pipeline GPUs |
+| --- | --- | --- | --- | --- |
+| data-extraction (managed vLLM) | — | 1 | — | 1 |
+| data-extraction (remote vLLM) | — | — (external) | — | 0 |
+| train-only | 1 | — | ~1 | 1 |
+| online | 1 | 1 | ~1 | 2 |
+| offline | 1 | — (external) | ~1 | 1 |
+
+> [!NOTE]
+>
+> - The vLLM sidecar currently supports exactly 1 GPU (`p12_vllm_resource_gpu`).
+> - Evaluation (GuideLLM) and the KServe endpoint each consume roughly one GPU while active.
+> - Stages run sequentially — evaluation and serving start after the training job completes and reuse its freed GPUs, so the totals reflect **peak concurrent** usage: one pipeline GPU for train-only and offline, two for online (its training worker + vLLM sidecar run together in one Trainer pod).
+> - Offline mode uses your external vLLM server's own resources — size it separately, on top of the pipeline totals.
+> - Every training run leaves a GPU-backed endpoint behind. If you do not [clean it up](#cleaning-up), its GPU counts toward the cluster total during your *next* run.
+
+[↑ Contents](#contents)
+
+<a id="access-you-need-and-what-your-administrator-must-provide" name="access-you-need-and-what-your-administrator-must-provide"></a>
+
+## 4. Get access
+
+Two personas share this workflow:
+
+- **You** — work in one OpenShift project: create runs, watch them, verify the results.
+- **Your administrator** — grants your roles and prepares what cannot be created from inside a project: the [CTRs](#clustertrainingruntimes-ctrs), the serving [HardwareProfile](#cluster-wide-access-only-your-administrator-can-grant), the [pipeline server](#configure-the-pipeline-server) with its object-storage credentials, and optionally the [Model Registry](#model-registry-and-kserve-train-only--online--offline).
+
+Work through this section **before** the setup. The recipe was verified with `oc auth can-i` impersonation on a live Red Hat OpenShift AI 3.6 cluster. If a check fails, send your administrator the [grant manifests](#what-to-send-your-administrator) rather than discovering the gap after a training run.
 
 ### Log in and select your project
 
@@ -95,13 +159,9 @@ oc login https://api.<cluster-domain>:6443
 oc project <project-namespace>
 ```
 
-`oc project -q` prints the project your terminal is currently scoped to — run it if you are unsure, and re-run `oc project <project-namespace>` after opening a new terminal.
-
-**No project yet?** Create one first: in the dashboard under **Develop & train > Data Science Projects > Create data science project**, or with `oc new-project <project-namespace>` if your cluster allows self-provisioning. If both fail, creating the project is an administrator task — add it to the [grant request](#what-to-send-your-administrator) along with the access manifests.
-
-> [!NOTE]
->
-> In OpenShift, **project** and **namespace** mean the same thing. The dashboard says "project"; `oc`, YAML manifests, and this guide's parameters say "namespace". Whatever you created in the dashboard, use that exact name in `oc project` and in every `<project-namespace>` placeholder below.
+- `oc project -q` prints the project your terminal is scoped to — re-run `oc project` after opening a new terminal.
+- **No project yet?** Create one in the dashboard under **Develop & train > Data Science Projects > Create data science project**, or with `oc new-project <project-namespace>` where self-provisioning is allowed. If both fail, add project creation to the [grant request](#what-to-send-your-administrator). See also: [Create a project](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/getting_started_with_red_hat_openshift_ai_self-managed/creating-a-project_get-started).
+- **Project** and **namespace** are the same thing: the dashboard says project, `oc` and the pipeline parameters say namespace. Use that one name in every `<project-namespace>` placeholder below.
 
 ### What you need in your project namespace
 
@@ -124,23 +184,22 @@ Your administrator binds a namespace-scoped Role (this guide calls it `engineer`
 | `kubeflow.org` | `notebooks` | full CRUD | Create a workbench to inspect PVC contents |
 | `image.openshift.io` | `imagestreams` | get, list, watch | Resolve image references |
 
-The `engineer` Role is bound to **you** only. It deliberately grants **no direct secret permissions and no token minting** (see [What this access deliberately does not grant](#what-this-access-deliberately-does-not-grant) for what submitting a TrainJob still reaches) — the `kubernetes-credentials` and `hf-token` secrets are created by your administrator (see [Kubernetes authentication secret](#kubernetes-authentication-secret)). The `pipeline-runner` ServiceAccount gets its own smaller Role — limited to what the pipeline's own API calls need (TrainJob submission, the KFP workspace PVC, serving resources) and equally without secret access or token minting. Keeping credential creation — and with it the ability to mint ServiceAccount tokens — out of both identities closes the privilege-escalation path of creating a `kubernetes.io/service-account-token` Secret that references a more privileged ServiceAccount.
+Two identities, two Roles:
+
+- **You** get the Role above, bound to your user alone. It grants **no direct secret permissions and no token minting**, so your administrator creates the [`kubernetes-credentials`](#kubernetes-authentication-secret) and `hf-token` secrets. ([What a TrainJob still reaches](#what-this-access-deliberately-does-not-grant) is a separate matter.)
+- **`pipeline-runner`** gets a smaller Role: TrainJob submission, the KFP workspace PVC, serving resources — and likewise no secrets or tokens.
+
+Keeping both away from credential creation closes a privilege-escalation path; the reasoning is in the [manifests README](manifests/README.md#why-the-grants-look-like-this).
 
 ### Cluster-wide access only your administrator can grant
 
-Three things cannot be granted from inside your project:
+Four things cannot be granted from inside your project:
 
 1. **ClusterTrainingRuntimes discovery** — the pipelines reference CTRs (`vllm-extract-cuda`, `speculator-model-opt-cuda`) by name, and the Trainer needs to read them cluster-wide. This is a ClusterRole (this guide calls it `speculator-ctr-reader-<project-namespace>`) granting `get`, `list`, `watch` on `clustertrainingruntimes`.
 2. **Project discovery** — Red Hat OpenShift AI can only show your project in the dashboard if your user can `get` it. The same ClusterRole includes a *named-resource* read on your project and namespace — scoped to `<project-namespace>` only, nothing else.
 3. **Storage class discovery** — picking an RWX class for the [shared PVC](#existing-rwx-pvc) means listing storage classes, which is cluster-scoped. The same ClusterRole grants `get`/`list` on `storageclasses`: class names and parameters only, never the volumes themselves.
 
-The serving stage additionally depends on a cluster-level resource your administrator controls: a GPU **HardwareProfile** (for example `gpu-profile`) in `redhat-ods-applications`. If it is missing or the pipeline's ServiceAccount cannot read it, InferenceService creation fails **after** training has already completed. Ask your administrator to verify both:
-
-```bash
-oc get hardwareprofiles -n redhat-ods-applications
-```
-
-and to grant the pipeline runner read access to it (see [What to send your administrator](#what-to-send-your-administrator)).
+4. **A GPU HardwareProfile** (for example `gpu-profile`) in `redhat-ods-applications`, which the serving stage reads. If it is missing, or the runner cannot read it, InferenceService creation fails **after** training has completed. Ask your administrator to check it with `oc get hardwareprofiles -n redhat-ods-applications` and to apply the read grant in [What to send your administrator](#what-to-send-your-administrator).
 
 ### Which access does your mode need?
 
@@ -204,19 +263,13 @@ done
 sed -e "s/<project-namespace>/$PROJECT/g" manifests/hardwareprofile-reader.yaml | oc apply -f -
 ```
 
-Note the split the files encode: the `engineer` Role binds to **your user** (CLI and dashboard work), while the `pipeline-runner` ServiceAccount gets its own smaller Role for the pipeline's API calls. The two identities get different grants on purpose, and neither includes secret access or token minting. If your organization already has equivalent roles, binding those instead is fine as long as the [checks above](#check-your-own-access-before-you-start) pass.
+Three things your administrator should know, all covered in the [manifests README](manifests/README.md):
 
-**Why the user Role has no secret permissions.** This is not just minimalism: on clusters that populate manually created `kubernetes.io/service-account-token` Secrets, a role combining secret creation with secret read can mint a token for a more privileged ServiceAccount (create a Secret of that type pointing at the ServiceAccount, wait for the token controller to populate it, read it back). Keeping both capabilities away from your user and the runner closes that path. Credential setup is an administrator procedure instead — see [Kubernetes authentication secret](#kubernetes-authentication-secret).
+- The [pipeline server](#configure-the-pipeline-server) must exist **first** — it creates the `pipeline-runner` ServiceAccount these files bind. Confirm the name with `oc get serviceaccounts -n <project-namespace>` and adjust the bindings if it differs.
+- `cluster-access.yaml` is named per project on purpose. Re-applying it under a fixed name for a second project would *replace* the first project's access — see [applying for a second project](manifests/README.md#applying-for-a-second-project).
+- The grants stop at your project: they do not authorize configuring the pipeline server, listing Roles across namespaces, or creating a RoleBinding in the registry's namespace. That is why [registry setup](#model-registry-and-kserve-train-only--online--offline) and [credential setup](#kubernetes-authentication-secret) are administrator tasks.
 
-**Why the runner Role is smaller still.** It deliberately does **not** get secret access, token minting, workbench (`notebooks`) management, pod exec/port-forward, or deployment scaling — none of those are pipeline operations, and granting them would let pipeline code borrow credentials or escalate through another ServiceAccount. It *does* get the ClusterTrainingRuntime read from `cluster-access.yaml`, because the TrainJobs it submits reference CTRs by name.
-
-**Where these grants stop.** They do not authorize configuring the pipeline server (it stores object-storage credentials in a Secret — see [Configure the pipeline server](#configure-the-pipeline-server)), listing Roles across namespaces, or creating a RoleBinding in the Model Registry's namespace — the registry setup commands in [Model Registry and KServe](#model-registry-and-kserve-train-only--online--offline) are marked as administrator tasks for exactly that reason. The same applies to the credential secrets: you cannot create Secrets or mint ServiceAccount tokens, so the [Kubernetes authentication secret](#kubernetes-authentication-secret) setup is an administrator task too.
-
-> [!NOTE]
->
-> The `-<project-namespace>` suffix in `cluster-access.yaml` is deliberate: the ClusterRole embeds your project in `resourceNames` and the binding embeds your user and runner, so these objects are **per project and user**. Distinct names keep grants for different projects side by side; a second copy under the same fixed name would silently *replace* the first project's access. If your organization prefers one shared binding, add new subjects to the existing ClusterRoleBinding (`oc edit clusterrolebinding`) and append the project to the ClusterRole's `resourceNames` lists instead of re-applying the file.
-
-The `pipeline-runner` ServiceAccount is created in your project when the pipeline server is configured, so that step comes **first** — see [Configure the pipeline server](#configure-the-pipeline-server). Confirm the name on your cluster with `oc get serviceaccounts -n <project-namespace>` once the server is up, and adjust the bindings if yours differs.
+Binding equivalent roles your organization already has is fine, as long as the [checks above](#check-your-own-access-before-you-start) pass.
 
 ### What this access deliberately does not grant
 
@@ -225,7 +278,7 @@ The recipe above is intentionally minimal. As a user you **cannot**:
 - Create or delete pods directly (pods are created by the Trainer and pipeline controllers, not by you).
 - Create, update, or delete image streams.
 - Configure the pipeline server — it stores the object-storage credentials in a Secret, so it is an administrator task ([Configure the pipeline server](#configure-the-pipeline-server)).
-- Create, read, or modify any Secret **through the Role's own permissions**, or mint tokens for any ServiceAccount — the Role grants no direct Secret or ServiceAccount-token permissions. Credential setup ([Kubernetes authentication secret](#kubernetes-authentication-secret)) is an administrator task, which also closes the path of creating a `kubernetes.io/service-account-token` Secret that references a more privileged ServiceAccount. (Secrets in the project remain indirectly reachable through TrainJob submission — see the trust-boundary note below.)
+- Create, read, or modify any Secret **through the Role's own permissions**, or mint ServiceAccount tokens — so [credential setup](#kubernetes-authentication-secret) is an administrator task. (Secrets remain *indirectly* reachable through TrainJob submission — see the trust-boundary note below.)
 - Access or administer other projects — the cluster-scoped grant is a named read of your project only.
 - Modify cluster-wide configuration or act as `cluster-admin`.
 
@@ -237,60 +290,34 @@ The **pipeline runner** is held to an even tighter line: its Role omits secret a
 
 If a step in this guide seems to need something from that list, it is a step for your administrator — PVC creation and deletion are the only infrastructure-level writes granted, and only inside your project.
 
-## Requirements
+<a id="prerequisites" name="prerequisites"></a>
 
-- An OpenShift cluster with Red Hat OpenShift AI 3.6 installed:
-  - The **dashboard**, **trainer**, and **datasciencepipelines** components enabled
-  - The **pipeline server** running — see [Prerequisites](#configure-the-pipeline-server)
-  - The **modelregistry** component enabled (required for the train-only pipeline; optional elsewhere)
-- Speculator **ClusterTrainingRuntimes (CTRs)** deployed — see [ClusterTrainingRuntimes](#clustertrainingruntimes-ctrs)
-- Worker nodes with **NVIDIA GPUs** (Ampere or newer recommended) — the CTRs are CUDA-based
-- An **existing ReadWriteMany PVC** — see [Existing RWX PVC](#existing-rwx-pvc)
-- Python 3.11+ on your workstation or workbench, to generate the pipeline YAML
-- A HuggingFace account and token (recommended, to avoid rate limits; Qwen3-0.6B is not gated)
+## 5. Set up your project
 
-## Hardware requirements
+Run the [access checks](#check-your-own-access-before-you-start) first, then work through the setup your mode needs:
 
-Values below are for the default **Qwen3-0.6B** verifier. Requirements scale with verifier model size.
+| Setup | Who does it | data-extraction | train-only / online / offline |
+| --- | --- | --- | --- |
+| [RWX PVC](#existing-rwx-pvc) | you | Required | Required |
+| [Pipeline server](#configure-the-pipeline-server) | administrator | Required | Required |
+| [Kubernetes authentication secret](#kubernetes-authentication-secret) | administrator | Required | Required |
+| [CTRs](#clustertrainingruntimes-ctrs) | administrator | Required | Required |
+| [Model Registry and KServe](#model-registry-and-kserve-train-only--online--offline) | administrator, then you | Not needed | Mandatory for train-only, optional for online/offline |
 
-| Pipeline | Training GPU | vLLM sidecar GPU | Evaluation / Serving GPU | Peak concurrent pipeline GPUs |
-| --- | --- | --- | --- | --- |
-| data-extraction (managed vLLM) | — | 1 | — | 1 |
-| data-extraction (remote vLLM) | — | — (external) | — | 0 |
-| train-only | 1 | — | ~1 | 1 |
-| online | 1 | 1 | ~1 | 2 |
-| offline | 1 | — (external) | ~1 | 1 |
-
-> [!NOTE]
->
-> - The vLLM sidecar currently supports exactly 1 GPU (`p12_vllm_resource_gpu`).
-> - Evaluation (GuideLLM) and the KServe endpoint each consume roughly one GPU while active.
-> - Stages run sequentially — evaluation and serving start after the training job completes and reuse its freed GPUs, so the totals reflect **peak concurrent** usage: one pipeline GPU for train-only and offline, two for online (its training worker + vLLM sidecar run together in one Trainer pod).
-> - Offline mode uses your external vLLM server's own resources — size it separately, on top of the pipeline totals.
-> - Every training run leaves a GPU-backed endpoint behind. If you do not [clean it up](#cleaning-up), its GPU counts toward the cluster total during your *next* run.
-
-## Prerequisites
-
-Work through the [access checks](#access-you-need-and-what-your-administrator-must-provide) first — they tell you which of the sections below apply to the modes you plan to run:
-
-- **Every mode** needs the [RWX PVC](#existing-rwx-pvc), the [pipeline server](#configure-the-pipeline-server), the [Kubernetes authentication secret](#kubernetes-authentication-secret), and the [CTRs](#clustertrainingruntimes-ctrs). The pipeline server, the secret, and the CTRs are administrator tasks; the PVC is yours.
-- **train-only, online, and offline** additionally need the [Model Registry and KServe setup](#model-registry-and-kserve-train-only--online--offline) (registry access is mandatory for train-only, optional for online/offline).
-- **data-extraction** needs only the four sections in the first bullet — RWX PVC, pipeline server, Kubernetes authentication secret, and CTRs — because it does not train, serve, or register, it skips the Model Registry and KServe setup.
-
-All `oc` commands below assume you ran `oc project <project-namespace>` — see [Log in and select your project](#log-in-and-select-your-project). The [Quick Start](#quick-start) assumes all of the applicable sections are in place.
+data-extraction skips the last row because it does not train, serve, or register. All `oc` commands below assume `oc project <project-namespace>` ([why](#log-in-and-select-your-project)), and [Run a pipeline](#quick-start) assumes every applicable row is done.
 
 ### Existing RWX PVC
 
-These pipelines store all models, datasets, hidden states, checkpoints, and outputs on a shared PersistentVolumeClaim that you must provide before running anything: `p01_persistent_pvc` names an **existing** ReadWriteMany PVC in the pipeline namespace, which the pipeline mounts at `/mnt/persistent`. The pipelines never create or resize it.
+All models, datasets, hidden states, checkpoints and outputs live on one shared PersistentVolumeClaim that must exist before you run anything. `p01_persistent_pvc` names it, the pipelines mount it at `/mnt/persistent`, and they never create or resize it.
 
 > [!IMPORTANT]
 >
-> There are **two** PVCs involved in every run:
+> Every run involves **two** PVCs:
 >
-> 1. **Your persistent PVC** (`p01_persistent_pvc`) — pre-existing, holds the verifier, datasets, hidden states, checkpoints, and the final draft. Must be RWX and exist in the same namespace as the pipeline and the serving endpoint — PVCs are namespace-scoped and cannot be mounted across namespaces.
-> 2. **The KFP workspace PVC** — created by the pipeline itself at run time (200Gi, storage class `nfs-csi`, ReadWriteMany) for the Kubeflow Pipelines launcher tasks. Its size and storage class are set at compile time; see [Customizing before you compile](#customizing-before-you-compile).
+> 1. **Yours** (`p01_persistent_pvc`) — the verifier, datasets, hidden states, checkpoints and final draft. Must be RWX and in the same namespace as the pipeline and the serving endpoint; PVCs cannot be mounted across namespaces.
+> 2. **The KFP workspace PVC** — created by the pipeline at run time for its launcher tasks (200Gi, `nfs-csi`, RWX), fixed at compile time; see [Customizing before you compile](#customizing-before-you-compile).
 
-Create the PVC once in the Red Hat OpenShift AI dashboard: in the left navigation, open **Cluster storage** and click **Add cluster storage**. Name it (this guide uses `shared`), set size 100Gi, and explicitly select a storage class with **ReadWriteMany** access — the dialog's default class is often RWO-only. Alternatively with `oc`:
+Create it once in the dashboard: **Cluster storage > Add cluster storage**, name `shared`, size 100Gi, and pick a **ReadWriteMany** storage class explicitly — the default class is often RWO-only, which leaves the claim `Pending` or mounted read-only. List what your cluster offers with `oc get storageclass`. See also: [cluster storage](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/getting_started_with_red_hat_openshift_ai_self-managed/creating-a-workbench-select-ide_get-started) in the Red Hat OpenShift AI documentation. With `oc` instead:
 
 ```bash
 oc apply -f - <<EOF
@@ -307,21 +334,15 @@ spec:
 EOF
 ```
 
-Replace `<your-rwx-storage-class>` with the name of a storage class on your cluster that provisions **ReadWriteMany** volumes — list what is available with `oc get storageclass`. Omitting `storageClassName` binds the PVC to the cluster's default class, which is often RWO-only and leaves the PVC stuck `Pending` or mounted read-only.
+`storageClassName` is not optional here: omit it and the claim takes the cluster default, which is usually RWO-only.
 
 ![Add cluster storage dialog with the name, RWX access mode and size filled in](images/speculator-storage-pvc.png)
 
-Verify it's bound:
-
-```bash
-oc get pvc shared
-```
-
-Expected: `STATUS Bound`.
+Verify with `oc get pvc shared` — expect `STATUS Bound`.
 
 > [!TIP]
 >
-> Attaching the PVC to a workbench is **optional** and separate from creating it — the pipelines mount it themselves at run time. Attach it in **Create workbench** (or a workbench's **Add storage** action) only if you want a terminal that mounts the PVC for [inspecting outputs](data-extraction/README.md#verifying-the-output-on-the-pvc); the attachment does not affect the pipelines.
+> Attaching the PVC to a workbench is optional and separate; the pipelines mount it themselves. Attach it only if you want a terminal for [inspecting outputs](data-extraction/README.md#verifying-the-output-on-the-pvc).
 
 ### Configure the pipeline server
 
@@ -341,7 +362,7 @@ The pipeline server must be running for your project before you can import or ru
 oc get serviceaccounts -n <project-namespace> | grep pipeline-runner
 ```
 
-For the official documentation, see [configuring a pipeline server](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines#configuring-a-pipeline-server_ai-pipelines).
+See also: [Manage AI pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines#configuring-a-pipeline-server_ai-pipelines) in the Red Hat OpenShift AI documentation.
 
 ### Kubernetes authentication secret
 
@@ -364,9 +385,9 @@ The `pipeline-runner` ServiceAccount is already bound to the `pipeline-runner` R
 
 > [!IMPORTANT]
 >
-> The documented `engineer` access deliberately grants no secret creation and no token minting — on clusters that populate manually created `kubernetes.io/service-account-token` Secrets, those capabilities combined would allow minting a token for a more privileged ServiceAccount. **This setup is therefore an administrator task.** Ask your administrator to run the commands below in your project namespace.
+> **Administrator task.** The documented access grants no secret creation and no token minting, deliberately — [why](manifests/README.md#why-the-grants-look-like-this). Ask your administrator to run the commands below in your project namespace.
 
-**Administrator procedure — create the secret.** Mint a long-lived token for the runner (with a restrictive `umask` so the file is owner-only), create the secret from it, then remove the plaintext file. The `&&` chain stops at the first failure — if the mint fails or writes an empty file, the secret is never touched:
+**Create the secret.** Mint a long-lived token for the runner, create the secret from it, then remove the plaintext file. The `&&` chain stops at the first failure, so a failed or empty mint never touches the secret:
 
 ```bash
 umask 077   # token file: owner-only, before it is written
@@ -379,13 +400,13 @@ oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/
   && oc get secret kubernetes-credentials -n <project-namespace>
 ```
 
-A failed run may leave the token file behind — it is owner-only (`umask 077`) and safe to delete.
+A failed run may leave the token file behind; `umask 077` makes it owner-only, and it is safe to delete.
 
 > [!NOTE]
 >
-> `--from-file` keeps the token out of shell history and process listings — prefer it over `--from-literal` for secret values. This is the only **required** secret and is non-optional for all four pipelines. It is mounted only in the KFP launcher tasks, never forwarded to Trainer workers.
+> `--from-file` keeps the token out of shell history and process listings — prefer it to `--from-literal` for secret values. This secret is required by all four pipelines, and is mounted only in the KFP launcher tasks, never forwarded to Trainer workers.
 
-**Administrator procedure — renew an expired token.** Tokens expire (the mint above uses a one-year duration). An expired token fails every run at job submission with a `401 Unauthorized`; if runs suddenly stop starting, that is the symptom. Mint a fresh token file as above, then update the existing secret — do **not** re-run `oc create secret`, which fails with `AlreadyExists` — re-supplying both keys so the configured server URL is preserved. As above, the chain stops before the apply if the mint fails or the file is empty, so the existing valid secret is preserved; `set -o pipefail` additionally makes a failed render fail the pipeline instead of being masked by `oc apply`:
+**Renew an expired token.** The mint above lasts a year. When it expires every run fails at job submission with `401 Unauthorized` — sudden "runs stop starting" is the symptom. Mint a fresh file and **update** the existing secret rather than re-running `oc create secret`, which fails with `AlreadyExists`; both keys are re-supplied so the server URL survives. `set -o pipefail` stops a failed render from being masked by `oc apply`:
 
 ```bash
 set -o pipefail   # so a failed render is not masked by the pipe below
@@ -400,7 +421,7 @@ oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/
   && rm /path/to/token-file
 ```
 
-The `--dry-run=client -o yaml | oc apply -f -` form creates the secret when it does not exist and updates it in place when it does — use the same `KUBERNETES_SERVER_URL` value as the initial setup; it does not change on renewal.
+That `--dry-run | oc apply` form creates the secret if absent and updates it in place if present. Use the same `KUBERNETES_SERVER_URL` as the initial setup — it does not change on renewal.
 
 ### Optional hf-token secret
 
@@ -432,7 +453,7 @@ If missing, follow the [SDK example's CTR instructions](../../../rhoai-3.6/specu
 
 The train-only pipeline **always** registers the draft — registry setup is mandatory there. Online and offline skip registration when the registry address is left empty.
 
-**1. Select a registry — your administrator creates it.** Browse the registries you can reach under **AI Hub > Models > Registry**. Creating one happens on an organization-wide administrator page, **Settings > Model resources and operations > Model registry settings > Create model registry**, so ask your administrator if the registry you need does not exist yet. The creation dialog itself notes that permissions must be granted afterwards — that is step 3 below.
+**1. Select a registry — your administrator creates it.** Browse the registries you can reach under **AI Hub > Models > Registry**. Creating one happens on an organization-wide administrator page, **Settings > Model resources and operations > Model registry settings > Create model registry**, so ask your administrator if the registry you need does not exist yet. The creation dialog itself notes that permissions must be granted afterwards — that is step 3 below. See also: [Provision and secure access to model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/managing_model_registries/index).
 
 ![Create model registry dialog](images/speculator-model-registry.png)
 
@@ -451,10 +472,9 @@ For a registry named `bu-registry`, the route host looks like `bu-registry-rest.
 
 > [!IMPORTANT]
 >
-> - Include the scheme in the address, matching how the endpoint is served — `https://` for Red Hat OpenShift AI routes, which is the normal case. Without a scheme the pipeline falls back to plain HTTP, which the route does not serve. If your endpoint is plain HTTP (a custom ingress without TLS, or a route with an insecure-edge policy), use `http://` and that endpoint's port; the same rules apply.
-> - Do **not** paste the dashboard's REST URL (`https://<dashboard-host>/model-registry/<name>/api/model_registry/v1alpha3`). The pipeline appends the `/api/...` path itself, and the extra `/model-registry/<name>` prefix breaks the request. Always use the dedicated `-rest` route.
-> - Alternative, in-cluster: the registry's Service works too — address `model-registry-<name>.<namespace>.svc` (no scheme), port `8080`. Finding it with `oc get svc -A` again needs cluster-wide read — ask an administrator to run it and give you the Service name.
-> - The field's own description in the run form says to enter only the hostname and omit the scheme. That is written for the in-cluster Service above, where the endpoint is plain HTTP on port `8080`. For the `-rest` route it does not hold: drop the `https://` and the client talks HTTP to a TLS endpoint, and the register stage fails after training has completed.
+> - **Include the scheme.** The run form's field description says hostname only — that holds for the in-cluster Service, not for a route. Drop `https://` from a route address and the client talks plain HTTP to a TLS endpoint, failing the register stage after training has completed. For a genuinely plain-HTTP endpoint, use `http://` and that endpoint's port.
+> - **Use the `-rest` route, not the dashboard URL.** `https://<dashboard-host>/model-registry/<name>/api/model_registry/v1alpha3` breaks the request: the pipeline appends `/api/...` itself and the extra prefix is not stripped.
+> - **In-cluster alternative:** the registry Service, address `model-registry-<name>.<namespace>.svc` (no scheme), port `8080`. Finding it needs `oc get svc -A`, a cluster-wide read — ask an administrator for the name.
 
 **3. Grant the pipeline runner access.** Pipeline runs execute under a ServiceAccount in your project — Red Hat OpenShift AI creates `pipeline-runner` when the pipeline server is configured. Confirm the name before binding:
 
@@ -462,7 +482,7 @@ For a registry named `bu-registry`, the route host looks like `bu-registry-rest.
 oc get serviceaccounts -n <project-namespace>
 ```
 
-The grant a Red Hat OpenShift AI Model Registry installs is a **namespaced Role** in the registry's namespace (`registry-user-<registry-name>`), not a ClusterRole. That namespace is outside the [documented access](#access-you-need-and-what-your-administrator-must-provide): the grants do not authorize listing Roles across namespaces or creating a RoleBinding there. **Your administrator (or whoever manages the registry) runs the discovery and binding:**
+The registry installs a **namespaced Role** (`registry-user-<registry-name>`) in its own namespace, not a ClusterRole — and that namespace is outside your access. **Your administrator runs the discovery and the binding:**
 
 ```bash
 # Discover the grant and its kind (Role vs ClusterRole):
@@ -475,11 +495,15 @@ oc create rolebinding registry-access-<project> \
   --serviceaccount=<project-namespace>:pipeline-runner
 ```
 
-If the administrator instead created a ClusterRole for the registry, they substitute `--clusterrole=` in the binding — the discovery command above tells them which case applies. Binding with the wrong kind fails the register stage with a permission error after training has already completed.
+If the grant turns out to be a ClusterRole, substitute `--clusterrole=`. Binding the wrong kind fails the register stage with a permission error — again, after training has completed.
 
-**4. Serving namespace.** The serving namespace must be able to access the persistent PVC, and the pipeline ServiceAccount needs permission to manage ServingRuntimes and InferenceServices there. Using the same namespace as the PVC (typically your project namespace) is the simplest working setup. Serving also reads the GPU **HardwareProfile** from `redhat-ods-applications` — see [Cluster-wide access only your administrator can grant](#cluster-wide-access-only-your-administrator-can-grant) for the profile and its read grant, or the serve stage fails at InferenceService creation.
+**4. Serving namespace.** It must reach the persistent PVC and let the pipeline ServiceAccount manage ServingRuntimes and InferenceServices — using your project namespace is the simplest setup that works. Serving also reads the GPU HardwareProfile in `redhat-ods-applications`; without that grant the serve stage fails at InferenceService creation ([details](#cluster-wide-access-only-your-administrator-can-grant)).
 
-## Quick Start
+[↑ Contents](#contents)
+
+<a id="quick-start" name="quick-start"></a>
+
+## 6. Run a pipeline
 
 The steps below use the data-extraction pipeline as the worked example, but the flow is identical for all four modes — only the parameters differ (each mode's guide has its parameter table).
 
@@ -528,7 +552,7 @@ done
 
 ### 2. Create the prerequisites
 
-Work through [Prerequisites](#prerequisites): PVC, pipeline server, `kubernetes-credentials` secret, CTRs, and (for train-only / serving) Model Registry. Only the PVC is yours to create — the rest are administrator tasks, so request them early. Each subsection includes a verification command you can run yourself; run them before importing anything.
+Work through [Set up your project](#prerequisites) and run each section's verification command before importing anything. Only the PVC is yours to create, so request the administrator tasks early.
 
 ### 3. Import the pipeline into Red Hat OpenShift AI
 
@@ -581,7 +605,11 @@ The ready-to-copy parameter tables:
 
 When the run succeeds, continue with the mode's guide — for the two-step workflow that means [verifying the output on the PVC](data-extraction/README.md#verifying-the-output-on-the-pvc) and then the [train-only pipeline](train-only/README.md), whose guide covers [interpreting the evaluation results](train-only/README.md#interpreting-the-evaluation-results).
 
-## Testing the served endpoint
+[↑ Contents](#contents)
+
+<a id="testing-the-served-endpoint" name="testing-the-served-endpoint"></a>
+
+## 7. Test the served endpoint
 
 Every training pipeline leaves a **cluster-local** KServe InferenceService behind. This section is the procedure that works — each step below was verified against a live Red Hat OpenShift AI 3.6 cluster. (Also see the train-only guide's [Testing the served endpoint](train-only/README.md#testing-the-served-endpoint) for the mode-specific details.)
 
@@ -589,7 +617,7 @@ Every training pipeline leaves a **cluster-local** KServe InferenceService behin
 >
 > The endpoint is **cluster-local**: its URL is `<name>-predictor.<namespace>.svc.cluster.local` and resolves **only inside the cluster**. Running `curl` against it from your laptop fails with `Could not resolve host` — that is expected, not a broken deployment.
 
-**1. Find the InferenceService and its URL:**
+### 1. Find the InferenceService and its URL
 
 ```bash
 oc get inferenceservice -n <project-namespace>
@@ -597,7 +625,9 @@ oc get inferenceservice -n <project-namespace>
 
 The `URL` column shows the cluster-local address. Note the deployment name is `<name>-predictor`.
 
-**2. Discover the model id** — this is the step people get wrong. The vLLM server registers the model under the **InferenceService name**, not the verifier model ID. Ask it:
+### 2. Discover the model id
+
+This is the step people get wrong: the vLLM server registers the model under the **InferenceService name**, not the verifier model ID. Ask it:
 
 ```bash
 oc exec -n <project-namespace> deploy/<name>-predictor -c kserve-container -- \
@@ -606,11 +636,9 @@ oc exec -n <project-namespace> deploy/<name>-predictor -c kserve-container -- \
 
 The response's `data[0].id` is the model id to use in requests.
 
-> [!NOTE]
->
-> The container listens on port **8080**. The Service in front of it may expose a different port (often 80) — see the port-forward caveat below.
+### 3. Send a chat request
 
-**3. Send a chat request** (from anywhere `oc` is logged in — the command executes inside the predictor container):
+Run this from anywhere `oc` is logged in — the command executes inside the predictor container:
 
 ```bash
 oc exec -n <project-namespace> deploy/<name>-predictor -c kserve-container -- \
@@ -619,9 +647,11 @@ oc exec -n <project-namespace> deploy/<name>-predictor -c kserve-container -- \
   -d '{"model": "<name>", "messages": [{"role": "user", "content": "What is the capital of France?"}], "max_tokens": 200}'
 ```
 
-The answer is in `choices[0].message.content`.
+The answer is in `choices[0].message.content`. To print just that, append `| jq -r '.choices[0].message.content'`.
 
-**4. (Optional) Access from your laptop** with port-forwarding:
+### 4. Access from your laptop (optional)
+
+Use port-forwarding:
 
 ```bash
 oc port-forward -n <project-namespace> deploy/<name>-predictor 5000:8080
@@ -633,23 +663,19 @@ Then `curl http://localhost:5000/v1/models` (and the chat request with `http://l
 >
 > Forward to the **container** port `8080`, not the Service's port. `oc port-forward` performs no Service port translation — it dials a port **inside the pod's network namespace**, where the vLLM server listens on 8080. Forwarding to the Service's port 80 yields `connection refused` even though everything is healthy. Keep the port-forward terminal open; re-run the command if it drops.
 
-**5. (Optional) Pretty-print just the answer** with `jq`:
-
-```bash
-oc exec -n <project-namespace> deploy/<name>-predictor -c kserve-container -- \
-  curl -s localhost:8080/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model": "<name>", "messages": [{"role": "user", "content": "What is the capital of France?"}], "max_tokens": 200}' \
-  | jq -r '.choices[0].message.content'
-```
-
 For an interactive session (repeated questions, or a conversation that keeps history), port-forward once as in step 4 and drive `http://localhost:5000` with curl or a small script — every request is independent unless you pass the full message history yourself.
 
-## Cleaning up
+[↑ Contents](#contents)
+
+<a id="cleaning-up" name="cleaning-up"></a>
+
+## 8. Clean up
 
 Every training run leaves a **GPU-backed KServe endpoint** behind, and offline mode additionally depends on your **external extraction server**. Neither needs to keep running after verification — release the GPUs while keeping the data that matters.
 
-**1. Stop, restart, or remove the serving endpoint (train-only / online / offline).** The endpoint the run created is listed in the dashboard under **AI Hub > Models > Deployments**. Its action menu offers the three things you need:
+### 1. Stop, restart or remove the serving endpoint
+
+Train-only, online and offline each leave one behind. The endpoint the run created is listed in the dashboard under **AI Hub > Models > Deployments**. Its action menu offers the three things you need:
 
 | Action | What happens | When to use it |
 | --- | --- | --- |
@@ -668,9 +694,11 @@ A stopped InferenceService reports `Stopped=True` in its status conditions, so `
 
 The CLI equivalent of **Delete** is `oc delete inferenceservice <name> -n <project-namespace>`. Either way, if the pipeline created a dedicated ServingRuntime for the run, that is a separate object — list what exists with `oc get inferenceservices,servingruntimes -n <project-namespace>` and delete the runtime too.
 
-**2. Stop the external extraction server (offline only).** Its GPUs are outside the pipeline's control — scale it to zero or tear it down however you deployed it.
+### 2. Stop the external extraction server (offline only)
 
-**3. Verify the GPUs were released:**
+Its GPUs are outside the pipeline's control — scale it to zero or tear it down however you deployed it.
+
+### 3. Verify the GPUs were released
 
 ```bash
 oc get pods -n <project-namespace>          # no *-predictor pods should remain
@@ -678,20 +706,28 @@ oc get pods -n <project-namespace>          # no *-predictor pods should remain
 
 Once no predictor pods remain in the project, the GPUs they held are free. The cluster-wide view (`oc get nodes -o custom-columns=...`) needs cluster read, which the documented access does not include — ask your administrator if you need it.
 
-**4. Keep what matters.** Shutting down compute does not delete data:
+### 4. Keep what matters
+
+Shutting down compute does not delete data:
 
 - The PVC — verifier, hidden states, processed datasets, `final_model` — is untouched by endpoint deletion.
 - Model Registry entries survive. But remember the weights-swap warning in each mode guide: registry versions reference the shared `final_model` path on the PVC, so a later rerun changes what a previously registered version points at. Copying `final_model` to a unique path preserves the **files** but does **not** repoint the registry — the version keeps referencing `final_model`. To keep a registered revision tied to its original weights, either run the next revision against a **separate PVC** (the existing version's reference stays intact on the original one), or re-register the preserved copy as a **new version** pointing at its unique path — by running with that path as the output, or through the Model Registry UI/API.
 
-**5. (Optional) Tidy the pipeline UI.** Delete finished runs from the **Pipelines > Runs** page if the list gets noisy — this does not affect endpoints, PVCs, or registry entries.
+### 5. Tidy the pipeline UI (optional)
 
-## Default verifier model
+Delete finished runs from the **Pipelines > Runs** page if the list gets noisy — this does not affect endpoints, PVCs, or registry entries.
+
+[↑ Contents](#contents)
+
+## Reference
+
+### Default verifier model
 
 These examples standardize on **`Qwen/Qwen3-0.6B`** with `target_layer_ids = "2,14,25,28"` (the four intermediate verifier layers Eagle3 reads). **`meta-llama/Llama-3.2-1B-Instruct`** has also been run end-to-end successfully on Red Hat OpenShift AI 3.6 with these pipelines.
 
 The layer IDs are **verifier-specific**: they name four layers *of the verifier model*, and a wrong set fails at training time with a tensor shape mismatch. For Qwen3-0.6B use `2,14,25,28`; for any other verifier, look up that model's four Eagle3 target layers (see the [SDK example's guidance](../../../rhoai-3.6/speculator/README.md#speculator-specific-considerations)) — do not reuse Qwen's IDs for a different architecture.
 
-## Customizing before you compile
+### Customizing before you compile
 
 Most settings — models, datasets, paths, hyperparameters, resources — are run-time parameters you fill in when creating the run. A few are baked in at compile time and can only be changed by editing the pipeline source before running step 1:
 
@@ -703,7 +739,7 @@ Most settings — models, datasets, paths, hyperparameters, resources — are ru
 
 Edit the constants near the top of the file, then re-run the compile command. `nfs-csi` will not exist on many clusters — check with `oc get storageclass` and substitute your RWX class.
 
-## Troubleshooting
+### Troubleshooting
 
 Compile and run-time problems, ordered roughly by when you'd hit them:
 
@@ -730,6 +766,8 @@ Compile and run-time problems, ordered roughly by when you'd hit them:
 
 More mode-specific symptoms are in each subfolder's guide.
 
-## Source
+### Source
 
 The pipelines documented here live in [`red-hat-data-services/pipelines-components`](https://github.com/red-hat-data-services/pipelines-components/tree/main/pipelines/training/speculator) under `pipelines/training/speculator/`. The parameter tables in the mode guides are derived from that repository's own pipeline READMEs. Since the pipelines may change, re-generate your YAML after pulling upstream changes and re-check the parameter list against the imported definition.
+
+[↑ Contents](#contents)
