@@ -309,10 +309,7 @@ EOF
 
 Replace `<your-rwx-storage-class>` with the name of a storage class on your cluster that provisions **ReadWriteMany** volumes — list what is available with `oc get storageclass`. Omitting `storageClassName` binds the PVC to the cluster's default class, which is often RWO-only and leaves the PVC stuck `Pending` or mounted read-only.
 
-![Project storage view with the RWX PVC](images/speculator-storage-pvc.png)
-
-> [!WARNING]
-> **SCREENSHOT TODO — REPLACE BEFORE MERGE.** This image shows storage inside *Create workbench*, but the step above documents the standalone **Cluster storage → Add cluster storage** route. Retake it from that route with the name (`shared`), size (100Gi), and an explicit **ReadWriteMany** storage-class selection visible.
+![Add cluster storage dialog with the name, RWX access mode and size filled in](images/speculator-storage-pvc.png)
 
 Verify it's bound:
 
@@ -435,12 +432,9 @@ If missing, follow the [SDK example's CTR instructions](../../../rhoai-3.6/specu
 
 The train-only pipeline **always** registers the draft — registry setup is mandatory there. Online and offline skip registration when the registry address is left empty.
 
-**1. Create or select a registry.** In the Red Hat OpenShift AI dashboard, open **AI Hub > Models > Model registries** and create or select a registry.
+**1. Select a registry — your administrator creates it.** Browse the registries you can reach under **AI Hub > Models > Registry**. Creating one happens on an organization-wide administrator page, **Settings > Model resources and operations > Model registry settings > Create model registry**, so ask your administrator if the registry you need does not exist yet. The creation dialog itself notes that permissions must be granted afterwards — that is step 3 below.
 
-![Model registry creation with REST URL](images/speculator-model-registry.png)
-
-> [!WARNING]
-> **SCREENSHOT TODO — REPLACE BEFORE MERGE.** This image shows an existing registry list, not the creation flow step 1 describes. Retake it from the **Create registry** dialog, or the moment the new registry appears with its REST URL visible.
+![Create model registry dialog](images/speculator-model-registry.png)
 
 **2. Find the registry's REST route.** Red Hat OpenShift AI gives each model registry its own dedicated REST route, named after the registry. The **dashboard** shows the route on the registry's page — that is the user path. Listing routes across all namespaces with `oc` needs cluster-wide read, which the [documented access](#access-you-need-and-what-your-administrator-must-provide) does not include — if you prefer the CLI, an administrator runs:
 
@@ -557,20 +551,16 @@ Work through [Prerequisites](#prerequisites): PVC, pipeline server, `kubernetes-
 1. On the **Pipeline definitions** page, click the imported pipeline.
 2. Open the **Actions** menu on the definition page and choose **Create run**.
 
-   > [!WARNING]
-   > **SCREENSHOT TODO — NEW (optional).** Consider adding a screenshot of the definition page's **Actions → Create run** menu here — customers now enter the run dialog through it, and no current image shows that path.
+   ![Actions menu on the pipeline definition page, with Create run](images/speculator-create-run-menu.png)
 
-3. In the run dialog:
+3. In the run form:
    - **Run name**: something meaningful, e.g. `speculator-extraction-1`
    - **Run group**: leave the default run group or create one — this only groups runs in the UI
-   - **MLflow tracking**: **disable it** (the toggle is on by default). These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
+   - **MLflow integration**: clear the **Enable MLflow experiment tracking** checkbox — it is **checked by default**, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
    - **Parameters**: fill in the values from the mode's example table (linked below). Parameters appear in `p01…` order — booleans render as **True/False** dropdowns, and everything with a default can be left alone unless the table says otherwise.
 4. Click **Create run**.
 
-![Create run dialog with parameters](images/speculator-create-run.png)
-
-> [!WARNING]
-> **SCREENSHOT TODO — REPLACE BEFORE MERGE.** This image shows only run metadata. Retake it scrolled so the fields a customer actually enters are visible: **Run name**, **Run group**, the **MLflow tracking** toggle shown being disabled, and the first parameter fields with example values filled in.
+![Create run form showing Run details, Run group, MLflow integration left disabled, and the first parameters](images/speculator-create-run.png)
 
 The ready-to-copy parameter tables:
 

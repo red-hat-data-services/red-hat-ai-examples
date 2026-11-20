@@ -60,7 +60,7 @@ Expect roughly 35–70 minutes end-to-end for the example-run configuration, dep
 
 Work through the [access checks](../README.md#access-you-need-and-what-your-administrator-must-provide) and the [shared prerequisites](../README.md#prerequisites), **all of them** — this pipeline additionally requires:
 
-- **Model Registry**: create/select one in the Red Hat OpenShift AI dashboard (**AI Hub > Models > Model registries**), then find its REST route — the registry's page in the dashboard shows it, which is the path available to you; the CLI equivalent (`oc get routes -A | grep rest`) needs cluster-wide read and is an administrator command. For a registry named `bu-registry` the route is `bu-registry-rest.apps.<cluster-domain>`. Set `p02_model_registry_address` to the full route URL including the `https://` scheme, with `p45_model_registry_port` = `443`. See the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline) for the full instructions and the in-cluster Service alternative.
+- **Model Registry**: select one under **AI Hub > Models > Registry** in the dashboard — creating a registry is an administrator task on the **Settings > Model resources and operations > Model registry settings** page. Then find its REST route — the registry's page in the dashboard shows it, which is the path available to you; the CLI equivalent (`oc get routes -A | grep rest`) needs cluster-wide read and is an administrator command. For a registry named `bu-registry` the route is `bu-registry-rest.apps.<cluster-domain>`. Set `p02_model_registry_address` to the full route URL including the `https://` scheme, with `p45_model_registry_port` = `443`. See the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline) for the full instructions and the in-cluster Service alternative.
 - **RoleBinding**: the pipeline ServiceAccount needs a RoleBinding to `registry-user-<registry-name>` in the registry namespace (command in the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)).
 - **Serving namespace**: `p04_serving_namespace` must match the PVC namespace and have the required KServe permissions.
 - CTR `speculator-model-opt-cuda` (`p35_job_runtime` default).
@@ -118,12 +118,9 @@ This writes `pipelines/training/speculator/train_only/pipeline.yaml`.
 
 > [!WARNING]
 >
-> Disable **MLflow tracking** in the run dialog — the toggle is on by default. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
+> In the run form's **MLflow integration** step, clear the **Enable MLflow experiment tracking** checkbox — it is checked by default, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
 
-![Create run dialog with train-only parameters](../images/speculator-train-only-create-run.png)
-
-> [!WARNING]
-> **SCREENSHOT TODO — VERIFY BEFORE MERGE.** Retake if this image does not show the **Run group** field and the **MLflow tracking** toggle being disabled — the guide now tells customers to disable it, and the screenshot must match what they see.
+![Create run form with train-only parameters](../images/speculator-train-only-create-run.png)
 
 **Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough — what each of the four tasks does and how long it takes — is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
 
@@ -197,7 +194,7 @@ One more thing to set expectations before you judge a first run:
 
 ### Checking the registry entry
 
-After the run succeeds, the draft appears in the Model Registry: **AI Hub > Models > Model registries > your registry**, under the name you set in `p03_model_registry_name`, with the version from `p46_model_registry_version`.
+After the run succeeds, the draft appears in the Model Registry: **AI Hub > Models > Registry > your registry**, under the name you set in `p03_model_registry_name`, with the version from `p46_model_registry_version`.
 
 ![Model registry entry for the draft](../images/speculator-train-only-model-registry.png)
 
