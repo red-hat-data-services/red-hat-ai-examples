@@ -92,12 +92,9 @@ This writes `pipelines/training/speculator/data_extraction/pipeline.yaml`.
 
 > [!WARNING]
 >
-> Disable **MLflow tracking** in the run dialog — the toggle is on by default. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
+> In the run form's **MLflow integration** step, clear the **Enable MLflow experiment tracking** checkbox — it is checked by default, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
 
-![Create run dialog with data-extraction parameters](../images/speculator-data-extraction-create-run.png)
-
-> [!WARNING]
-> **SCREENSHOT TODO — VERIFY BEFORE MERGE.** Retake if this image does not show the **Run group** field and the **MLflow tracking** toggle being disabled — the guide now tells customers to disable it, and the screenshot must match what they see.
+![Create run form with data-extraction parameters](../images/speculator-data-extraction-create-run.png)
 
 **Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough of what the graph does and how long each node takes is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run. With the example-run values below (16 samples, Qwen3-0.6B, managed vLLM), expect the run to complete in minutes — most of it is the vLLM sidecar loading the verifier.
 

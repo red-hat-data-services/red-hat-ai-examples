@@ -126,12 +126,9 @@ This writes `pipelines/training/speculator/online/pipeline.yaml`.
 
 > [!WARNING]
 >
-> Disable **MLflow tracking** in the run dialog — the toggle is on by default. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
+> In the run form's **MLflow integration** step, clear the **Enable MLflow experiment tracking** checkbox — it is checked by default, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
 
-![Create run dialog with online parameters](../images/speculator-online-create-run.png)
-
-> [!WARNING]
-> **SCREENSHOT TODO — VERIFY BEFORE MERGE.** Retake if this image does not show the **Run group** field and the **MLflow tracking** toggle being disabled — the guide now tells customers to disable it, and the screenshot must match what they see.
+![Create run form with online parameters](../images/speculator-online-create-run.png)
 
 **Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
 
@@ -173,7 +170,7 @@ The evaluation task's metrics in the Red Hat OpenShift AI UI:
 
 ![Online run evaluation metrics](../images/speculator-online-evaluation.png)
 
-If you kept registration enabled (`p43_model_registry_address` set), the draft appears in the Model Registry afterwards under `p45_model_registry_name` / `p46_model_registry_version` — find it via **AI Hub > Models > Model registries > your registry**:
+If you kept registration enabled (`p43_model_registry_address` set), the draft appears in the Model Registry afterwards under `p45_model_registry_name` / `p46_model_registry_version` — find it via **AI Hub > Models > Registry > your registry**:
 
 ![Online run registry entry](../images/speculator-online-model-registry.png)
 
