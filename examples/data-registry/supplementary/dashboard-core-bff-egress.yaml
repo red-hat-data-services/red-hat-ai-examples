@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dashboard-core-bff-egress
+  namespace: redhat-ods-applications
+spec:
+  podSelector:
+    matchLabels:
+      app: rhods-dashboard
+      app.kubernetes.io/part-of: rhods-dashboard
+      app.opendatahub.io/rhods-dashboard: "true"
+      deployment: rhods-dashboard
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: rhods-dashboard
+              app.kubernetes.io/part-of: rhods-dashboard
+              app.opendatahub.io/rhods-dashboard: "true"
+              deployment: rhods-dashboard
+      ports:
+        - protocol: TCP
+          port: 8943
