@@ -244,28 +244,39 @@ The grants live as ready-to-apply YAML in [`manifests/`](manifests/) — send yo
 | File | Applied in | Grants |
 | --- | --- | --- |
 | [`engineer-role.yaml`](manifests/engineer-role.yaml) | your project namespace | **You**: Trainer jobs, the shared PVC, serving resources, workbenches, run inspection — the table [above](#what-you-need-in-your-project-namespace) |
-| [`pipeline-runner-role.yaml`](manifests/pipeline-runner-role.yaml) | your project namespace | The **`pipeline-runner` ServiceAccount**: TrainJob submission, the KFP workspace PVC, the serve stage |
+| [`pipeline-runner-role.yaml`](manifests/pipeline-runner-role.yaml) | your project namespace | The **pipeline runner ServiceAccount**: TrainJob submission, the KFP workspace PVC, the serve stage |
 | [`cluster-access.yaml`](manifests/cluster-access.yaml) | cluster-scoped | Both: CTR discovery, a named read of your project, storage class discovery |
 | [`hardwareprofile-reader.yaml`](manifests/hardwareprofile-reader.yaml) | `redhat-ods-applications` | The runner: read the GPU HardwareProfile the serving stage needs (train-only / online / offline) |
+| [`registry-access.yaml`](manifests/registry-access.yaml) | the registry's namespace | The runner: register the trained draft in a Model Registry (train-only / online / offline, when registration is enabled) |
 
-Each file uses two placeholders, `<project-namespace>` and `<your-username>`. Substituting them on the way in keeps the files reusable:
+Each file substitutes `<project-namespace>`, `<your-username>`, and the runner's actual name, `<runner-service-account>`, on the way in — which keeps the files reusable:
 
 ```bash
 PROJECT=<project-namespace>
 USERNAME=<your-username>
+RUNNER=<runner-service-account>
 
 for f in engineer-role pipeline-runner-role cluster-access; do
   sed -e "s/<project-namespace>/$PROJECT/g" -e "s/<your-username>/$USERNAME/g" \
+      -e "s/<runner-service-account>/$RUNNER/g" \
     manifests/$f.yaml | oc apply -f -
 done
 
 # Serving modes only (train-only / online / offline):
-sed -e "s/<project-namespace>/$PROJECT/g" manifests/hardwareprofile-reader.yaml | oc apply -f -
+sed -e "s/<project-namespace>/$PROJECT/g" -e "s/<runner-service-account>/$RUNNER/g" \
+    manifests/hardwareprofile-reader.yaml | oc apply -f -
+
+# Serving modes with registration enabled, additionally:
+REGISTRY_NS=<registry-namespace>
+REGISTRY_NAME=<registry-name>
+sed -e "s/<project-namespace>/$PROJECT/g" -e "s/<runner-service-account>/$RUNNER/g" \
+    -e "s/<registry-namespace>/$REGISTRY_NS/g" -e "s/<registry-name>/$REGISTRY_NAME/g" \
+    manifests/registry-access.yaml | oc apply -f -
 ```
 
 Three things your administrator should know, all covered in the [manifests README](manifests/README.md):
 
-- The [pipeline server](#configure-the-pipeline-server) must exist **first** — it creates the `pipeline-runner` ServiceAccount these files bind. Confirm the name with `oc get serviceaccounts -n <project-namespace>` and adjust the bindings if it differs.
+- The [pipeline server](#configure-the-pipeline-server) must exist **first** — it creates the pipeline runner ServiceAccount these files bind. The DSP operator names it `pipeline-runner-<DSPA-name>` (`pipeline-runner-dspa` for a DSPA named `dspa`), so confirm the actual name with `oc get serviceaccounts -n <project-namespace>` and use it for `<runner-service-account>`.
 - `cluster-access.yaml` is named per project on purpose. Re-applying it under a fixed name for a second project would *replace* the first project's access — see [applying for a second project](manifests/README.md#applying-for-a-second-project).
 - The grants stop at your project: they do not authorize configuring the pipeline server, listing Roles across namespaces, or creating a RoleBinding in the registry's namespace. That is why [registry setup](#model-registry-and-kserve-train-only--online--offline) and [credential setup](#kubernetes-authentication-secret) are administrator tasks.
 
@@ -476,13 +487,13 @@ For a registry named `bu-registry`, the route host looks like `bu-registry-rest.
 > - **Use the `-rest` route, not the dashboard URL.** `https://<dashboard-host>/model-registry/<name>/api/model_registry/v1alpha3` breaks the request: the pipeline appends `/api/...` itself and the extra prefix is not stripped.
 > - **In-cluster alternative:** the registry Service, address `model-registry-<name>.<namespace>.svc` (no scheme), port `8080`. Finding it needs `oc get svc -A`, a cluster-wide read — ask an administrator for the name.
 
-**3. Grant the pipeline runner access.** Pipeline runs execute under a ServiceAccount in your project — Red Hat OpenShift AI creates `pipeline-runner` when the pipeline server is configured. Confirm the name before binding:
+**3. Grant the pipeline runner access.** Pipeline runs execute under a ServiceAccount in your project — Red Hat OpenShift AI creates it when the pipeline server is configured, named `pipeline-runner-<DSPA-name>` (`pipeline-runner-dspa` for a DSPA named `dspa`). Confirm the name before binding:
 
 ```bash
 oc get serviceaccounts -n <project-namespace>
 ```
 
-The registry installs a **namespaced Role** (`registry-user-<registry-name>`) in its own namespace, not a ClusterRole — and that namespace is outside your access. **Your administrator runs the discovery and the binding:**
+The registry installs a **namespaced Role** (`registry-user-<registry-name>`) in its own namespace, not a ClusterRole — and that namespace is outside your access. **Your administrator runs the discovery and the binding** — or applies [`manifests/registry-access.yaml`](manifests/registry-access.yaml), which is the same binding as a file:
 
 ```bash
 # Discover the grant and its kind (Role vs ClusterRole):
@@ -492,7 +503,7 @@ oc get role,clusterrole -A | grep registry-user
 oc create rolebinding registry-access-<project> \
   --namespace=<registry-namespace> \
   --role=registry-user-<registry-name> \
-  --serviceaccount=<project-namespace>:pipeline-runner
+  --serviceaccount=<project-namespace>:<runner-service-account>
 ```
 
 If the grant turns out to be a ClusterRole, substitute `--clusterrole=`. Binding the wrong kind fails the register stage with a permission error — again, after training has completed.
@@ -511,7 +522,7 @@ The steps below use the data-extraction pipeline as the worked example, but the 
 
 The compiled pipeline YAML is not included in this repository — you generate it from the pipeline source in `pipelines-components`. Each pipeline's `pipeline.py` compiles itself when executed, writing `pipeline.yaml` beside it.
 
-**Requirements:** Python 3.11+ and the KFP SDK.
+**Requirements:** Python 3.11+ and the KFP SDK. Do this on your own computer: compiling is a purely local step — it needs no cluster access and no workbench, and the first time the cluster is involved is [importing the result](#3-import-the-pipeline-into-red-hat-openshift-ai).
 
 ```bash
 # Clone the rhoai-3.6 branch, matching the supported Red Hat OpenShift AI release
@@ -526,7 +537,7 @@ source .venv/bin/activate
 # then install the repository without letting pip float those pins. The
 # install is required: the pipelines import shared `kfp_components`
 # modules and compilation fails with ModuleNotFoundError without it.
-pip install 'kfp==2.16.0' 'kfp-kubernetes==2.16.0'
+pip install 'kfp==2.16.1' 'kfp-kubernetes==2.16.1'
 pip install -e . --no-deps
 
 # Compile the pipeline you want (one of: data_extraction, train_only, online, offline)
@@ -546,8 +557,8 @@ done
 
 > [!NOTE]
 >
-> - **The KFP version you compile with is baked into every task.** Each one runs `pip install kfp==<that version>` when it starts, so the version must exist in the package index that pod uses — and the task pods do not all share one. `2.16.0` is the version verified end to end for these pipelines: it is available both in the Red Hat OpenShift AI 3.6 index a workbench uses and in the older index the registration task's image is pinned to. Leave the pin out and `pip install -e .` resolves the declared range (`>=2.16.1`) to whatever is newest where you happen to compile, producing a pipeline whose tasks cannot install their own dependencies.
-> - Verify what landed before importing: `grep -o "kfp==[0-9][0-9.]*" pipelines/training/speculator/<mode>/pipeline.yaml | sort -u`. Expect **two** entries: `kfp==2.16.0`, baked into every task, and `kfp==2.17.0`, which the evaluation component installs itself. Both must be available to your task pods.
+> - **The KFP version you compile with is baked into every task.** Each one runs `pip install kfp==<that version>` when it starts, so the version must exist in the package index that pod uses — and the task pods do not all share one. `2.16.1` is the version verified end to end for these pipelines: the data-extraction tasks run in an image whose package index offers `2.16.1` but not `2.16.0`, and the older index the registration task's image is pinned to still carries `2.16.1`. Leave the pin out and `pip install -e .` resolves the declared range (`>=2.16.1`) to whatever is newest where you happen to compile, producing a pipeline whose tasks cannot install their own dependencies.
+> - Verify what landed before importing: `grep -o "kfp==[0-9][0-9.]*" pipelines/training/speculator/<mode>/pipeline.yaml | sort -u`. Expect **two** entries: `kfp==2.16.1`, baked into every task, and `kfp==2.17.0`, which the evaluation component installs itself. Both must be available to your task pods.
 > - The repository's `requirements.txt` is an alternative, but it forces a Red Hat Linux (el9) package index, so it resolves only on a matching Linux host — a workbench, not a macOS laptop.
 > - Compilation is **not** byte-reproducible — each pipeline embeds an archive of its component sources, so two compiles of the same commit produce slightly different files. This is expected and does not affect the pipeline.
 
@@ -752,7 +763,7 @@ Compile and run-time problems, ordered roughly by when you'd hit them:
 | Compile fails: `ModuleNotFoundError: No module named 'components'` | `PYTHONPATH` not set to the repository root | Prefix the command with `PYTHONPATH=$(pwd)` and run it from the repo root |
 | `pip install -e .` fails to resolve dependencies | Your package index (e.g. an internal mirror) doesn't carry a required package or version | On a Linux (el9) host, install the repo's hash-pinned set instead: `pip install -r requirements.txt`, then `pip install -e . --no-deps` |
 | Import into Red Hat OpenShift AI rejected | YAML built with an incompatible KFP SDK version | Re-compile with the pinned versions in [step 1](#1-generate-the-pipeline-yaml) |
-| A task fails with `No matching distribution found for kfp==<version>` | Every task installs the KFP version baked in at compile time, and the task pods do not all use the same package index — the registration task's image is pinned to an older one than the rest | Re-compile with the pin in [step 1](#1-generate-the-pipeline-yaml). The error lists what that pod can reach (`from versions: …`); the pin has to be a version every task's index offers, which is why this guide uses `2.16.0` |
+| A task fails with `No matching distribution found for kfp==<version>` | Every task installs the KFP version baked in at compile time, and the task pods do not all use the same package index — the registration task's image is pinned to an older one than the rest | Re-compile with the pin in [step 1](#1-generate-the-pipeline-yaml). The error lists what that pod can reach (`from versions: …`); the pin has to be a version every task's index offers, which is why this guide uses `2.16.1` |
 | Evaluation fails with a tensor shape error on the draft's `fc` weights | The draft's `config.json` and its weights disagree on the number of auxiliary layers. The export that reconciles them runs in the Trainer job, so it depends on the runtime image and the `speculators` version installed by `pNN_packages_to_install` — not on the pipeline source | Check the training log for `Updated … Eagle3 draft config.json file(s) (target_hidden_size=…)`, and that `pNN_packages_to_install` pins `speculators==0.6.0.1`. Without that pin, the runtime image's own `speculators` build decides the export |
 | "Configure pipeline server" prompt never goes away | Pipeline server not configured for the project — an administrator task | Ask your administrator to configure it, then re-check with `oc get serviceaccounts -n <project-namespace> \| grep pipeline-runner`; see [Configure the pipeline server](#configure-the-pipeline-server) |
 | Run fails immediately with `storageclass.storage.k8s.io "nfs-csi" not found` | Cluster has no `nfs-csi` storage class; the KFP workspace PVC cannot be created | Find your RWX class with `oc get storageclass`, then [recompile](#customizing-before-you-compile) with your class name |

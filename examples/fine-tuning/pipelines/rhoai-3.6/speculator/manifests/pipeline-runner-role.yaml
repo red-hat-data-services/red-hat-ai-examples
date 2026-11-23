@@ -5,11 +5,15 @@
 # stage. No Secret access, no token minting, no workbench management, no
 # pods/exec, no deployment scaling.
 #
-# The pipeline-runner ServiceAccount is created when the pipeline server is
-# configured, so configure the pipeline server first (see ../README.md).
+# The pipeline runner ServiceAccount is created when the pipeline server is
+# configured, so configure the pipeline server first (see ../README.md). The
+# DSP operator names it pipeline-runner-<DSPA-name> — pipeline-runner-dspa for
+# a DSPA named dspa — so confirm the actual name with
+# `oc get serviceaccounts -n <project-namespace>` before applying.
 #
 # Replace before applying:
 #   <project-namespace>  the OpenShift project the pipelines run in
+#   <runner-service-account>  the pipeline runner ServiceAccount's actual name
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -60,4 +64,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     namespace: <project-namespace>
-    name: pipeline-runner
+    name: <runner-service-account>

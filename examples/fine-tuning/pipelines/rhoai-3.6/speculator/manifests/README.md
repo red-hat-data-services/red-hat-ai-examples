@@ -8,6 +8,7 @@ Everything an administrator needs to apply so one user can run the four speculat
 | [`pipeline-runner-role.yaml`](pipeline-runner-role.yaml) | the project namespace | The `pipeline-runner` ServiceAccount: TrainJob submission, the KFP workspace PVC, the serve stage |
 | [`cluster-access.yaml`](cluster-access.yaml) | cluster-scoped | Both identities: ClusterTrainingRuntime discovery, a named read of this project, storage class discovery |
 | [`hardwareprofile-reader.yaml`](hardwareprofile-reader.yaml) | `redhat-ods-applications` | The runner: read the GPU HardwareProfile the serving stage needs (train-only / online / offline) |
+| [`registry-access.yaml`](registry-access.yaml) | the registry's namespace | The runner: register the trained draft in a Model Registry (train-only / online / offline, when registration is enabled) |
 
 Neither identity gets Secret access or ServiceAccount token minting. Credential setup is a separate administrator procedure — see [Kubernetes authentication secret](../README.md#kubernetes-authentication-secret).
 
@@ -21,25 +22,41 @@ Neither identity gets Secret access or ServiceAccount token minting. Credential 
 
 ## Before you apply
 
-Configure the **pipeline server** for the project first. It creates the `pipeline-runner` ServiceAccount these manifests bind, and it stores object-storage credentials in a Secret, so it is an administrator task too — see [Configure the pipeline server](../README.md#configure-the-pipeline-server).
+Configure the **pipeline server** for the project first. It creates the pipeline runner ServiceAccount these manifests bind, and it stores object-storage credentials in a Secret, so it is an administrator task too — see [Configure the pipeline server](../README.md#configure-the-pipeline-server).
+
+The runner is not always called `pipeline-runner`: the Data Science Pipelines operator names it `pipeline-runner-<DSPA-name>` — `pipeline-runner-dspa` for a DSPA named `dspa`, the common case on Red Hat OpenShift AI 3.6. Confirm the actual name before applying:
+
+```bash
+oc get serviceaccounts -n <project-namespace>
+```
+
+Whatever that lists is your `<runner-service-account>`. Do not guess: a RoleBinding to a ServiceAccount that does not exist applies cleanly and even passes `oc auth can-i --as` checks against the wrong name — the mismatch only surfaces later, as a 403 inside a pipeline run.
 
 ## Apply
 
-Every file uses two placeholders: `<project-namespace>` and `<your-username>`. Substitute them on the way in rather than editing the files:
+Substitute the placeholders on the way in rather than editing the files: `<project-namespace>`, `<your-username>`, and `<runner-service-account>` — the actual runner name from [Before you apply](#before-you-apply). `registry-access.yaml` additionally takes `<registry-namespace>` and `<registry-name>`.
 
 ```bash
 PROJECT=<project-namespace>
 USERNAME=<your-username>
+RUNNER=<runner-service-account>
 
 for f in engineer-role.yaml pipeline-runner-role.yaml cluster-access.yaml; do
-  sed -e "s/<project-namespace>/$PROJECT/g" -e "s/<your-username>/$USERNAME/g" "$f" | oc apply -f -
+  sed -e "s/<project-namespace>/$PROJECT/g" -e "s/<your-username>/$USERNAME/g" \
+      -e "s/<runner-service-account>/$RUNNER/g" "$f" | oc apply -f -
 done
 
 # Serving modes only (train-only / online / offline):
-sed -e "s/<project-namespace>/$PROJECT/g" hardwareprofile-reader.yaml | oc apply -f -
-```
+sed -e "s/<project-namespace>/$PROJECT/g" -e "s/<runner-service-account>/$RUNNER/g" \
+    hardwareprofile-reader.yaml | oc apply -f -
 
-If the runner on your cluster is not called `pipeline-runner`, confirm the name with `oc get serviceaccounts -n <project-namespace>` and adjust the `subjects` entries before applying.
+# Serving modes with registration enabled, additionally:
+REGISTRY_NS=<registry-namespace>
+REGISTRY_NAME=<registry-name>
+sed -e "s/<project-namespace>/$PROJECT/g" -e "s/<runner-service-account>/$RUNNER/g" \
+    -e "s/<registry-namespace>/$REGISTRY_NS/g" -e "s/<registry-name>/$REGISTRY_NAME/g" \
+    registry-access.yaml | oc apply -f -
+```
 
 ## Verify
 
@@ -49,6 +66,29 @@ Check the grants as the user, not as the administrator:
 oc auth can-i create trainjobs -n <project-namespace> --as=<your-username>
 oc auth can-i create inferenceservices.serving.kserve.io -n <project-namespace> --as=<your-username>
 oc auth can-i list clustertrainingruntimes.trainer.kubeflow.org --as=<your-username>
+```
+
+And as the runner — the identity the pipeline tasks actually execute under:
+
+```bash
+RUNNER=system:serviceaccount:<project-namespace>:<runner-service-account>
+
+oc auth can-i create trainjobs -n <project-namespace> --as=$RUNNER
+oc auth can-i list trainingruntimes.trainer.kubeflow.org -n <project-namespace> --as=$RUNNER
+oc auth can-i list clustertrainingruntimes.trainer.kubeflow.org --as=$RUNNER
+```
+
+Serving modes (train-only / online / offline) additionally:
+
+```bash
+oc auth can-i create servingruntimes.serving.kserve.io -n <project-namespace> --as=$RUNNER
+oc auth can-i list hardwareprofiles.infrastructure.opendatahub.io -n redhat-ods-applications --as=$RUNNER
+```
+
+With registration enabled additionally. Name the resource: the registry's Role is scoped with `resourceNames`, so a resource-less query answers `no` even when the binding is correct:
+
+```bash
+oc auth can-i get services/<registry-name> -n <registry-namespace> --as=$RUNNER
 ```
 
 The user runs the full self-check list in [Check your own access before you start](../README.md#check-your-own-access-before-you-start); every answer must be `yes` for the modes they plan to run.

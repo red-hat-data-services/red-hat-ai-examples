@@ -14,6 +14,9 @@
 # Replace before applying:
 #   <project-namespace>  the OpenShift project the pipelines run in
 #   <your-username>      the OpenShift login of the user doing the work
+#   <runner-service-account>  the pipeline runner ServiceAccount's actual name
+#                         (pipeline-runner-<DSPA-name>; confirm with
+#                         `oc get serviceaccounts -n <project-namespace>`)
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -49,4 +52,4 @@ subjects:
     name: <your-username>
   - kind: ServiceAccount
     namespace: <project-namespace>
-    name: pipeline-runner
+    name: <runner-service-account>

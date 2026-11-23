@@ -1,0 +1,40 @@
+# RoleBinding for the Model Registry the register stage uses
+# (train-only / online / offline, when registration is enabled).
+#
+# The register stage registers the trained draft through the registry's -rest
+# route. That route sits behind an OAuth proxy which authorizes the caller
+# with RBAC in the registry's namespace: the registry operator installs a
+# Role `registry-user-<registry-name>` there, and this binding grants the
+# pipeline runner that Role. Without it the register stage fails with a
+# permission error — after training has already completed.
+#
+# Applied in the registry's namespace, which the administrator controls, not
+# in the project namespace.
+#
+# Before applying, discover the grant and its kind — most registries install
+# a namespaced Role, some a ClusterRole:
+#   oc get role,clusterrole -A | grep registry-user
+# If it is a ClusterRole, change roleRef.kind below to ClusterRole.
+#
+# Replace before applying:
+#   <registry-namespace>  the namespace the Model Registry is installed in
+#   <registry-name>      the ModelRegistry resource name; the Role it
+#                         installs is registry-user-<registry-name>
+#   <project-namespace>  the OpenShift project the pipelines run in
+#   <runner-service-account>  the pipeline runner ServiceAccount's actual name
+#                         (pipeline-runner-<DSPA-name>; confirm with
+#                         `oc get serviceaccounts -n <project-namespace>`)
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: registry-access-<project-namespace>
+  namespace: <registry-namespace>
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: registry-user-<registry-name>
+subjects:
+  - kind: ServiceAccount
+    namespace: <project-namespace>
+    name: <runner-service-account>
