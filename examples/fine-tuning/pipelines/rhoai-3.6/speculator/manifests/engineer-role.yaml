@@ -58,6 +58,11 @@ rules:
   - apiGroups: ["serving.kserve.io"]
     resources: ["servingruntimes", "inferenceservices"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Read-only: the dashboard's Deployed models page lists these alongside
+  # InferenceServices, and errors the whole page without list access
+  - apiGroups: ["serving.kserve.io"]
+    resources: ["llminferenceservices", "llminferenceserviceconfigs"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get", "list", "watch"]

@@ -8,7 +8,7 @@ Everything an administrator needs to apply so one user can run the four speculat
 | [`pipeline-runner-role.yaml`](pipeline-runner-role.yaml) | the project namespace | The `pipeline-runner` ServiceAccount: TrainJob submission, the KFP workspace PVC, the serve stage |
 | [`cluster-access.yaml`](cluster-access.yaml) | cluster-scoped | Both identities: ClusterTrainingRuntime discovery, a named read of this project, storage class discovery |
 | [`hardwareprofile-reader.yaml`](hardwareprofile-reader.yaml) | `redhat-ods-applications` | The runner: read the GPU HardwareProfile the serving stage needs (train-only / online / offline) |
-| [`registry-access.yaml`](registry-access.yaml) | the registry's namespace | The runner: register the trained draft in a Model Registry (train-only / online / offline, when registration is enabled) |
+| [`registry-access.yaml`](registry-access.yaml) | the registry's namespace | Both: the runner registers the trained draft (train-only / online / offline, when registration is enabled); the user views the registry in the dashboard |
 
 Neither identity gets Secret access or ServiceAccount token minting. Credential setup is a separate administrator procedure — see [Kubernetes authentication secret](../README.md#kubernetes-authentication-secret).
 
@@ -53,7 +53,8 @@ sed -e "s/<project-namespace>/$PROJECT/g" -e "s/<runner-service-account>/$RUNNER
 # Serving modes with registration enabled, additionally:
 REGISTRY_NS=<registry-namespace>
 REGISTRY_NAME=<registry-name>
-sed -e "s/<project-namespace>/$PROJECT/g" -e "s/<runner-service-account>/$RUNNER/g" \
+sed -e "s/<project-namespace>/$PROJECT/g" -e "s/<your-username>/$USERNAME/g" \
+    -e "s/<runner-service-account>/$RUNNER/g" \
     -e "s/<registry-namespace>/$REGISTRY_NS/g" -e "s/<registry-name>/$REGISTRY_NAME/g" \
     registry-access.yaml | oc apply -f -
 ```
@@ -66,6 +67,8 @@ Check the grants as the user, not as the administrator:
 oc auth can-i create trainjobs -n <project-namespace> --as=<your-username>
 oc auth can-i create inferenceservices.serving.kserve.io -n <project-namespace> --as=<your-username>
 oc auth can-i list clustertrainingruntimes.trainer.kubeflow.org --as=<your-username>
+# The dashboard's Deployed models page errors without this one:
+oc auth can-i list llminferenceservices.serving.kserve.io -n <project-namespace> --as=<your-username>
 ```
 
 And as the runner — the identity the pipeline tasks actually execute under:
@@ -85,10 +88,11 @@ oc auth can-i create servingruntimes.serving.kserve.io -n <project-namespace> --
 oc auth can-i list hardwareprofiles.infrastructure.opendatahub.io -n redhat-ods-applications --as=$RUNNER
 ```
 
-With registration enabled additionally. Name the resource: the registry's Role is scoped with `resourceNames`, so a resource-less query answers `no` even when the binding is correct:
+With registration enabled additionally. Name the resource: the registry's Role is scoped with `resourceNames`, so a resource-less query answers `no` even when the binding is correct. Check **both** identities — the runner for the register stage, the user for the dashboard's registry view:
 
 ```bash
 oc auth can-i get services/<registry-name> -n <registry-namespace> --as=$RUNNER
+oc auth can-i get services/<registry-name> -n <registry-namespace> --as=<your-username>
 ```
 
 The user runs the full self-check list in [Check your own access before you start](../README.md#check-your-own-access-before-you-start); every answer must be `yes` for the modes they plan to run.

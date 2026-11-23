@@ -180,6 +180,7 @@ Your administrator binds a namespace-scoped Role (this guide calls it `engineer`
 | `trainer.kubeflow.org` | `trainingruntimes` | get, list, watch | Resolve namespaced TrainingRuntimes |
 | `jobset.x-k8s.io` | `jobsets` | get, list, watch | Inspect the JobSets under a TrainJob |
 | `serving.kserve.io` | `servingruntimes`, `inferenceservices` | get, list, watch, create, update, patch, delete | The serving stage creates and manages these (train-only / online / offline) |
+| `serving.kserve.io` | `llminferenceservices`, `llminferenceserviceconfigs` | get, list, watch | The dashboard's Deployed models page lists these alongside InferenceServices — without list access the whole page errors out |
 | `apps` | `deployments` | get, list, watch | Resolve the predictor deployment for `oc exec`/`oc port-forward` and check its state — the deployments themselves are created, stopped and deleted by the KServe controller, not by you |
 | `kubeflow.org` | `notebooks` | full CRUD | Create a workbench to inspect PVC contents |
 | `image.openshift.io` | `imagestreams` | get, list, watch | Resolve image references |
@@ -247,7 +248,7 @@ The grants live as ready-to-apply YAML in [`manifests/`](manifests/) — send yo
 | [`pipeline-runner-role.yaml`](manifests/pipeline-runner-role.yaml) | your project namespace | The **pipeline runner ServiceAccount**: TrainJob submission, the KFP workspace PVC, the serve stage |
 | [`cluster-access.yaml`](manifests/cluster-access.yaml) | cluster-scoped | Both: CTR discovery, a named read of your project, storage class discovery |
 | [`hardwareprofile-reader.yaml`](manifests/hardwareprofile-reader.yaml) | `redhat-ods-applications` | The runner: read the GPU HardwareProfile the serving stage needs (train-only / online / offline) |
-| [`registry-access.yaml`](manifests/registry-access.yaml) | the registry's namespace | The runner: register the trained draft in a Model Registry (train-only / online / offline, when registration is enabled) |
+| [`registry-access.yaml`](manifests/registry-access.yaml) | the registry's namespace | Both: the runner registers the trained draft (train-only / online / offline, when registration is enabled); the user views the registry in the dashboard |
 
 Each file substitutes `<project-namespace>`, `<your-username>`, and the runner's actual name, `<runner-service-account>`, on the way in — which keeps the files reusable:
 
@@ -464,7 +465,7 @@ If missing, follow the [SDK example's CTR instructions](../../../rhoai-3.6/specu
 
 The train-only pipeline **always** registers the draft — registry setup is mandatory there. Online and offline skip registration when the registry address is left empty.
 
-**1. Select a registry — your administrator creates it.** Browse the registries you can reach under **AI Hub > Models > Registry**. Creating one happens on an organization-wide administrator page, **Settings > Model resources and operations > Model registry settings > Create model registry**, so ask your administrator if the registry you need does not exist yet. The creation dialog itself notes that permissions must be granted afterwards — that is step 3 below. See also: [Provision and secure access to model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/managing_model_registries/index).
+**1. Select a registry — your administrator creates it.** Browse the registries you can reach under **AI Hub > Models > Registry** — the list shows the registries your user has been granted access to, which is the binding from step 3 below, so an empty list means missing access, not a missing registry. Creating one happens on an organization-wide administrator page, **Settings > Model resources and operations > Model registry settings > Create model registry**, so ask your administrator if the registry you need does not exist yet. The creation dialog itself notes that permissions must be granted afterwards — that is step 3 below. See also: [Provision and secure access to model registries](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/managing_model_registries/index).
 
 ![Create model registry dialog](images/speculator-model-registry.png)
 
@@ -487,13 +488,13 @@ For a registry named `bu-registry`, the route host looks like `bu-registry-rest.
 > - **Use the `-rest` route, not the dashboard URL.** `https://<dashboard-host>/model-registry/<name>/api/model_registry/v1alpha3` breaks the request: the pipeline appends `/api/...` itself and the extra prefix is not stripped.
 > - **In-cluster alternative:** the registry Service, address `model-registry-<name>.<namespace>.svc` (no scheme), port `8080`. Finding it needs `oc get svc -A`, a cluster-wide read — ask an administrator for the name.
 
-**3. Grant the pipeline runner access.** Pipeline runs execute under a ServiceAccount in your project — Red Hat OpenShift AI creates it when the pipeline server is configured, named `pipeline-runner-<DSPA-name>` (`pipeline-runner-dspa` for a DSPA named `dspa`). Confirm the name before binding:
+**3. Grant access — the pipeline runner and your user.** Pipeline runs execute under a ServiceAccount in your project — Red Hat OpenShift AI creates it when the pipeline server is configured, named `pipeline-runner-<DSPA-name>` (`pipeline-runner-dspa` for a DSPA named `dspa`). Confirm the name before binding:
 
 ```bash
 oc get serviceaccounts -n <project-namespace>
 ```
 
-The registry installs a **namespaced Role** (`registry-user-<registry-name>`) in its own namespace, not a ClusterRole — and that namespace is outside your access. **Your administrator runs the discovery and the binding** — or applies [`manifests/registry-access.yaml`](manifests/registry-access.yaml), which is the same binding as a file:
+The registry installs a **namespaced Role** (`registry-user-<registry-name>`) in its own namespace, not a ClusterRole — and that namespace is outside your access. The binding needs **both** identities: the runner for the register stage's REST calls, and your user to see the registry in the dashboard. **Your administrator runs the discovery and the binding** — or applies [`manifests/registry-access.yaml`](manifests/registry-access.yaml), which is the same binding as a file:
 
 ```bash
 # Discover the grant and its kind (Role vs ClusterRole):
@@ -503,6 +504,7 @@ oc get role,clusterrole -A | grep registry-user
 oc create rolebinding registry-access-<project> \
   --namespace=<registry-namespace> \
   --role=registry-user-<registry-name> \
+  --user=<your-username> \
   --serviceaccount=<project-namespace>:<runner-service-account>
 ```
 
