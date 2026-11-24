@@ -76,7 +76,7 @@ For the default Qwen3-0.6B configuration: ONLINE needs **two GPUs together** in 
 
 ### 3. Check access
 
-Run the `oc auth can-i` checks in [Access you need](#access-you-need-and-what-your-administrator-must-provide). If any check fails, stop and send your administrator the grant manifests — the rest of this guide assumes they pass.
+Run the `oc auth can-i` checks in [Access you need](#access-you-need-and-what-your-administrator-must-provide). If any check fails, stop and send the failing checks to your administrator — the rest of this guide assumes they pass.
 
 ### 4. Your path through this guide
 
