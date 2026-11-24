@@ -119,9 +119,9 @@ Create the three accounts in that identity provider. For a development or test
 cluster that already uses the **HTPasswd** identity provider, a cluster admin
 can add the sample users to its existing file. Find the HTPasswd provider's
 Secret name under `spec.identityProviders[].htpasswd.fileData.name` in the
-OAuth output, then set it below. The script uses a private temporary file for
-password hashes and removes it when it exits. If a sample username is already
-in use, stop and choose distinct names throughout the walkthrough instead of
+OAuth output, then set it below. The script uses private temporary files for
+the Secret snapshot and password hashes, then removes them when it exits. If a
+sample username is already in use, stop and choose distinct names throughout the walkthrough instead of
 resetting an existing account's password or inheriting its access.
 
 ```bash
@@ -129,13 +129,29 @@ resetting an existing account's password or inheriting its access.
   set -euo pipefail
   umask 077
   HTPASS_RESOURCE_NAME='htpass-secret' # Replace with the Secret name from OAuth.
+  SECRET_SNAPSHOT="$(mktemp)"
   HTPASS_FILE="$(mktemp)"
-  trap 'rm -f "$HTPASS_FILE"' EXIT
+  trap 'rm -f "$SECRET_SNAPSHOT" "$HTPASS_FILE"' EXIT
 
-  # Stop if the existing file cannot be read; never replace it with an empty file.
+  # Read the Secret and its version together, so a stale update can be rejected.
   if ! oc get secret "$HTPASS_RESOURCE_NAME" -n openshift-config \
-    -o jsonpath='{.data.htpasswd}' | base64 --decode > "$HTPASS_FILE"; then
+    -o jsonpath='{.metadata.resourceVersion}{"\n"}{.data.htpasswd}' \
+    > "$SECRET_SNAPSHOT"; then
     echo 'Could not read the existing HTPasswd Secret.' >&2
+    exit 1
+  fi
+  RESOURCE_VERSION="$(sed -n '1p' "$SECRET_SNAPSHOT")"
+  if [[ -z "$RESOURCE_VERSION" ]]; then
+    echo 'The HTPasswd Secret has no resource version.' >&2
+    exit 1
+  fi
+  if ! tail -n +2 "$SECRET_SNAPSHOT" | base64 --decode > "$HTPASS_FILE"; then
+    echo 'Could not decode the existing HTPasswd file.' >&2
+    exit 1
+  fi
+  if ! cmp -s <(base64 < "$HTPASS_FILE" | tr -d '\r\n') \
+    <(tail -n +2 "$SECRET_SNAPSHOT"); then
+    echo 'The HTPasswd Secret contains invalid base64 data.' >&2
     exit 1
   fi
   if [[ ! -s "$HTPASS_FILE" ]]; then
@@ -158,10 +174,18 @@ resetting an existing account's password or inheriting its access.
   htpasswd -B "$HTPASS_FILE" rhoai-user-data-curator
   htpasswd -B "$HTPASS_FILE" rhoai-user-recipient
 
-  # Replace the same HTPasswd Secret referenced by OAuth.
-  oc create secret generic "$HTPASS_RESOURCE_NAME" \
+  # Reject the update if the Secret changed during the password prompts.
+  if ! oc create secret generic "$HTPASS_RESOURCE_NAME" \
     --from-file="htpasswd=$HTPASS_FILE" \
-    --dry-run=client -o yaml -n openshift-config | oc replace -f -
+    --dry-run=client -o yaml -n openshift-config | \
+    awk -v version="$RESOURCE_VERSION" '
+      /^metadata:$/ { print; print "  resourceVersion: \"" version "\""; found=1; next }
+      { print }
+      END { if (!found) exit 1 }
+    ' | oc replace -f -; then
+    echo 'Secret update failed. Review the latest Secret, then rerun this script.' >&2
+    exit 1
+  fi
 )
 ```
 
