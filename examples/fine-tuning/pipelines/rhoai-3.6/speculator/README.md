@@ -167,7 +167,7 @@ oc project <project-namespace>
 
 **If you are an administrator (cluster-admin), skip this section** — you already have everything below, and the administrator setup steps are yours anyway.
 
-If you are a non-admin user, an administrator must first prepare what cannot be created from inside a project: the [pipeline server](#configure-the-pipeline-server) with its object-storage credentials, the [Model Registry](#model-registry-and-kserve-train-only--online--offline) when you register, the [`kubernetes-credentials`](#kubernetes-authentication-secret) secret, and — for offline mode — the [external vLLM server](../offline/README.md#external-vllm-server). With those in place, the following permissions are the minimum required to run the pipelines end to end.
+If you are a non-admin user, an administrator must first prepare what cannot be created from inside a project: the [pipeline server](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines#configuring-a-pipeline-server_ai-pipelines) with its object-storage credentials, the [Model Registry](#model-registry-and-kserve-train-only--online--offline) when you register, the [`kubernetes-credentials`](#kubernetes-authentication-secret) secret, and — for offline mode — the [external vLLM server](../offline/README.md#external-vllm-server). With those in place, the following permissions are the minimum required to run the pipelines end to end.
 
 **As your user:**
 
@@ -175,8 +175,13 @@ If you are a non-admin user, an administrator must first prepare what cannot be 
 - Read TrainJobs, pods and pod logs — watch runs from the CLI
 - Create and delete PersistentVolumeClaims in the project — the shared RWX PVC
 - Create workbenches — verify PVC contents between extraction and training
+- List ServiceAccounts — discover the runner's actual name (see below)
+- List ClusterTrainingRuntimes — cluster-scoped; the mode guides check runtimes with `oc get clustertrainingruntimes`
 - List `llminferenceservices` and `llminferenceserviceconfigs` — the dashboard's Deployed models page errors without this (serving modes)
+- Exec and port-forward into pods, and read Deployments — test the served endpoint (`oc exec`, `oc port-forward` against the predictor) (serving modes)
+- Manage InferenceServices — stop or delete the served endpoint during [cleanup](#cleaning-up) (serving modes)
 - Read the project and list storage classes — both cluster-scoped, for the dashboard's project view and for picking an RWX storage class
+- The registry's `registry-user-<registry-name>` Role in the registry's namespace — the dashboard's registry view, where the guides verify registration (registering modes)
 
 **As the pipeline runner** — the ServiceAccount the pipeline server creates, named `pipeline-runner-<DSPA-name>` (`pipeline-runner-dspa` for a DSPA named `dspa`; confirm with `oc get serviceaccounts -n <project-namespace>`). This is the identity the pipeline tasks execute under, and the one whose token goes into [`kubernetes-credentials`](#kubernetes-authentication-secret):
 
@@ -184,7 +189,7 @@ If you are a non-admin user, an administrator must first prepare what cannot be 
 - Read TrainingRuntimes — namespaced — and ClusterTrainingRuntimes — cluster-scoped
 - Create and manage ServingRuntimes and InferenceServices (serving modes)
 - Read the GPU HardwareProfile in `redhat-ods-applications` (serving modes)
-- The registry's `registry-user-<registry-name>` Role in the registry's namespace (registering modes)
+- The registry's `registry-user-<registry-name>` Role in the registry's namespace — the register stage's REST calls through the registry's `-rest` route (registering modes)
 
 The Data Science Pipelines operator already grants the runner a baseline Role when the pipeline server is configured — per-run KFP workspace PVCs, configmaps, InferenceServices, pods and deployments read. The runner list above is the delta that baseline lacks. Neither identity needs secret access or ServiceAccount token minting: that is deliberate, and it is why credential setup is an administrator task — see [the trust boundary](#the-trust-boundary) for what a TrainJob can still reach regardless.
 
@@ -200,14 +205,18 @@ The Data Science Pipelines operator already grants the runner a baseline Role wh
 
 ### Check your own access before you start
 
-Every answer must be `yes` for the modes you plan to use. The runner checks matter most — the pipeline tasks run as the runner, not as you, and a missing grant there surfaces only as a 403 inside a run, after the GPU stages have started:
+Every answer must be `yes` for the modes you plan to use. The user checks you run yourself; the runner checks are for your administrator — impersonating the runner (`--as`) requires rights you do not have, and a missing runner grant surfaces only as a 403 inside a run, after the GPU stages have started:
 
 ```bash
-# As your user — project visibility and CLI watching:
+# As your user — run these yourself:
 oc auth can-i get namespaces/<project-namespace>
 oc auth can-i get pods --subresource=log -n <project-namespace>
+oc auth can-i list clustertrainingruntimes.trainer.kubeflow.org
+# Serving modes additionally:
+oc auth can-i create pods --subresource=exec -n <project-namespace>
+oc auth can-i list llminferenceservices.serving.kserve.io -n <project-namespace>
 
-# As the runner — the identity the pipeline tasks execute under:
+# As the runner — your administrator runs these:
 RUNNER=system:serviceaccount:<project-namespace>:<runner-service-account>
 
 oc auth can-i create trainjobs.trainer.kubeflow.org -n <project-namespace> --as=$RUNNER
