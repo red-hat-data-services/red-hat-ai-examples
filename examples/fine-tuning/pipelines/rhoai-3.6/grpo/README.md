@@ -29,12 +29,13 @@ the same pipeline revision for compilation, parameter reference, and validation.
   workload identities for training, registration, and deployment.
 - Network access and image pull credentials needed by the pipeline components,
   training runtime, model downloads, and serving image.
-- For compilation: Git, Python 3.11 or newer, and the pipeline repository's
-  Python dependencies. For CLI verification: an authenticated `oc` client.
+- For workstation compilation, use Git and Python 3.11 or newer. The steps in
+  [Generate the pipeline YAML](#generate-the-pipeline-yaml) are tested with
+  Python 3.11 and 3.12 on macOS. For CLI verification, sign in with `oc`.
 
 ## Hardware requirements
 
-These settings were verified against a successful `Qwen/Qwen3-1.7B` run on
+These settings are verified against a successful `Qwen/Qwen3-1.7B` run on
 RHOAI 3.6 EA2. The table shows the CPU, memory, and GPU requests and limits for
 the training worker and serving container. Allow additional capacity for
 platform sidecars when sizing the serving pod.
@@ -71,24 +72,26 @@ read access to runtimes and project PVCs for inspecting prerequisites.
 | Setup area | Required result |
 | --- | --- |
 | Project access | The non-admin user can open the project and import, configure, and run pipelines through the pipeline server. |
-| Pipeline server | The project has a ready pipeline server and working artifact storage. |
+| Pipeline server | The project has a ready pipeline server and working artifact storage. See [Configure a pipeline server](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines#configuring-a-pipeline-server_ai-pipelines) |
 | Cluster Storage | An RWX PVC is bound, readable as a resource by the user, writable by the training workload, and usable by model serving. |
-| Runtime and GPU | A compatible ClusterTrainingRuntime is available; the user can read available runtimes, the training identity can discover its runtime, and the worker can schedule. |
+| Runtime and GPU | A compatible `ClusterTrainingRuntime` is available (default: `training-hub`). The cluster has GPU capacity to schedule the training worker and the serving replica as each stage runs. See [Hardware requirements](#hardware-requirements). |
 | Training credentials | `kubernetes-credentials` identifies an authorized identity that can submit and monitor TrainJobs in this project. |
 | Registry | The selected registry is reachable; the pipeline ServiceAccount can register models, and the user can view registered models. |
 | Serving | The pipeline ServiceAccount can get, create, and patch ServingRuntime and InferenceService resources in the project. |
-| User monitoring and validation | In the project, the user can get/list pods, get pod logs, and list/read the generated ServingRuntime and InferenceService. Deployment write access and cluster-wide pod access are not required. |
+| User monitoring and validation | In the project, the user can get/list pods, get pod logs, list TrainJobs and read their status, and list/read the generated ServingRuntime and InferenceService. |
 | Pull access and network | Required images can be pulled and components can reach the API, registry, artifact storage, and dataset/model sources. |
 
 Verify access separately for the three identities used in this example.
 
-1. **Test user.** The end user signs in to the Dashboard with this account.
+1. **Test user:** The end user signs in to the Dashboard with this account.
    Verify that they can import the pipeline, start runs, and inspect task logs,
    inputs/outputs, and results.
-2. **Training API identity.** The training task authenticates with the token
-   in the `kubernetes-credentials` Secret. Verify that this identity can discover
-   the training runtime and submit and monitor TrainJobs in the project.
-3. **Pipeline ServiceAccount.** The registration and deployment tasks
+2. **Training API identity:** The training task authenticates with the token
+   in the `kubernetes-credentials` Secret. Verify that this identity can list
+   `trainingruntimes` in the project and `clustertrainingruntimes` at cluster
+   scope, both in the `trainer.kubeflow.org` API group. The identity
+   also needs permission to submit and monitor TrainJobs in the project.
+3. **Pipeline ServiceAccount:** The registration and deployment tasks
    authenticate with their pods' mounted ServiceAccount credentials. Verify
    that the account can register models in the selected Model Registry and
    manage KServe resources in the serving project.
@@ -98,7 +101,7 @@ need cluster-admin access to run this example.
 
 ### Create shared storage for GRPO
 
-**Administrator:** provision a separate shared PVC for the GRPO pipeline.
+**Administrator** provisions a separate shared PVC for the GRPO pipeline.
 Configuring a pipeline server may create an internal database PVC such as
 `mariadb-dspa`. This database volume serves the pipeline infrastructure; it is
 not the model/checkpoint PVC selected by `p01_persistent_pvc`.
@@ -145,7 +148,10 @@ administrator to check provisioning and pod scheduling events.
 
 ### Credentials and data connections
 
-Create secrets in the pipeline project before starting a run.
+Before starting a run, the administrator creates the required Secrets in the
+pipeline project. In the OpenShift web console, select the pipeline project,
+then open **Workloads → Secrets → Create**. Choose **key/value secret** to create an
+`Opaque` secret with the name and keys listed below.
 
 | Secret | Keys | When required |
 | --- | --- | --- |
@@ -183,13 +189,17 @@ Compile the full [LoRA GRPO pipeline from the `rhoai-3.6` branch](https://github
 ```bash
 git clone --branch rhoai-3.6 --single-branch https://github.com/red-hat-data-services/pipelines-components.git
 cd pipelines-components
+python3 --version  # Check that this is Python 3.11 or newer.
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install kfp==2.16.1 kfp-kubernetes==2.16.1
+python -m pip install --no-deps -e .
+# Compile the pipeline
 PYTHONPATH=. python pipelines/training/finetuning/lora_grpo/pipeline.py
-```
 
-The output is
-`pipelines/training/finetuning/lora_grpo/pipeline.yaml`.
-The dependencies belong to the pipeline repository; this guide does not contain
-a separate Python application.
+# The compiled pipeline is written next to its source:
+# pipelines/training/finetuning/lora_grpo/pipeline.yaml
+```
 
 ## Usage
 
@@ -218,6 +228,11 @@ Open **Pipelines → Runs → Create run**. Select the project, pipeline definit
 and pipeline version, then enter a run name and configure its parameters.
 
 ![Create run form showing the project and run name](docs/03-run-parameters.png)
+
+If **MLflow integration** appears, choose an existing experiment or select
+**Create new MLflow experiment** and enter a name. While tracking is enabled,
+**Create run** requires an experiment. Please note this example is tested with
+**Enable MLflow experiment tracking** unchecked.
 
 Check the parameter descriptions in the imported definition against the revision you compiled. All six parameters below are required.
 
@@ -262,7 +277,9 @@ Click **Run** and open the run graph. Inspect the task details, logs and inputs 
 
 ![Pipeline run graph showing task dependencies while the run is in progress](docs/04-run-graph.png)
 
-Select **train-model** and open **Logs** to follow training progress.
+Select **train-model** stage and open **Logs** to follow training progress.
+You can save the TrainJob name from the `Job:` line in case you need to
+[diagnose a failed TrainJob](#diagnose-a-failed-trainjob) after pod cleanup.
 
 ![Train-model task with the Logs tab open](docs/05-train-model-logs.png)
 
@@ -283,10 +300,13 @@ inspect the recorded reward history.
 | `training_iterations` | Number of recorded reward observations. |
 | `promotion_passed` | `1` when promotion passes, otherwise `0`. |
 
-Promotion gate requires at least two recorded reward observations and
-`final_reward > initial_reward`. A run can finish successfully with model registration
-and model deployment skipped when the model does not pass this gate. These metrics
-describe the training run; they are not an independent held-out benchmark.
+The promotion gate passes when `final_reward > initial_reward`. Use at least
+five training iterations (`p09_training_num_iterations`) for this example.
+A shorter run can succeed with `promotion_passed=0`, in which case the pipeline
+skips registration and deployment. The same gate applies to every run,
+regardless of iteration count, and the pipeline has no override for it.
+
+These metrics describe the training run; they are not an independent held-out benchmark.
 
 ## Expected outcomes
 
@@ -390,7 +410,44 @@ finish. See the [vLLM OpenAI-compatible API](https://docs.vllm.ai/en/latest/serv
 | Registry or deployment returns 403 | Check the pipeline ServiceAccount's grants in the registry namespace and serving project. |
 | PVC pending, mount failure, or permission denied | Check RWX support, storage quota, namespace, and workload write access. |
 | Training pod pending | Check GPU availability, resource quota, node placement, and runtime settings. |
+| `train-model` reports `Job failed: Failed` | Find the TrainJob name in the task log and check its status and worker logs. See [Diagnose a failed TrainJob](#diagnose-a-failed-trainjob). |
 | Out-of-memory failure | Review batch/group size, rollout GPU memory utilization, and model size. |
 | Dataset validation fails | Check the Hugging Face repository ID, dataset configuration, required access token, and Training Hub loader error. |
 | Registration and deployment skipped | Inspect `promotion_passed` and reward history before treating this as an error. |
 | Serving fails | Inspect InferenceService conditions and predictor logs; check the model URI, image pull access, GPU capacity, and tokenizer mode. |
+
+### Diagnose a failed TrainJob
+
+In the run graph, open **train-model→ Logs**. If the logs are available, look
+for the TrainJob name in the `Job:` line. If the task pod is pruned, check any
+retained task logs or list TrainJobs in the project as the test user.
+
+```bash
+oc -n loragrpopipeline get trainjobs --sort-by=.metadata.creationTimestamp
+```
+
+Compare the creation times with the `train-model` task's start and finish times
+to narrow the list. If multiple jobs match, use retained logs or the run ID in
+the job's checkpoint path to confirm which job belongs to the run.
+
+As the test user, check the conditions once you have the TrainJob name. They
+remain available after the worker pod is deleted as long as the TrainJob exists.
+
+```bash
+PROJECT=loragrpopipeline
+TRAINJOB='<trainjob-name>'
+oc -n "$PROJECT" get trainjob "$TRAINJOB" -o jsonpath='{.status.conditions}{"\n"}'
+oc -n "$PROJECT" get pods -l "jobset.sigs.k8s.io/jobset-name=$TRAINJOB"
+```
+
+If the pod is still listed, capture its logs.
+
+```bash
+TRAINING_POD='<training-worker-pod-name>'
+oc -n "$PROJECT" logs "$TRAINING_POD" -c node
+```
+
+If the conditions lack detail or the TrainJob has also been deleted, ask the
+administrator to check retained events. For a deleted worker pod, check the
+cluster log store if available. Otherwise, retry the pipeline and capture the
+worker logs while the pod is running.
