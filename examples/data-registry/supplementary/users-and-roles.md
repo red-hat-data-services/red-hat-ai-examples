@@ -118,32 +118,52 @@ oc get oauth cluster -o yaml
 Create the three accounts in that identity provider. For a development or test
 cluster that already uses the **HTPasswd** identity provider, a cluster admin
 can add the sample users to its existing file. Find the HTPasswd provider's
-secret name under `spec.identityProviders[].htpasswd.fileData.name` in the
-OAuth output, then set it below. Run these commands from a private temporary
-directory outside the repository; `users.htpasswd` contains password hashes
-and must not be committed.
+Secret name under `spec.identityProviders[].htpasswd.fileData.name` in the
+OAuth output, then set it below. The script uses a private temporary file for
+password hashes and removes it when it exits. If a sample username is already
+in use, stop and choose distinct names throughout the walkthrough instead of
+resetting an existing account's password or inheriting its access.
 
 ```bash
-umask 077
-HTPASS_RESOURCE_NAME='htpass-secret' # Replace with the Secret name from OAuth.
+(
+  set -euo pipefail
+  umask 077
+  HTPASS_RESOURCE_NAME='htpass-secret' # Replace with the Secret name from OAuth.
+  HTPASS_FILE="$(mktemp)"
+  trap 'rm -f "$HTPASS_FILE"' EXIT
 
-# Retrieve the existing file first so current accounts are retained.
-oc get secret "$HTPASS_RESOURCE_NAME" -n openshift-config \
-  -o jsonpath='{.data.htpasswd}' | base64 --decode > users.htpasswd
-chmod 600 users.htpasswd
+  # Stop if the existing file cannot be read; never replace it with an empty file.
+  if ! oc get secret "$HTPASS_RESOURCE_NAME" -n openshift-config \
+    -o jsonpath='{.data.htpasswd}' | base64 --decode > "$HTPASS_FILE"; then
+    echo 'Could not read the existing HTPasswd Secret.' >&2
+    exit 1
+  fi
+  if [[ ! -s "$HTPASS_FILE" ]]; then
+    echo 'The existing HTPasswd Secret has no htpasswd data.' >&2
+    exit 1
+  fi
 
-# Each command prompts for the password; it is not placed in shell history.
-htpasswd -B users.htpasswd rhoai-admin
-htpasswd -B users.htpasswd rhoai-user-data-curator
-htpasswd -B users.htpasswd rhoai-user-recipient
+  # Never change an existing HTPasswd entry or OpenShift user.
+  for username in rhoai-admin rhoai-user-data-curator rhoai-user-recipient; do
+    file_user="$(awk -F: -v user="$username" '$1 == user { print $1; exit }' "$HTPASS_FILE")"
+    cluster_user="$(oc get user "$username" --ignore-not-found -o name)"
+    if [[ -n "$file_user" || -n "$cluster_user" ]]; then
+      echo "Username $username already exists; choose a different sample name." >&2
+      exit 1
+    fi
+  done
 
-# Replace the same HTPasswd secret referenced by OAuth.
-oc create secret generic "$HTPASS_RESOURCE_NAME" \
-  --from-file=htpasswd=users.htpasswd \
-  --dry-run=client -o yaml -n openshift-config | oc replace -f -
+  # Each command prompts for the password; it is not placed in shell history.
+  htpasswd -B "$HTPASS_FILE" rhoai-admin
+  htpasswd -B "$HTPASS_FILE" rhoai-user-data-curator
+  htpasswd -B "$HTPASS_FILE" rhoai-user-recipient
+
+  # Replace the same HTPasswd Secret referenced by OAuth.
+  oc create secret generic "$HTPASS_RESOURCE_NAME" \
+    --from-file="htpasswd=$HTPASS_FILE" \
+    --dry-run=client -o yaml -n openshift-config | oc replace -f -
+)
 ```
-
-After confirming the Secret update, remove the local `users.htpasswd` file.
 
 HTPasswd is intended for development and test clusters. For other identity
 providers, provision these accounts through the organization's normal identity
@@ -206,7 +226,16 @@ oc auth can-i patch odhdashboardconfigs \
 
 Both checks should print `yes`. If either prints `no`, have a cluster admin
 grant only the missing scoped permissions through reviewed RBAC roles.
-Check namespace-scoped create permissions after the target namespace exists. Step 1 requires a user with permission to create the registry connection Secret.
+After Step 1 creates `rhoai-data-registry`, check the `FeatureStore` permission
+before applying `feature-store.yaml`:
+
+```bash
+oc auth can-i create featurestores.feast.dev -n rhoai-data-registry
+```
+
+This should print `yes` for a new instance. If updating an existing instance,
+also check `oc auth can-i patch featurestores.feast.dev -n rhoai-data-registry`.
+Step 1 requires a user with permission to create the registry connection Secret.
 Do not grant `cluster-admin` just to make the RHOAI group work.
 
 ## 4. Use each account in the walkthrough
