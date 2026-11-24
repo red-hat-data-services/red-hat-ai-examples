@@ -71,7 +71,7 @@ Work through the [access checks](../README.md#access-you-need-and-what-your-admi
 
 > [!IMPORTANT]
 >
-> This endpoint is a **prerequisite you do not create from this guide**. Deploying it needs permissions the documented `engineer` access does not include — creating Deployments and Services — so it is an administrator task (or whoever operates vLLM in your cluster). Have it running and verified before you create a run.
+> This endpoint is a **prerequisite you do not create from this guide**. Deploying it needs permissions the documented access does not include — creating Deployments and Services — so it is an administrator task (or whoever operates vLLM in your cluster). Have it running and verified before you create a run.
 
 A tested manifest already exists in this repository: [`manifests/external-vllm/vllm-server.yaml`](../../../../rhoai-3.6/manifests/external-vllm/vllm-server.yaml) from the SDK example, with [deployment, verification and cleanup instructions](../../../../rhoai-3.6/manifests/external-vllm/README.md). It deploys a `vllm-svc` Deployment and Service (port 8000) plus a same-namespace NetworkPolicy, on the pinned `registry.redhat.io/rhaii-fast/vllm-cuda-rhel9` image that carries the extraction support — upstream vLLM images do not have it. It mounts PVC `shared` at `/mnt`.
 
@@ -107,9 +107,9 @@ The last point matters: extraction requires the server to expose the verifier's 
 
 A plain vLLM deployment answers `/v1/models` and passes the probe below, but produces no hidden states — the extraction stage then fails or writes nothing.
 
-Verify reachability from the project namespace before running. Note that the `engineer` access documented in the [common prerequisites](../README.md#access-you-need-and-what-your-administrator-must-provide) does **not** include creating pods, so `oc run` is not available to most users — use whichever path below fits your project:
+Verify reachability from the project namespace before running. Note that the access documented in the [common prerequisites](../README.md#access-you-need-and-what-your-administrator-must-provide) does **not** include creating pods, so `oc run` is not available to most users — use whichever path below fits your project:
 
-- **If the project already has a pod with `curl`** — a workbench is the usual case (workbench pods ship curl, and the `engineer` Role can create workbenches and exec into pods). Find the pod name, then exec the probe from inside it:
+- **If the project already has a pod with `curl`** — a workbench is the usual case (workbench pods ship curl, and the documented access can create workbenches and exec into pods). Find the pod name, then exec the probe from inside it:
 
   ```bash
   oc get pods -n <project-namespace>

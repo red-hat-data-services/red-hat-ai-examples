@@ -123,7 +123,7 @@ The same values in the run form's **Parameters** step — each field carries the
 
 Before handing off to the train-only pipeline, check what extraction actually produced. This is the gate between the two steps — training fails immediately if the hidden states are missing, so two minutes here saves a confusing failure there.
 
-These commands run **inside a pod that mounts the shared PVC**. If you did the setup from your workstation, nothing mounts it yet — the pipeline's own pods are gone once the run finishes. Create a workbench to get a terminal that does (the documented `engineer` access permits this; it does not permit `oc run`):
+These commands run **inside a pod that mounts the shared PVC**. If you did the setup from your workstation, nothing mounts it yet — the pipeline's own pods are gone once the run finishes. Create a workbench to get a terminal that does (the documented access permits this; it does not permit `oc run`):
 
 1. In the Red Hat OpenShift AI dashboard, open your project and select **Workbenches → Create workbench**.
 2. Pick the smallest available image and container size — this workbench only lists files, so it needs no GPU and no accelerator profile.
@@ -190,9 +190,9 @@ Point `p11_vllm_endpoint` at your own vLLM deployment. Requirements:
 - Set `p07_hidden_states_path` to match the connector's `shared_storage_path` on the shared PVC — it must line up with what the service writes.
 - Use the `speculator-model-opt-cuda` CTR (`p23_job_runtime`).
 
-Test that the endpoint is reachable from the project namespace before running. The `engineer` access documented in the [common prerequisites](../README.md#access-you-need-and-what-your-administrator-must-provide) does **not** include creating pods, so `oc run` is not available to most users — use whichever path below fits your project:
+Test that the endpoint is reachable from the project namespace before running. The access documented in the [common prerequisites](../README.md#access-you-need-and-what-your-administrator-must-provide) does **not** include creating pods, so `oc run` is not available to most users — use whichever path below fits your project:
 
-- **If the project already has a pod with `curl`** — a workbench is the usual case (workbench pods ship curl, and the `engineer` Role can create workbenches and exec into pods). Find the pod name, then exec the probe from inside it:
+- **If the project already has a pod with `curl`** — a workbench is the usual case (workbench pods ship curl, and the documented access can create workbenches and exec into pods). Find the pod name, then exec the probe from inside it:
 
   ```bash
   oc get pods -n <project-namespace>
