@@ -99,6 +99,12 @@ project-selector discovery requirement is covered there.
 
 ## 1. Provision the identities (cluster admin and identity-provider administrator)
 
+> **Development and test clusters only.** The HTPasswd steps below apply only
+> if your cluster already uses an HTPasswd identity provider. They may not work
+> on your cluster. Consult your cluster administrator about the appropriate way
+> to provision these accounts, and do not use this sample procedure for
+> production identity management.
+
 OpenShift authenticates users through the cluster's configured identity
 provider. `oc adm groups` creates OpenShift groups; it does not create login
 credentials. Start logged in as a cluster admin. Save that context before
