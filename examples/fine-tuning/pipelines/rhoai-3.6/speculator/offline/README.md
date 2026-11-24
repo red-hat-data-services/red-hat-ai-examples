@@ -192,7 +192,7 @@ Assumes the verifier was already cached on the PVC (e.g., by a prior data-extrac
 | --- | --- | --- |
 | `p01_persistent_pvc` | `shared` | Your existing RWX PVC name |
 | `p02_verifier_model_pvc` | `models/Qwen--Qwen3-0.6B` | Must already exist on the PVC |
-| `p03_vllm_endpoint` | `http://vllm.<project-namespace>.svc:8000` | Your extraction-capable vLLM Service — see the namespace note below |
+| `p03_vllm_endpoint` | `http://vllm-svc.<project-namespace>.svc:8000` | Your extraction-capable vLLM Service — see the namespace note below |
 | `p04_dataset_name` | `ultrachat` | Built-in dataset |
 | `p05_evaluation_dataset_uri` | `RedHatAI/speculator_benchmarks` | HuggingFace evaluation dataset with built-in subsets |
 | `p06_serving_namespace` | `<pvc-namespace>` | Must access the PVC |

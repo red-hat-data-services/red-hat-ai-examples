@@ -393,7 +393,7 @@ The token's identity is the **Trainer token identity** — the pipeline uses it 
 | `trainer.kubeflow.org` | `trainingruntimes`, `clustertrainingruntimes` | get, list, watch |
 | Core | `configmaps` | get, list, watch, create, update, patch |
 
-The `pipeline-runner` ServiceAccount is already bound to the `pipeline-runner` Role and the `speculator-ctr-reader-<project-namespace>` ClusterRole by the manifests in [What to send your administrator](#what-to-send-your-administrator), so it satisfies this baseline as-is.
+The pipeline runner ServiceAccount — named `pipeline-runner-<DSPA-name>`, so confirm the actual name with `oc get serviceaccounts -n <project-namespace>` — is already bound to the `pipeline-runner` Role and the `speculator-ctr-reader-<project-namespace>` ClusterRole by the manifests in [What to send your administrator](#what-to-send-your-administrator), so it satisfies this baseline as-is.
 
 > [!IMPORTANT]
 >
@@ -403,7 +403,7 @@ The `pipeline-runner` ServiceAccount is already bound to the `pipeline-runner` R
 
 ```bash
 umask 077   # token file: owner-only, before it is written
-oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/to/token-file \
+oc create token <runner-service-account> -n <project-namespace> --duration=8760h > /path/to/token-file \
   && [ -s /path/to/token-file ] \
   && oc create secret generic kubernetes-credentials -n <project-namespace> \
        --from-literal=KUBERNETES_SERVER_URL="https://api.your-cluster.com:6443" \
@@ -423,7 +423,7 @@ A failed run may leave the token file behind; `umask 077` makes it owner-only, a
 ```bash
 set -o pipefail   # so a failed render is not masked by the pipe below
 umask 077
-oc create token pipeline-runner -n <project-namespace> --duration=8760h > /path/to/token-file \
+oc create token <runner-service-account> -n <project-namespace> --duration=8760h > /path/to/token-file \
   && [ -s /path/to/token-file ] \
   && oc create secret generic kubernetes-credentials -n <project-namespace> \
        --from-literal=KUBERNETES_SERVER_URL="https://api.your-cluster.com:6443" \
