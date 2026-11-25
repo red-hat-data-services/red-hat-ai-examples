@@ -77,7 +77,7 @@ For the default Qwen3-0.6B configuration: ONLINE needs **two GPUs together** in 
 
 ### 3. Check access
 
-Before you start, confirm with your administrator that you have access to what your selected mode needs: the project and its [pipeline server](#configure-the-pipeline-server), the Trainer [runtimes](#clustertrainingruntimes-ctrs), GPU resources, shared [RWX storage](#existing-rwx-pvc), and — for the training modes — the [Model Registry and KServe serving](#model-registry-and-kserve-train-only--online--offline). data-extraction needs none of that last group. If something is missing, ask your administrator to prepare it — the rest of this guide assumes it is in place.
+Before you start, confirm with your administrator that you have access to what your selected mode needs: the project and its [pipeline server](#configure-the-pipeline-server), the Trainer [runtimes](#clustertrainingruntimes-ctrs), GPU resources, shared [RWX storage](#existing-rwx-pvc), and the [`kubernetes-credentials`](#credentials) secret — and, for the training modes, the [Model Registry and KServe serving](#model-registry-and-kserve-train-only--online--offline). On a restricted cluster, also confirm the pipeline, runtime, and serving images can be pulled. data-extraction needs none of that last group. If something is missing, ask your administrator to prepare it — the rest of this guide assumes it is in place.
 
 ### 4. Your path through this guide
 
@@ -140,9 +140,10 @@ Work through the setup your mode needs:
 | [Pipeline server](#configure-the-pipeline-server) | administrator | Required | Required |
 | [Credentials](#credentials) | administrator | Required | Required |
 | [CTRs](#clustertrainingruntimes-ctrs) | administrator | Required | Required |
-| [Model Registry and KServe](#model-registry-and-kserve-train-only--online--offline) | administrator, then you | Not needed | Mandatory for train-only, optional for online/offline |
+| [Model Registry](#model-registry-and-kserve-train-only--online--offline) | administrator, then you | Not needed | Mandatory for train-only, optional for online/offline |
+| [KServe serving](#model-registry-and-kserve-train-only--online--offline) | administrator | Not needed | Required |
 
-data-extraction skips the last row because it does not train, serve, or register. [Run a pipeline](#quick-start) assumes every applicable row is done.
+data-extraction skips the last two rows because it does not train, serve, or register. [Run a pipeline](#quick-start) assumes every applicable row is done.
 
 > [!NOTE]
 >
@@ -158,6 +159,8 @@ All models, datasets, hidden states, checkpoints and outputs live on one shared 
 >
 > 1. **Yours** (`p01_persistent_pvc`) — the verifier, datasets, hidden states, checkpoints and final draft. Must be RWX and in the same namespace as the pipeline and the serving endpoint; PVCs cannot be mounted across namespaces.
 > 2. **The KFP workspace PVC** — created by the pipeline at run time for its launcher tasks (200Gi, `nfs-csi`, RWX), fixed at compile time; see [Customizing before you compile](#customizing-before-you-compile).
+>
+> Run one pipeline at a time against a given PVC: concurrent runs share the PVC-root `final_model` path, so one run's evaluation or serving stage can load another run's draft.
 
 Create it once in the dashboard: **Cluster storage > Add cluster storage**, name `shared`, size 100Gi, and pick a **ReadWriteMany** storage class explicitly — the default class is often RWO-only, which leaves the claim `Pending` or mounted read-only. See [Configure cluster storage](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/working_on_projects/configuring-cluster-storage_projects) in the Red Hat OpenShift AI documentation for the procedure.
 

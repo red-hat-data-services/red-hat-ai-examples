@@ -95,7 +95,7 @@ Minimal managed-mode parameter set for an example run:
 | `p02_verifier_model` | `Qwen/Qwen3-0.6B` | Downloaded because `p04_download_model=true` |
 | `p04_download_model` | `true` | Cache the verifier on the PVC |
 | `p05_dataset_name` | `ultrachat` | Built-in dataset |
-| `p08_max_samples` | `16` | Example run; set `0` for the full dataset |
+| `p08_max_samples` | `16` | Example run; set `0` for the full dataset — and use a fresh `p06_output_dir`, or existing hidden states are reused and extraction is skipped |
 | `p10_vllm_mode` | `managed` | Sidecar vLLM |
 | `p18_target_layer_ids` | `2,14,25,28` | **Required** — download mode cannot infer layer IDs |
 | `p20_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the extraction job |
@@ -203,7 +203,7 @@ The IDs are **verifier-specific** — a wrong set fails at training time with a 
 | `p05_dataset_name` | `str` | `ultrachat` | `magpie`, `ultrachat`, or `gsm8k`; or a JSON/JSONL file on the PVC. Arbitrary HuggingFace dataset IDs are not supported. |
 | `p06_output_dir` | `str` | `speculator-output` | Directory on `p01_persistent_pvc` where extraction outputs are written. |
 | `p07_hidden_states_path` | `str` | `speculator-output/hidden_states` | Remote-mode output location for hidden states; must match the location used by the remote vLLM service. Managed mode ignores it and writes to `<p06_output_dir>/hidden_states`. |
-| `p08_max_samples` | `int` | `16` | Maximum samples to process; `0` processes the full dataset. |
+| `p08_max_samples` | `int` | `16` | Maximum samples to process; `0` processes the full dataset. Existing hidden states in `p06_output_dir` are reused and extraction is skipped — use a fresh output directory for a full-dataset run, and update the train-only input paths ([Wiring it to a data-extraction run](../train-only/README.md#6-wiring-it-to-a-data-extraction-run)) to match. |
 | `p09_regenerate_responses` | `bool` | `False` | Re-generate assistant responses with the verifier instead of using the originals. Built-in datasets only. |
 | `p10_vllm_mode` | `str` | `managed` | `managed` (sidecar) or `remote` (external service). |
 | `p11_vllm_endpoint` | `str` | `""` | URL of the external vLLM service; required for `remote`, blank for `managed`. |

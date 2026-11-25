@@ -226,7 +226,7 @@ Because extraction is reused, iterating is cheap — re-run **only this pipeline
 - Bigger draft: raise `p17_training_num_layers`.
 - Different speculation depth: `p41_num_speculative_tokens` (affects evaluation and serving).
 
-Watch the acceptance metrics after each iteration and keep the best revision in the registry. `final_model` on the PVC is overwritten every run — if earlier registry versions must keep referencing their original weights, use a separate PVC per revision.
+Watch the acceptance metrics after each iteration and keep the best revision in the registry. `final_model` on the PVC is overwritten every run — if earlier registry versions must keep referencing their original weights, use a separate PVC per revision. A retained serving endpoint is affected the same way: a predictor that restarts or scales back up loads the new weights, even though the endpoint name is unchanged.
 
 ## Reference
 
