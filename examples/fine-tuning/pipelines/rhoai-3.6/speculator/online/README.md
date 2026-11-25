@@ -6,12 +6,12 @@ This guide covers the **speculator-online-pipeline** — the simplest one-run pa
 >
 > This pipeline may change. Re-generate the YAML after pulling upstream changes.
 
-## When to use this pipeline
+## 1. When to use this pipeline
 
 - **Everything in one run.** No pre-existing extraction artifacts, no separate data-only runs, no external vLLM to operate. If you just want a trained draft with minimal setup, start here.
 - Prefer separate extraction/training so you can sweep hyperparameters cheaply? Use [data-extraction](../data-extraction/) + [train-only](../train-only/). Already run your own vLLM? Use [offline](../offline/).
 
-## How it works
+## 2. How it works
 
 1. (Optional) Download `p02_verifier_model` from HuggingFace to the PVC when `p04_download_model=true`; otherwise reuse `p03_verifier_model_pvc` or the default cache directory derived from the model ID.
 2. **One Trainer job** runs with a managed vLLM sidecar: the sidecar generates hidden states on the fly while training consumes them.
@@ -23,7 +23,7 @@ The completed draft is written to `pvc://<p01_persistent_pvc>/final_model`. Each
 
 `p01_persistent_pvc` is an existing ReadWriteMany PVC in the pipeline namespace, mounted at `/mnt/persistent`. It must also be available in `p08_serving_namespace`. With `p01_persistent_pvc="shared"`, `p12_output_dir="speculator-output"` resolves to `pvc://shared/speculator-output`.
 
-## The pipeline run from start to finish
+## 3. The pipeline run from start to finish
 
 With `p04_download_model=true` and registration enabled, the run graph looks like this:
 
@@ -42,13 +42,13 @@ The defining feature is the **second node**: a single Trainer job that does extr
 | **register to model registry** | (Skipped entirely when `p43_model_registry_address` is empty) Registers `final_model` | Model version appears in the Model Registry UI; it can fail fast on wrong address or missing RoleBinding | Up to a few minutes |
 | **serve draft model** | Creates the KServe InferenceService and waits for readiness | ServingRuntime + InferenceService creation, predictor rollout | ~5–15 minutes |
 
-What the cluster side looks like during the run is covered next, in [What a running job looks like](#what-a-running-job-looks-like).
+What the cluster side looks like during the run is covered next, in [What a running job looks like](#4-what-a-running-job-looks-like).
 
 ![Completed online run graph](../images/speculator-online-run.png)
 
 ![Online training node logs](../images/speculator-online-training-logs.png)
 
-## What a running job looks like
+## 4. What a running job looks like
 
 While the Trainer job runs, the project namespace contains **one TrainJob with two GPU containers**: the training worker and the vLLM sidecar (`vllm-extract-cuda` CTR). You can watch it with:
 
@@ -58,7 +58,7 @@ oc get trainjobs,pods -n <project-namespace>
 
 The sidecar takes minutes to load the verifier into GPU before extraction starts — a pod in `Running` state with no training log output yet is normal during that window. Total GPUs in use while training: `p29_training_resource_gpu` + 1 (the sidecar is always exactly 1).
 
-## Hardware requirements (Qwen3-0.6B)
+## 5. Hardware requirements (Qwen3-0.6B)
 
 | Component | GPU | CPU | Memory |
 | --- | --- | --- | --- |
@@ -68,22 +68,17 @@ The sidecar takes minutes to load the verifier into GPU before extraction starts
 
 **Peak concurrent: 2 GPUs** — the training worker and its sidecar run together in one Trainer pod. Evaluation and serving start only after that job finishes and reuse the freed GPUs, so they do not add to the peak; an endpoint left over from an *earlier* run does, because it is still holding a GPU when the next run starts. This matches the [common hardware requirements](../README.md#hardware-requirements) table.
 
-## Setup
+## 6. Setup
 
-Work through the [access checks](../README.md#access-you-need-and-what-your-administrator-must-provide) and the [shared prerequisites](../README.md#prerequisites):
+Confirm [access](../README.md#3-check-access) with your administrator and work through the [shared prerequisites](../README.md#prerequisites). Mode-specific additions:
 
-- Existing RWX PVC (`p01_persistent_pvc`)
-- Pipeline server configured for the project
-- `kubernetes-credentials` secret — required, and **your administrator creates it**: the documented access grants no secret permissions ([procedure](../README.md#kubernetes-authentication-secret))
 - CTR `vllm-extract-cuda` (`p34_job_runtime` default)
 - Serving namespace permissions — **always required**; every online run serves the draft
 - Model Registry + RoleBinding — only if you keep registration enabled. To register, use the registry's `-rest` route URL (`https://...`, scheme included) with port `443` in `p44_model_registry_port`; see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)
 
-The setup steps this mode depends on are covered step by step — with verification commands and dashboard screenshots — in the [common prerequisites](../README.md#prerequisites).
-
 Set `PIP_INDEX_URL`/`PIP_EXTRA_INDEX_URL` via `p36_job_envs` if you need a custom package index for `p35_packages_to_install`.
 
-## Verifier model
+## 7. Verifier model
 
 `p02_verifier_model` is the optional HuggingFace model ID, used for downloading or resolving the default cached directory. `p04_download_model` defaults to `false`:
 
@@ -92,17 +87,17 @@ Set `PIP_INDEX_URL`/`PIP_EXTRA_INDEX_URL` via `p36_job_envs` if you need a custo
 
 Unless the verifier is already cached on the PVC (for example by a prior data-extraction run with downloads enabled), keep `p04_download_model=true`.
 
-If downloading requires authentication, ask your administrator to create the optional `hf-token` secret (see the [common prerequisites](../README.md#optional-hf-token-secret)).
+If downloading requires authentication, ask your administrator to create the optional `hf-token` secret (see the [common prerequisites](../README.md#credentials)).
 
 > [!IMPORTANT]
 >
-> `p05_target_layer_ids` is **required** — four comma-separated layer IDs matching the verifier. The online Trainer receives the cached model as a PVC URI and cannot auto-detect layer IDs from the PVC-backed model config. For Qwen3-0.6B: `2,14,25,28`. Layer IDs are verifier-specific — look them up per model, do not reuse Qwen's IDs for a different architecture.
+> `p05_target_layer_ids` is **required** — four comma-separated layer IDs matching the verifier. The online Trainer receives the cached model as a PVC URI and cannot auto-detect layer IDs from the PVC-backed model config. For Qwen3-0.6B: `2,14,25,28`. Layer IDs are verifier-specific — see [Default verifier model](../README.md#default-verifier-model) for other verifiers.
 
-## Dataset
+## 8. Dataset
 
 `p06_dataset_name` accepts the built-ins `magpie` (Magpie-Align/Magpie-Llama-3.1-Pro-300K-Filtered), `ultrachat` (HuggingFaceH4/ultrachat_200k), and `gsm8k` (openai/gsm8k), or a PVC URI (`pvc://<p01_persistent_pvc>/<path>`) to a JSON/JSONL file. `p09_data_extraction_max_samples=0` processes the full dataset; `p11_data_extraction_concurrency` controls vLLM request concurrency (use `1` on shared/NFS PVCs).
 
-## Key ONLINE configuration
+## 9. Key ONLINE configuration
 
 Some training internals are hardcoded in this pipeline rather than exposed: the cosine-scheduler cycle count (`0.5`), checkpoint frequency (every epoch), log frequency (every step), sidecar GPU count 1, evaluation sample seed 42.
 
@@ -110,27 +105,19 @@ Some training internals are hardcoded in this pipeline rather than exposed: the 
 
 There are no parameters for the settings listed above, and no separate extraction pipeline to coordinate paths with — `p12_output_dir` covers Trainer outputs and checkpoints.
 
-## Running the pipeline
+## 10. Running the pipeline
 
-**Step 1 — generate the pipeline YAML.** Follow [Generate the pipeline YAML](../README.md#1-generate-the-pipeline-yaml) in the common guide, compiling the `online` mode:
+Follow [Run a pipeline](../README.md#quick-start) in the common guide — compile this mode, import the YAML, create a run, and untick the **Enable MLflow experiment tracking** checkbox it warns about:
 
 ```bash
 PYTHONPATH=$(pwd) python pipelines/training/speculator/online/pipeline.py
 ```
 
-This writes `pipelines/training/speculator/online/pipeline.yaml`.
-
-**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). It appears in the **Pipeline definitions** list under the display name you entered when importing.
-
-**Step 3 — create a run.** Open the pipeline definition, open the **Actions** menu, and choose **Create run**. Fill in the parameters from the table below. Leave everything not listed at its default. Use a new `p46_model_registry_version` per revision if registering.
-
-> [!WARNING]
->
-> In the run form's **MLflow integration** step, clear the **Enable MLflow experiment tracking** checkbox — it is checked by default, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
+Fill in the parameters from the table below and leave everything not listed at its default. Use a new `p46_model_registry_version` per revision if registering.
 
 ![Run details for the online run, with MLflow experiment tracking unticked](../images/speculator-online-create-run.png)
 
-**Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
+The stage-by-stage walkthrough is in [The pipeline run from start to finish](#3-the-pipeline-run-from-start-to-finish).
 
 ### Example: Qwen3-0.6B
 
@@ -166,9 +153,9 @@ The first of those values in the run form's **Parameters** step — each field c
 
 ![Parameters step of the online run form, showing the first example values entered](../images/speculator-online-parameters.png)
 
-## Interpreting the results
+## 11. Interpreting the results
 
-Same evaluation task and metrics as the train-only pipeline — see [Interpreting the evaluation results](../train-only/README.md#interpreting-the-evaluation-results) in that guide for the full metric table and how to read it. The short version: check `acceptance_length` (mean tokens per verifier pass; higher is better, 1 means the draft contributes nothing), and remember the pipeline emits **no speedup ratio** — only absolute throughput numbers.
+Same evaluation task and metrics as the train-only pipeline — see [Interpreting the evaluation results](../train-only/README.md#10-interpreting-the-evaluation-results) in that guide for the full metric table and how to read it. The short version: check `acceptance_length` (mean tokens per verifier pass; higher is better, 1 means the draft contributes nothing), and remember the pipeline emits **no speedup ratio** — only absolute throughput numbers.
 
 The evaluation task's metrics in the Red Hat OpenShift AI UI:
 
@@ -178,7 +165,7 @@ If you kept registration enabled (`p43_model_registry_address` set), the draft a
 
 ![Online run registry entry](../images/speculator-online-model-registry.png)
 
-## Testing the served endpoint
+## 12. Testing the served endpoint
 
 Follow [Testing the served endpoint](../README.md#testing-the-served-endpoint) in the common guide. One online-specific note: KServe may scale the predictor to zero after a period of idleness — the first request after a quiet period can take a while or be refused while the predictor wakes. Check `oc get inferenceservice -n <p08_serving_namespace>` shows `True` before concluding something is broken.
 
@@ -186,11 +173,13 @@ The deployed endpoint in the Red Hat OpenShift AI UI:
 
 ![Online run deployed endpoint](../images/speculator-online-deployment.png)
 
-## Iterating / customization
+## 13. Iterating / customization
 
 Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `p40_evaluation_num_speculative_tokens` between runs. Note that each run repeats extraction — if you find yourself iterating often, switch to the two-step [data-extraction](../data-extraction/) + [train-only](../train-only/) workflow and only pay for extraction once.
 
-## Full Parameter Reference
+## Reference
+
+### Full Parameter Reference
 
 | Parameter | Type | Default | Description |
 | --------- | ---- | ------- | ----------- |
@@ -200,7 +189,7 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | `p04_download_model` | `bool` | `False` | Download the model specified by `p02_verifier_model` to the shared PVC. When `false`, the verifier must already exist on the PVC, either at `p03_verifier_model_pvc` or at the default cache directory derived from `p02_verifier_model` — training can load it from HuggingFace, but the evaluation stage requires the PVC directory and fails with `FileNotFoundError` when it is missing. |
 | `p05_target_layer_ids` | `str` | `None` | Required. Four comma-separated layer IDs matching the verifier; cannot be auto-detected in online mode. |
 | `p06_dataset_name` | `str` | `None` | Required built-in dataset name (`magpie`, `ultrachat`, `gsm8k`) or PVC URI to a JSON/JSONL file. |
-| `p07_evaluation_dataset_uri` | `str` | `None` | Required evaluation dataset. Use `RedHatAI/speculator_benchmarks` (HuggingFace) or a `pvc://` URI pointing to a local JSONL file on `p01_persistent_pvc`. See [Preparing the evaluation dataset](../train-only/README.md#preparing-the-evaluation-dataset). |
+| `p07_evaluation_dataset_uri` | `str` | `None` | Required evaluation dataset. Use `RedHatAI/speculator_benchmarks` (HuggingFace) or a `pvc://` URI pointing to a local JSONL file on `p01_persistent_pvc`. See [Preparing the evaluation dataset](../train-only/README.md#7-preparing-the-evaluation-dataset). |
 | `p08_serving_namespace` | `str` | `None` | Required KServe namespace; must access the PVC. |
 | `p09_data_extraction_max_samples` | `int` | `0` | Maximum training examples extracted by the sidecar; `0` processes the full dataset. |
 | `p10_data_extraction_regenerate_responses` | `bool` | `False` | Regenerate assistant responses with the verifier; built-in datasets only. |
@@ -243,7 +232,7 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | `p47_serving_endpoint_name` | `str` | `speculator-online` | DNS-compatible name for the KServe InferenceService. |
 | `p48_serving_runtime_image` | `str` | `registry.redhat.io/rhaii-fast/vllm-cuda-rhel9@sha256:97c7d6f66f3f0897b3ff10ddd135de930d45bdd116cf41a43e3ad7270029116a` | Pinned compatible vLLM CUDA image pull spec used by KServe. |
 
-## Troubleshooting
+### Troubleshooting
 
 | Symptom | Diagnosis | Fix |
 | --- | --- | --- |
@@ -253,11 +242,11 @@ Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `
 | Serving task fails with forbidden | ServiceAccount lacks KServe permissions | Grant ServingRuntime/InferenceService manage rights in `p08_serving_namespace` |
 | First request to the endpoint hangs or is refused | KServe scaled the predictor to zero, or vLLM is still loading | Check `oc get inferenceservice` shows `True`; wait and retry |
 | Older registry versions break after re-run | `final_model` overwritten each run | Separate PVC per revision |
-| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p03_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm — see [Verifying the output on the PVC](../data-extraction/README.md#verifying-the-output-on-the-pvc) |
+| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p03_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm — see [Verifying the output on the PVC](../data-extraction/README.md#7-verifying-the-output-on-the-pvc) |
 | Slow extraction on shared storage | Concurrent I/O saturating NFS | Keep `p11_data_extraction_concurrency=1` |
 
 Compile-time problems and endpoint-access problems are covered in the [common troubleshooting table](../README.md#troubleshooting).
 
-## Source
+### Source
 
 Pipeline source: [`pipelines-components/pipelines/training/speculator/online`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/online). The parameter table above is derived from that directory's `README.md` and `pipeline.py`; re-check it against your imported definition after pulling the `rhoai-3.6` branch.

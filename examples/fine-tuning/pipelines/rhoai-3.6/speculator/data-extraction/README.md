@@ -6,12 +6,12 @@ This guide covers the **speculator-hidden-state-extraction-pipeline** — the fi
 >
 > This pipeline may change. Re-generate the YAML after pulling upstream changes.
 
-## When to use this pipeline
+## 1. When to use this pipeline
 
 - **Extract once, iterate many.** Hidden-state extraction is the expensive, one-time part of draft-model training. Run this pipeline once, then re-run the [train-only pipeline](../train-only/) as many times as you like while tuning hyperparameters — without paying for extraction again.
 - Skip it entirely if you want a single-run workflow — use the [online](../online/) or [offline](../offline/) pipelines instead.
 
-## How it works
+## 2. How it works
 
 1. (Optional) A **download-model** task pulls `p02_verifier_model` from HuggingFace onto the PVC when `p04_download_model` is true.
 2. A single **Trainer job** runs the extraction. Depending on `p10_vllm_mode`:
@@ -25,7 +25,7 @@ Relative storage paths resolve against `p01_persistent_pvc`. For example, with `
 >
 > The zero-padded `pNN_` parameter prefixes exist only to preserve a logical order in the KFP UI, which sorts inputs alphabetically.
 
-## The pipeline run from start to finish
+## 3. The pipeline run from start to finish
 
 With `p10_vllm_mode=managed` and `p04_download_model=true` (the example configuration below), the run graph looks like this:
 
@@ -50,13 +50,13 @@ oc get trainjobs,pods -n <project-namespace>
 
 You'll see one TrainJob with the extraction worker and the vLLM sidecar containers. Both disappear when the run completes.
 
-When every node is green, the run is done — but "green" only means the pipeline finished. Confirm the output is real before moving on to the train-only pipeline: [Verifying the output on the PVC](#verifying-the-output-on-the-pvc).
+When every node is green, the run is done — but "green" only means the pipeline finished. Confirm the output is real before moving on to the train-only pipeline: [Verifying the output on the PVC](#7-verifying-the-output-on-the-pvc).
 
 ![Extraction task logs](../images/speculator-data-extraction-logs.png)
 
 ![Completed data-extraction run graph](../images/speculator-data-extraction-run.png)
 
-## Hardware requirements (Qwen3-0.6B)
+## 4. Hardware requirements (Qwen3-0.6B)
 
 | Mode | GPUs needed |
 | --- | --- |
@@ -65,38 +65,25 @@ When every node is green, the run is done — but "green" only means the pipelin
 
 Sidecar defaults: 96Gi memory, `gpu_memory_utilization=0.9`.
 
-## Setup
+## 5. Setup
 
-Work through the [access checks](../README.md#access-you-need-and-what-your-administrator-must-provide) and the [shared prerequisites](../README.md#prerequisites) first — for this mode, the registry and serving sections do not apply:
+Confirm [access](../README.md#3-check-access) with your administrator and work through the [shared prerequisites](../README.md#prerequisites) first — for this mode, the registry and serving sections do not apply, and the only mode-specific addition is the CTR:
 
-- Existing RWX PVC (`p01_persistent_pvc`)
-- Pipeline server configured for the project
-- `kubernetes-credentials` secret — required, and **your administrator creates it**: the documented access grants no secret permissions ([procedure](../README.md#kubernetes-authentication-secret))
-- CTR: `vllm-extract-cuda` for managed mode, `speculator-model-opt-cuda` for remote mode — check with `oc get clustertrainingruntimes`
+- `vllm-extract-cuda` for managed mode, `speculator-model-opt-cuda` for remote mode — check with `oc get clustertrainingruntimes`
 
-The setup steps this mode depends on are covered step by step — with verification commands and dashboard screenshots — in the [common prerequisites](../README.md#prerequisites). This mode does not need the Model Registry or serving access.
+## 6. Running the pipeline
 
-## Running the pipeline
-
-**Step 1 — generate the pipeline YAML.** Follow [Generate the pipeline YAML](../README.md#1-generate-the-pipeline-yaml) in the common guide, compiling the `data_extraction` mode:
+Follow [Run a pipeline](../README.md#quick-start) in the common guide — compile this mode, import the YAML, create a run, and untick the **Enable MLflow experiment tracking** checkbox it warns about:
 
 ```bash
 PYTHONPATH=$(pwd) python pipelines/training/speculator/data_extraction/pipeline.py
 ```
 
-This writes `pipelines/training/speculator/data_extraction/pipeline.yaml`.
-
-**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). It appears in the **Pipeline definitions** list under the display name you entered when importing.
-
-**Step 3 — create a run.** Open the pipeline definition, open the **Actions** menu, and choose **Create run**. Fill in the parameters from the table below. Leave everything not listed at its default.
-
-> [!WARNING]
->
-> In the run form's **MLflow integration** step, clear the **Enable MLflow experiment tracking** checkbox — it is checked by default, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
+Fill in the parameters from the table below and leave everything not listed at its default.
 
 ![Run details for the data-extraction run, with MLflow experiment tracking unticked](../images/speculator-data-extraction-create-run.png)
 
-**Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough of what the graph does and how long each node takes is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run. With the example-run values below (16 samples, Qwen3-0.6B, managed vLLM), expect the run to complete in minutes — most of it is the vLLM sidecar loading the verifier.
+What each graph node does and how long it takes is in [The pipeline run from start to finish](#3-the-pipeline-run-from-start-to-finish). With the example-run values below (16 samples, Qwen3-0.6B, managed vLLM), expect the run to complete in minutes — most of it is the vLLM sidecar loading the verifier.
 
 ### Example: Qwen3-0.6B
 
@@ -113,17 +100,17 @@ Minimal managed-mode parameter set for an example run:
 | `p18_target_layer_ids` | `2,14,25,28` | **Required** — download mode cannot infer layer IDs |
 | `p20_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the extraction job |
 
-Everything else can keep its default. For remote mode instead, see [Managed vs remote vLLM](#managed-vs-remote-vllm).
+Everything else can keep its default. For remote mode instead, see [Managed vs remote vLLM](#8-managed-vs-remote-vllm).
 
 The same values in the run form's **Parameters** step — each field carries the parameter's own description underneath, so you can check a value without leaving the page:
 
 ![Parameters step of the data-extraction run form, showing the first example values entered](../images/speculator-data-extraction-parameters.png)
 
-## Verifying the output on the PVC
+## 7. Verifying the output on the PVC
 
 Before handing off to the train-only pipeline, check what extraction actually produced. This is the gate between the two steps — training fails immediately if the hidden states are missing, so two minutes here saves a confusing failure there.
 
-These commands run **inside a pod that mounts the shared PVC**. If you did the setup from your workstation, nothing mounts it yet — the pipeline's own pods are gone once the run finishes. Create a workbench to get a terminal that does (the documented access permits this; it does not permit `oc run`):
+These commands run **inside a pod that mounts the shared PVC**. If you did the setup from your workstation, nothing mounts it yet — the pipeline's own pods are gone once the run finishes. Create a workbench to get a terminal that does (most users cannot create pods directly with `oc run`):
 
 1. In the Red Hat OpenShift AI dashboard, open your project and select **Workbenches → Create workbench**.
 2. Pick the smallest available image and container size — this workbench only lists files, so it needs no GPU and no accelerator profile.
@@ -175,7 +162,7 @@ EOF
 
 For Qwen3-0.6B the `hidden_states` tensor in each file should be `[seq_len, num_layers, 1024]` — sequence length, the captured verifier layers, and `hidden_size=1024`. (`get_slice(...).get_shape()` reads only the shape metadata, so it works on bfloat16 tensors that `get_tensor` cannot load as numpy.)
 
-## Managed vs remote vLLM
+## 8. Managed vs remote vLLM
 
 ### Method 1: Managed vLLM sidecar (`p10_vllm_mode=managed`)
 
@@ -186,39 +173,26 @@ The pipeline adds a vLLM sidecar to the Trainer job. No infrastructure beyond th
 Point `p11_vllm_endpoint` at your own vLLM deployment. Requirements:
 
 - The external service must be able to access the verifier at `p03_verifier_model_pvc` on the shared PVC (remote mode always requires the PVC-backed path).
-- The server must be launched **with hidden-states extraction enabled** — a standard vLLM deployment answers `/v1/models` but produces no hidden states. The quickest route is the tested manifest in this repository, [`manifests/external-vllm/vllm-server.yaml`](../../../../rhoai-3.6/manifests/external-vllm/vllm-server.yaml) (see its [README](../../../../rhoai-3.6/manifests/external-vllm/README.md), and the [parameter mapping](../offline/README.md#external-vllm-server) in the offline guide — the same mapping applies here, with `p07_hidden_states_path` and `p18_target_layer_ids`). Deploying it needs Deployment/Service creation, which the documented access does not grant, so an administrator applies it. The alternative is the speculators [`launch_vllm.py`](https://github.com/vllm-project/speculators/blob/main/scripts/launch_vllm.py) script in extraction mode, which configures the same `ExampleHiddenStatesConnector` (`kv_connector`) and `shared_storage_path`.
+- The server must be launched **with hidden-states extraction enabled** — a standard vLLM deployment answers `/v1/models` but produces no hidden states. The quickest route is the tested manifest in this repository, [`manifests/external-vllm/vllm-server.yaml`](../../../../rhoai-3.6/manifests/external-vllm/vllm-server.yaml) (see its [README](../../../../rhoai-3.6/manifests/external-vllm/README.md), and the [parameter mapping](../offline/README.md#external-vllm-server) in the offline guide — the same mapping applies here, with `p07_hidden_states_path` and `p18_target_layer_ids`). Deploying it needs Deployment and Service creation, so an administrator applies it. The alternative is the speculators [`launch_vllm.py`](https://github.com/vllm-project/speculators/blob/main/scripts/launch_vllm.py) script in extraction mode, which configures the same `ExampleHiddenStatesConnector` (`kv_connector`) and `shared_storage_path`.
 - Set `p07_hidden_states_path` to match the connector's `shared_storage_path` on the shared PVC — it must line up with what the service writes.
 - Use the `speculator-model-opt-cuda` CTR (`p23_job_runtime`).
+- Stop the server when you are done — its GPUs are outside the pipeline's control ([clean up](../README.md#2-when-you-are-done)).
 
-Test that the endpoint is reachable from the project namespace before running. The access documented in the [common prerequisites](../README.md#access-you-need-and-what-your-administrator-must-provide) does **not** include creating pods, so `oc run` is not available to most users — use whichever path below fits your project:
+Before running, verify the endpoint is reachable from the project namespace — the probe procedure (from a workbench, or administrator-run) is in the offline guide's [External vLLM server](../offline/README.md#external-vllm-server) section; point it at `p11_vllm_endpoint` instead of offline's `p03_vllm_endpoint`.
 
-- **If the project already has a pod with `curl`** — a workbench is the usual case (workbench pods ship curl, and the documented access can create workbenches and exec into pods). Find the pod name, then exec the probe from inside it:
-
-  ```bash
-  oc get pods -n <project-namespace>
-  oc exec -n <project-namespace> <pod-name> -- curl -s <p11_vllm_endpoint>/v1/models
-  ```
-
-- **Otherwise, ask an administrator to run the probe** — pod creation requires access beyond the [documented Role](../README.md#access-you-need-and-what-your-administrator-must-provide):
-
-  ```bash
-  oc run vllm-probe --rm -it --restart=Never --image=curlimages/curl -- \
-    curl -s <p11_vllm_endpoint>/v1/models
-  ```
-
-  If the probe fails with an image pull error on a restricted cluster, the administrator should substitute any image the cluster serves that contains curl.
-
-## Verifier model and target layer IDs
+## 9. Verifier model and target layer IDs
 
 `p18_target_layer_ids` must be exactly **four** comma-separated verifier layer indices. It is required when using `p03_verifier_model_pvc`, when `p04_download_model` is true, or in remote mode. It may be omitted **only** in managed mode when the verifier is passed as a HuggingFace model ID and not downloaded — the SDK can then infer indices from the model config. For Qwen3-0.6B: `2,14,25,28`.
 
-The IDs are **verifier-specific** — for any other model (e.g. Llama-3.2-1B-Instruct), look up that model's four Eagle3 target layers; do not reuse Qwen's IDs across architectures. A wrong set fails at training time with a tensor shape mismatch.
+The IDs are **verifier-specific** — a wrong set fails at training time with a tensor shape mismatch. For any verifier other than Qwen3-0.6B, find its four Eagle3 target layers as described in [Default verifier model](../README.md#default-verifier-model).
 
-## Dataset
+## 10. Dataset
 
 `p05_dataset_name` accepts the built-ins `magpie` (Magpie-Align/Magpie-Llama-3.1-Pro-300K-Filtered), `ultrachat` (HuggingFaceH4/ultrachat_200k, default), and `gsm8k` (openai/gsm8k), or a JSON/JSONL file on the PVC (relative path or `pvc://<claim>/<path>`). Arbitrary HuggingFace dataset IDs are not supported.
 
-## Full Parameter Reference
+## Reference
+
+### Full Parameter Reference
 
 | Parameter | Type | Default | Description |
 | --------- | ---- | ------- | ----------- |
@@ -239,19 +213,19 @@ The IDs are **verifier-specific** — for any other model (e.g. Llama-3.2-1B-Ins
 | `p15_vllm_readiness_timeout_minutes` | `int` | `60` | Maximum wait for the vLLM endpoint to become ready, in minutes; minimum `1`. |
 | `p16_total_seq_len` | `int` | `2048` | Maximum sequence length for preprocessing and extraction; must be positive. |
 | `p17_speculator_type` | `str` | `eagle3` | Draft architecture; `eagle3` is the only supported type. |
-| `p18_target_layer_ids` | `str` | `""` | Exactly four comma-separated verifier layer indices. See [Verifier model and target layer IDs](#verifier-model-and-target-layer-ids). |
+| `p18_target_layer_ids` | `str` | `""` | Exactly four comma-separated verifier layer indices. See [Verifier model and target layer IDs](#9-verifier-model-and-target-layer-ids). |
 | `p19_data_extraction_concurrency` | `int` | `1` | Concurrent vLLM requests for extraction; use `1` on shared or NFS storage. |
 | `p20_packages_to_install` | `str` | `""` | Comma-separated Python packages to install in the job. |
 | `p21_pip_index_urls` | `str` | `""` | Comma-separated package-index URLs for job installs. |
 | `p22_job_envs` | `str` | `NCCL_DEBUG=INFO,PYTHONUNBUFFERED=1` | Comma-separated `KEY=VALUE` environment overrides for the job. |
 | `p23_job_runtime` | `str` | `vllm-extract-cuda` | Name of the runtime used by the extraction job. |
 
-## Troubleshooting
+### Troubleshooting
 
 | Symptom | Diagnosis | Fix |
 | --- | --- | --- |
 | Run fails waiting for vLLM to become ready (timeout) | Sidecar crashed or is slow to load the verifier | Check the Trainer pod logs; raise `p15_vllm_readiness_timeout_minutes`; verify GPU memory fits the verifier |
-| Cannot connect to remote vLLM endpoint | Wrong `p11_vllm_endpoint`, or network policy blocks the path | Verify the URL from a test pod in the pipeline namespace (see probe command above) |
+| Cannot connect to remote vLLM endpoint | Wrong `p11_vllm_endpoint`, or network policy blocks the path | Verify the URL from a pod in the pipeline namespace — see the probe procedure under [Method 2](#method-2-external-vllm-endpoint-p10_vllm_moderemote) |
 | Extraction completes but hidden states are empty | Managed/remote path mismatch, or `p08_max_samples=0` semantics misunderstood | Managed mode writes to `<p06_output_dir>/hidden_states`; in remote mode align `p07_hidden_states_path` with the service's write location |
 | Run fails with ClusterTrainingRuntime not found | Wrong CTR for the mode | Managed needs `vllm-extract-cuda`; remote needs `speculator-model-opt-cuda` |
 | Extraction slow on shared storage | Concurrent I/O saturating NFS | Keep `p19_data_extraction_concurrency=1` |
@@ -259,6 +233,6 @@ The IDs are **verifier-specific** — for any other model (e.g. Llama-3.2-1B-Ins
 
 Compile-time problems (`ModuleNotFoundError`, storage class, package-index issues) are covered in the [common troubleshooting table](../README.md#troubleshooting).
 
-## Source
+### Source
 
 Pipeline source: [`pipelines-components/pipelines/training/speculator/data_extraction`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/data_extraction). The parameter table above is derived from that directory's `README.md` and `pipeline.py`; re-check it against your imported definition after pulling the `rhoai-3.6` branch.

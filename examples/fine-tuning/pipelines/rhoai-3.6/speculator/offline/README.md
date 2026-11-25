@@ -6,13 +6,13 @@ This guide covers the **speculator-offline-pipeline** — extraction and trainin
 >
 > This pipeline may change. Re-generate the YAML after pulling upstream changes.
 
-## When to use this pipeline
+## 1. When to use this pipeline
 
 - **You already run vLLM.** Point the pipeline at your existing deployment and skip the managed sidecar entirely.
 - **You need custom vLLM configuration** the managed sidecar doesn't expose.
 - No external vLLM and want one run? Use [online](../online/). Want to iterate on training without re-extracting? Use [data-extraction](../data-extraction/) + [train-only](../train-only/).
 
-## How it works
+## 2. How it works
 
 The offline pipeline combines data-only extraction and train-only training in a single run — it creates hidden states and processed training data itself, so pre-existing extraction artifacts are not required:
 
@@ -26,7 +26,7 @@ The completed draft is written to `pvc://<p01_persistent_pvc>/final_model`. Each
 
 `p01_persistent_pvc` is an existing ReadWriteMany PVC in the pipeline namespace, mounted at `/mnt/persistent`, storing the verifier, datasets, extraction outputs, checkpoints, and final draft. It must also be available in `p06_serving_namespace`. With `p01_persistent_pvc="shared"`, `p10_output_dir="speculator-output"` resolves to `pvc://shared/speculator-output`.
 
-## The pipeline run from start to finish
+## 3. The pipeline run from start to finish
 
 With registration enabled, the run graph looks like this:
 
@@ -53,7 +53,7 @@ A failure at **extract hidden states** with a connection error is almost always 
 
 ![Offline training node logs](../images/speculator-offline-training-logs.png)
 
-## Hardware requirements (Qwen3-0.6B)
+## 4. Hardware requirements (Qwen3-0.6B)
 
 | Component | GPU | CPU | Memory |
 | --- | --- | --- | --- |
@@ -63,15 +63,15 @@ A failure at **extract hidden states** with a connection error is almost always 
 
 Extraction and training share one runtime (`p37_job_runtime`, default `speculator-model-opt-cuda`) and one set of env overrides / packages (`p36_job_envs`, `p38_packages_to_install`).
 
-## Setup
+## 5. Setup
 
-Work through the [access checks](../README.md#access-you-need-and-what-your-administrator-must-provide) and the [shared prerequisites](../README.md#prerequisites), plus the offline-specific ones:
+Confirm [access](../README.md#3-check-access) with your administrator and work through the [shared prerequisites](../README.md#prerequisites), plus the offline-specific ones:
 
 ### External vLLM server
 
 > [!IMPORTANT]
 >
-> This endpoint is a **prerequisite you do not create from this guide**. Deploying it needs permissions the documented access does not include — creating Deployments and Services — so it is an administrator task (or whoever operates vLLM in your cluster). Have it running and verified before you create a run.
+> This endpoint is a **prerequisite you do not create from this guide**. Deploying it needs Deployment and Service creation, so it is an administrator task (or whoever operates vLLM in your cluster). Have it running and verified before you create a run.
 
 A tested manifest already exists in this repository: [`manifests/external-vllm/vllm-server.yaml`](../../../../rhoai-3.6/manifests/external-vllm/vllm-server.yaml) from the SDK example, with [deployment, verification and cleanup instructions](../../../../rhoai-3.6/manifests/external-vllm/README.md). It deploys a `vllm-svc` Deployment and Service (port 8000) plus a same-namespace NetworkPolicy, on the pinned `registry.redhat.io/rhaii-fast/vllm-cuda-rhel9` image that carries the extraction support — upstream vLLM images do not have it. It mounts PVC `shared` at `/mnt`.
 
@@ -107,16 +107,16 @@ The last point matters: extraction requires the server to expose the verifier's 
 
 A plain vLLM deployment answers `/v1/models` and passes the probe below, but produces no hidden states — the extraction stage then fails or writes nothing.
 
-Verify reachability from the project namespace before running. Note that the access documented in the [common prerequisites](../README.md#access-you-need-and-what-your-administrator-must-provide) does **not** include creating pods, so `oc run` is not available to most users — use whichever path below fits your project:
+Verify reachability from the project namespace before running. Most users cannot create pods directly (`oc run` needs administrator-level access) — use whichever path below fits your project:
 
-- **If the project already has a pod with `curl`** — a workbench is the usual case (workbench pods ship curl, and the documented access can create workbenches and exec into pods). Find the pod name, then exec the probe from inside it:
+- **If the project already has a pod with `curl`** — a workbench is the usual case (workbench pods ship curl, and you can exec into your own workbenches). Find the pod name, then exec the probe from inside it:
 
   ```bash
   oc get pods -n <project-namespace>
   oc exec -n <project-namespace> <pod-name> -- curl -s <p03_vllm_endpoint>/v1/models
   ```
 
-- **Otherwise, ask an administrator to run the probe** — pod creation requires access beyond the [documented Role](../README.md#access-you-need-and-what-your-administrator-must-provide):
+- **Otherwise, ask an administrator to run the probe** — pod creation requires administrator access:
 
   ```bash
   oc run vllm-probe --rm -it --restart=Never --image=curlimages/curl -- \
@@ -142,17 +142,15 @@ The cache path follows the `models/<org>--<model>` naming (model ID with `/` rep
 - Serving namespace permissions — **always required**; every offline run serves the draft
 - Model Registry + RoleBinding — only if you keep registration enabled. To register, use the registry's `-rest` route URL (`https://...`, scheme included) with port `443` in `p48_model_registry_port`; see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)
 
-The setup steps this mode depends on are covered step by step — with verification commands and dashboard screenshots — in the [common prerequisites](../README.md#prerequisites).
-
 > [!IMPORTANT]
 >
-> `p15_target_layer_ids` is **required** in offline mode — four comma-separated layer IDs matching the verifier. The SDK cannot auto-detect layer IDs from the PVC-backed verifier. For Qwen3-0.6B: `2,14,25,28`. Layer IDs are verifier-specific — look them up per model, do not reuse Qwen's IDs for a different architecture.
+> `p15_target_layer_ids` is **required** in offline mode — four comma-separated layer IDs matching the verifier. The SDK cannot auto-detect layer IDs from the PVC-backed verifier. For Qwen3-0.6B: `2,14,25,28`. Layer IDs are verifier-specific — see [Default verifier model](../README.md#default-verifier-model) for other verifiers.
 
-## Dataset
+## 6. Dataset
 
 `p04_dataset_name` accepts the built-ins `magpie` (Magpie-Align/Magpie-Llama-3.1-Pro-300K-Filtered), `ultrachat` (HuggingFaceH4/ultrachat_200k), and `gsm8k` (openai/gsm8k), or a JSON/JSONL dataset already on the PVC (`pvc://<pvc-name>/<path>`). Only these built-ins and local files are supported in offline mode. `p07_data_extraction_max_samples=0` processes all examples; keep `p09_data_extraction_concurrency=1` on shared/NFS storage.
 
-## Key OFFLINE configuration
+## 7. Key OFFLINE configuration
 
 ### Path alignment
 
@@ -162,27 +160,19 @@ Extraction writes to `p10_output_dir` / `p11_hidden_states_path`; training reads
 
 There is no model download — no `download_model` parameter. No managed sidecar — no vLLM sidecar resource parameters. The external endpoint's resources are your responsibility.
 
-## Running the pipeline
+## 8. Running the pipeline
 
-**Step 1 — generate the pipeline YAML.** Follow [Generate the pipeline YAML](../README.md#1-generate-the-pipeline-yaml) in the common guide, compiling the `offline` mode:
+Follow [Run a pipeline](../README.md#quick-start) in the common guide — compile this mode, import the YAML, create a run, and untick the **Enable MLflow experiment tracking** checkbox it warns about:
 
 ```bash
 PYTHONPATH=$(pwd) python pipelines/training/speculator/offline/pipeline.py
 ```
 
-This writes `pipelines/training/speculator/offline/pipeline.yaml`.
-
-**Step 2 — import it into Red Hat OpenShift AI.** Follow the click-by-click instructions in [Import the pipeline into Red Hat OpenShift AI](../README.md#3-import-the-pipeline-into-red-hat-openshift-ai). It appears in the **Pipeline definitions** list under the display name you entered when importing.
-
-**Step 3 — create a run.** Open the pipeline definition, open the **Actions** menu, and choose **Create run**. Fill in the parameters from the table below. Leave everything not listed at its default. Use a new `p50_model_registry_version` per revision if registering.
-
-> [!WARNING]
->
-> In the run form's **MLflow integration** step, clear the **Enable MLflow experiment tracking** checkbox — it is checked by default, so you have to untick it. These pipelines have not been tested with an MLflow experiment association, and leaving it on may cause the run to fail or behave unexpectedly.
+Fill in the parameters from the table below and leave everything not listed at its default. Use a new `p50_model_registry_version` per revision if registering.
 
 ![Run details for the offline run, with MLflow experiment tracking unticked](../images/speculator-offline-create-run.png)
 
-**Step 4 — start the run and watch it.** Click **Create run**. The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish); the common guide covers the [UI mechanics](../README.md#5-watch-the-run) of watching a run.
+The stage-by-stage walkthrough is in [The pipeline run from start to finish](#3-the-pipeline-run-from-start-to-finish).
 
 ### Example: Qwen3-0.6B
 
@@ -226,9 +216,9 @@ The first of those values in the run form's **Parameters** step — each field c
 
 ![Parameters step of the offline run form, showing the first example values entered](../images/speculator-offline-parameters.png)
 
-## Interpreting the results
+## 9. Interpreting the results
 
-Same evaluation task and metrics as the train-only pipeline — see [Interpreting the evaluation results](../train-only/README.md#interpreting-the-evaluation-results) in that guide for the full metric table and how to read it.
+Same evaluation task and metrics as the train-only pipeline — see [Interpreting the evaluation results](../train-only/README.md#10-interpreting-the-evaluation-results) in that guide for the full metric table and how to read it.
 
 The evaluation task's metrics in the Red Hat OpenShift AI UI:
 
@@ -238,7 +228,7 @@ If you kept registration enabled (`p47_model_registry_address` set), the draft a
 
 ![Offline run registry entry](../images/speculator-offline-model-registry.png)
 
-## Testing the served endpoint
+## 10. Testing the served endpoint
 
 Follow [Testing the served endpoint](../README.md#testing-the-served-endpoint) in the common guide. One offline-specific note: KServe may scale the predictor to zero after a period of idleness — check `oc get inferenceservice -n <p06_serving_namespace>` shows `True` before concluding something is broken.
 
@@ -246,11 +236,13 @@ The deployed endpoint in the Red Hat OpenShift AI UI:
 
 ![Offline run deployed endpoint](../images/speculator-offline-deployment.png)
 
-## Customization
+## 11. Customization
 
 Sweep `p16_training_epochs`, `p17_training_lr`, `p19_training_num_layers`, and `p43_evaluation_num_speculative_tokens` between runs. Each offline run repeats extraction — to iterate on training alone, split into [data-extraction](../data-extraction/) + [train-only](../train-only/).
 
-## Full Parameter Reference
+## Reference
+
+### Full Parameter Reference
 
 | Parameter | Type | Default | Description |
 | --------- | ---- | ------- | ----------- |
@@ -258,7 +250,7 @@ Sweep `p16_training_epochs`, `p17_training_lr`, `p19_training_num_layers`, and `
 | `p02_verifier_model_pvc` | `str` | `None` | Required verifier model directory on the PVC. Use the on-disk directory name (`models/Qwen--Qwen3-0.6B`), not the HuggingFace model ID — the download task replaces `/` with `--`. The model must already exist there; this pipeline does not download verifier models. |
 | `p03_vllm_endpoint` | `str` | `None` | Required URL for the external vLLM service. It must be able to access the verifier and hidden-state paths on `p01_persistent_pvc`. |
 | `p04_dataset_name` | `str` | `None` | Required built-in dataset name (`magpie`, `ultrachat`, `gsm8k`) or PVC URI to a JSON/JSONL file. |
-| `p05_evaluation_dataset_uri` | `str` | `None` | Required evaluation dataset. Use `RedHatAI/speculator_benchmarks` (HuggingFace) or a `pvc://` URI pointing to a local JSONL file on `p01_persistent_pvc`. See [Preparing the evaluation dataset](../train-only/README.md#preparing-the-evaluation-dataset). |
+| `p05_evaluation_dataset_uri` | `str` | `None` | Required evaluation dataset. Use `RedHatAI/speculator_benchmarks` (HuggingFace) or a `pvc://` URI pointing to a local JSONL file on `p01_persistent_pvc`. See [Preparing the evaluation dataset](../train-only/README.md#7-preparing-the-evaluation-dataset). |
 | `p06_serving_namespace` | `str` | `None` | Required KServe namespace; must access the PVC. |
 | `p07_data_extraction_max_samples` | `int` | `0` | Maximum extraction examples; `0` processes the full dataset. |
 | `p08_data_extraction_regenerate_responses` | `bool` | `False` | Regenerate assistant responses with the verifier; built-in datasets only. |
@@ -302,7 +294,7 @@ Sweep `p16_training_epochs`, `p17_training_lr`, `p19_training_num_layers`, and `
 | `p51_serving_endpoint_name` | `str` | `speculator-offline` | DNS-compatible name for the KServe InferenceService. |
 | `p52_serving_runtime_image` | `str` | `registry.redhat.io/rhaii-fast/vllm-cuda-rhel9@sha256:97c7d6f66f3f0897b3ff10ddd135de930d45bdd116cf41a43e3ad7270029116a` | Pinned compatible vLLM CUDA image pull spec used by KServe. |
 
-## Troubleshooting
+### Troubleshooting
 
 | Symptom | Diagnosis | Fix |
 | --- | --- | --- |
@@ -310,13 +302,13 @@ Sweep `p16_training_epochs`, `p17_training_lr`, `p19_training_num_layers`, and `
 | Extraction succeeds but training fails: hidden states not found | Path misalignment between extraction output and training input | Align `p10`/`p11`/`p12` — changing `p10_output_dir` requires updating the other two |
 | Training fails with a layer/tensor shape mismatch | `p15_target_layer_ids` doesn't match the verifier | Set the four layer IDs for your verifier (`2,14,25,28` for Qwen3-0.6B) |
 | Verifier not found | `p02_verifier_model_pvc` doesn't exist — this pipeline never downloads | Cache the verifier first; see [Verifier already on the PVC](#verifier-already-on-the-pvc) |
-| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p02_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm — see [Verifying the output on the PVC](../data-extraction/README.md#verifying-the-output-on-the-pvc) |
+| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p02_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm — see [Verifying the output on the PVC](../data-extraction/README.md#7-verifying-the-output-on-the-pvc) |
 | Registry task fails | Wrong registry address or missing RoleBinding | Use the `-rest` route URL with `https://` and port `443` in `p48` (or the in-cluster service with `8080`); add the RoleBinding — or leave the address empty to skip |
 | Older registry versions break after re-run | `final_model` overwritten each run | Separate PVC per revision |
 | First request to the endpoint hangs or is refused | KServe scaled the predictor to zero, or vLLM is still loading | Check `oc get inferenceservice` shows `True`; wait and retry |
 
 Compile-time problems and endpoint-access problems are covered in the [common troubleshooting table](../README.md#troubleshooting).
 
-## Source
+### Source
 
 Pipeline source: [`pipelines-components/pipelines/training/speculator/offline`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/offline). The parameter table above is derived from that directory's `README.md` and `pipeline.py`; re-check it against your imported definition after pulling the `rhoai-3.6` branch.
