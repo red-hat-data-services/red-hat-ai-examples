@@ -58,7 +58,7 @@ prepared datasets, runtime caches, and retained runs.
 
 ### Administrator responsibilities
 
-Start with a new project and record the setup before handing it to the test user.
+Start with a new project and record the setup.
 Cluster-scoped configuration and grants outside the user's project must be
 performed by an administrator.
 
@@ -83,9 +83,8 @@ read access to runtimes and project PVCs for inspecting prerequisites.
 
 Verify access separately for the three identities used in this example.
 
-1. **Test user:** The end user signs in to the Dashboard with this account.
-   Verify that they can import the pipeline, start runs, and inspect task logs,
-   inputs/outputs, and results.
+1. **Non-admin user:** Verify that the account running the example can import
+   the pipeline, start runs, and inspect task logs, inputs, outputs, and results.
 2. **Training API identity:** The training task authenticates with the token
    in the `kubernetes-credentials` Secret. Verify that this identity can list
    `trainingruntimes` in the project and `clustertrainingruntimes` at cluster
@@ -96,55 +95,36 @@ Verify access separately for the three identities used in this example.
    that the account can register models in the selected Model Registry and
    manage KServe resources in the serving project.
 
-Grant only the permissions required by each identity. The test user does not
-need cluster-admin access to run this example.
+Grant only the permissions required by each identity. A non-admin user with
+the project and pipeline-server access described above can run this example.
 
 ### Create shared storage for GRPO
 
-**Administrator** provisions a separate shared PVC for the GRPO pipeline.
-Configuring a pipeline server may create an internal database PVC such as
-`mariadb-dspa`. This database volume serves the pipeline infrastructure; it is
-not the model/checkpoint PVC selected by `p01_persistent_pvc`.
+Admin creates a separate PVC for training and serving. Choose a
+storage class that supports **ReadWriteMany (RWX)** access mode.
 
-`oc get pvc -n loragrpopipeline` lists the PVCs your account can see in the
-namespace, including storage created for services such as the pipeline server's
-database. The RHOAI **Cluster storage** tab is a view of storage managed through
-the Dashboard and may omit these internal service PVCs.
+1. In the RHOAI Dashboard, open **Projects → loragrpopipeline → Cluster storage**.
 
-For example, the CLI might list only `mariadb-dspa` while the Cluster storage
-tab is empty. That PVC stores the pipeline server's database data; its existence
-does not provide shared storage for GRPO models, checkpoints, and caches. Leave
-it dedicated to the database and create `loragrpopipeline-pvc` separately using
-the steps below. Verify that the new claim has **ReadWriteMany (RWX)** access
-and at least **50Gi**, then use its actual resource name for `p01_persistent_pvc`.
+   ![Cluster storage tab in loragrpopipeline with the Add cluster storage button](docs/11-cluster-storage-tab.png)
 
-1. Identify an installed RWX-capable storage class. In the OpenShift console,
-   open **Storage → StorageClasses**, or run `oc get storageclass` as admin.
-   Confirm the selected provisioner supports ReadWriteMany. If no suitable class is available, have the storage administrator configure a shared-filesystem provisioner before proceeding.
-2. In the RHOAI Dashboard, open **Projects → loragrpopipeline → Cluster storage**
-   and click **Add cluster storage**.
-3. Set the storage name to `loragrpopipeline-pvc`, request at least **50Gi**, and
-   select the RWX-capable class verified in step 1. Ensure the resulting access
-   mode is **ReadWriteMany**.
-4. Create the storage and verify the actual PVC name, requested capacity,
-   access mode, and provisioning status. Check the selected StorageClass's
-   `volumeBindingMode` and share it with the test user.
+2. Click **Add cluster storage**. Name it `loragrpopipeline-pvc` and select a
+   storage class that supports RWX. The screenshot shows `nfs-csi` as an example.
 
-   ```bash
-   oc get pvc loragrpopipeline-pvc -n loragrpopipeline
-   oc describe pvc loragrpopipeline-pvc -n loragrpopipeline
-   ```
+   ![Add cluster storage form showing the claim name and a storage class that supports RWX](docs/12-add-cluster-storage-form.png)
 
-**Test user:** check the claim with
-`oc get pvc loragrpopipeline-pvc -n loragrpopipeline`.
+3. Select **ReadWriteMany (RWX)** and request storage size of **50Gi** or more.
 
-- **`Immediate`**. Wait for `Bound` before starting the run.
-- **`WaitForFirstConsumer`**. `Pending` is expected before the run. Set
-  `p01_persistent_pvc` to the claim name, start the pipeline, and check for
-  `Bound` when the first task pod uses the claim.
+   ![Add cluster storage form with ReadWriteMany selected and the storage size set to 50 GiB](docs/13-cluster-storage-rwx.png)
 
-If the claim stays `Pending` at the expected binding step, ask the
-administrator to check provisioning and pod scheduling events.
+4. Add the storage and record the PVC name to enter for
+   `p01_persistent_pvc`.
+
+In the OpenShift web console, the administrator can check the claim status under
+**Storage → PersistentVolumeClaims**. A **Bound** claim is ready for the run.
+If the claim is **Pending**, check whether the storage class
+uses `WaitForFirstConsumer`. If so, start the run and expect the claim to bind
+when the first pod that uses it is scheduled. Otherwise, resolve the
+provisioning issue before starting the run.
 
 ### Credentials and data connections
 
@@ -203,8 +183,7 @@ PYTHONPATH=. python pipelines/training/finetuning/lora_grpo/pipeline.py
 
 ## Usage
 
-Before importing, sign in as the test user and confirm the project and its
-Pipelines page are accessible.
+This example uses the non-admin user `grpo-test-user`. If you are using a non-admin account, ensure you have permission to view the project and its Pipelines page before importing the pipeline.
 
 ### 1. Import the pipeline
 
