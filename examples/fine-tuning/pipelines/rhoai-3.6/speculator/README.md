@@ -27,7 +27,7 @@ This page covers what is shared across all four modes — background, prerequisi
 | **[7. Clean up](#7-clean-up)** | [Stop or delete the endpoint](#1-stop-restart-or-remove-the-serving-endpoint) · [when you are done](#2-when-you-are-done) |
 | **[Reference](#reference)** | [Default verifier](#default-verifier-model) · [compile-time settings](#customizing-before-you-compile) · [troubleshooting](#troubleshooting) · [source](#source) |
 
-Each mode has its own guide with a stage-by-stage walkthrough and full parameter reference: [data-extraction](data-extraction/) · [train-only](train-only/) · [online](online/) · [offline](offline/).
+Each mode has its own guide with a stage-by-stage walkthrough and its example parameter tables: [data-extraction](data-extraction/) · [train-only](train-only/) · [online](online/) · [offline](offline/).
 
 ## 1. Understand the pipelines
 
@@ -170,7 +170,7 @@ Verify with `oc get pvc shared` — expect `STATUS Bound`.
 
 > [!TIP]
 >
-> Attaching the PVC to a workbench is optional and separate; the pipelines mount it themselves. Attach it only if you want a terminal for [inspecting outputs](data-extraction/README.md#7-verifying-the-output-on-the-pvc).
+> Attaching the PVC to a workbench is optional and separate; the pipelines mount it themselves. Attach it only if you want a terminal for inspecting what the runs wrote to the PVC.
 
 ### Configure the pipeline server
 
@@ -325,7 +325,7 @@ The ready-to-copy parameter tables:
 
 ![Running pipeline graph](images/speculator-run-graph.png)
 
-When the run succeeds, continue with the mode's guide — for the two-step workflow that means [verifying the output on the PVC](data-extraction/README.md#7-verifying-the-output-on-the-pvc) and then the [train-only pipeline](train-only/README.md), whose guide covers [interpreting the evaluation results](train-only/README.md#10-interpreting-the-evaluation-results).
+When the run succeeds, continue with the mode's guide — for the two-step workflow that means checking that the extraction run wrote `hidden_states/` under its output directory on the shared PVC, then the [train-only pipeline](train-only/README.md), whose guide covers [interpreting the evaluation results](train-only/README.md#10-interpreting-the-evaluation-results).
 
 [↑ Contents](#contents)
 
@@ -454,7 +454,7 @@ Compile and run-time problems, ordered roughly by when you'd hit them:
 | Run fails with ClusterTrainingRuntime not found | CTR from `pNN_job_runtime` not deployed | `oc get clustertrainingruntimes`; deploy the missing runtime |
 | Training pod OOM-killed | Verifier too large for defaults, or `gpu_memory_utilization` too high | Raise `pNN_training_resource_memory`; lower `gpu_memory_utilization` |
 | Registry task fails with connection refused or 404 | Registry address wrong — the `https://` scheme dropped from the `-rest` route (plain HTTP to a TLS endpoint), or the dashboard URL used instead of the route — or the registry RoleBinding is missing | Use `https://<registry-name>-rest.apps.<cluster-domain>` with port `443` — not the dashboard URL — or the in-cluster Service `model-registry-<name>.<namespace>.svc` (no scheme) with port `8080`; the RoleBinding is described in [the registry prerequisites](#model-registry-and-kserve-train-only--online--offline) |
-| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm — see [Verifying the output on the PVC](data-extraction/README.md#7-verifying-the-output-on-the-pvc) |
+| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm |
 | Model download fails with 401 | Gated model without `hf-token` secret | Ask your administrator to create the `hf-token` secret |
 | `curl: Could not resolve host: <name>-predictor.<ns>.svc.cluster.local` | The URL is cluster-local; you are off-cluster (e.g. your laptop) | Run the request from inside the cluster via `oc exec`, or use `oc port-forward` — see [Testing the served endpoint](#testing-the-served-endpoint) |
 | `connection refused` when port-forwarding to port 80 | The predictor container listens on **8080**; port-forward does no Service port translation | Forward to the container port: `oc port-forward ... 5000:8080` |
@@ -466,6 +466,6 @@ More mode-specific symptoms are in each subfolder's guide.
 
 ### Source
 
-The pipelines documented here live in [`red-hat-data-services/pipelines-components`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator) under `pipelines/training/speculator/`, on the **`rhoai-3.6`** branch — the one this guide compiles from, and the one whose runtime images match Red Hat OpenShift AI 3.6. The parameter tables in the mode guides are derived from that branch's pipeline sources and READMEs. The pipelines still change within a release branch, so re-generate your YAML after pulling `rhoai-3.6` and re-check the parameter list against the imported definition.
+The pipelines documented here live in [`red-hat-data-services/pipelines-components`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator) under `pipelines/training/speculator/`, on the **`rhoai-3.6`** branch — the one this guide compiles from, and the one whose runtime images match Red Hat OpenShift AI 3.6. The example parameter tables in the mode guides are derived from that branch's pipeline sources and READMEs; the full parameter lists are documented in the pipeline directories' own READMEs. The pipelines still change within a release branch, so re-generate your YAML after pulling `rhoai-3.6` and re-check the parameter list against the imported definition.
 
 [↑ Contents](#contents)

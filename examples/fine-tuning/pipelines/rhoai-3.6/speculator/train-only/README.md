@@ -75,11 +75,11 @@ The path contract between the two pipelines:
 | `p13_target_layer_ids` | The extraction run's `p18_target_layer_ids` — exactly |
 | `p11_total_seq_len` | The extraction run's `p16_total_seq_len` |
 
-Defaults line up out of the box. If you customized the extraction output directory, update the paths here too — they are **not** discovered automatically from previous runs. The verifier must be supplied via `p06_verifier_model_pvc`; when the extraction run used `p04_download_model=true`, point this at the directory it cached — the download task names it after the model ID with `/` replaced by `--` (e.g. `models/Qwen--Qwen3-0.6B`, `models/meta-llama--Llama-3.2-1B-Instruct`). The [data-extraction guide's verification section](../data-extraction/README.md#7-verifying-the-output-on-the-pvc) shows how to list what was actually cached.
+Defaults line up out of the box. If you customized the extraction output directory, update the paths here too — they are **not** discovered automatically from previous runs. The verifier must be supplied via `p06_verifier_model_pvc`; when the extraction run used `p04_download_model=true`, point this at the directory it cached — the download task names it after the model ID with `/` replaced by `--` (e.g. `models/Qwen--Qwen3-0.6B`, `models/meta-llama--Llama-3.2-1B-Instruct`).
 
 > [!WARNING]
 >
-> A common mistake is setting `p06_verifier_model_pvc` to the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name (`models/Qwen--Qwen3-0.6B`). The download task replaces `/` with `--` in the model ID — always list `models/` on the shared PVC and use the directory name you actually see before creating a train-only run (the [data-extraction guide](../data-extraction/README.md#7-verifying-the-output-on-the-pvc) has the workbench terminal procedure).
+> A common mistake is setting `p06_verifier_model_pvc` to the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name (`models/Qwen--Qwen3-0.6B`). The download task replaces `/` with `--` in the model ID — always list `models/` on the shared PVC (for example from a workbench with the PVC attached) and use the directory name you actually see before creating a train-only run.
 
 ## 7. Preparing the evaluation dataset
 
@@ -230,73 +230,23 @@ Watch the acceptance metrics after each iteration and keep the best revision in 
 
 ## Reference
 
-### Full Parameter Reference
-
-| Parameter | Type | Default | Description |
-| --------- | ---- | ------- | ----------- |
-| `p01_persistent_pvc` | `str` | `None` | Name of an existing ReadWriteMany PVC mounted at `/mnt/persistent`; stores the verifier, hidden states, training data, and model output. |
-| `p02_model_registry_address` | `str` | `None` | Required Model Registry REST endpoint: the registry's `https://<name>-rest.apps.<cluster-domain>` route URL (scheme included), or the in-cluster service hostname. |
-| `p03_model_registry_name` | `str` | `None` | Required model name, unique in the selected registry. |
-| `p04_serving_namespace` | `str` | `None` | Namespace where KServe creates the endpoint; must match the PVC namespace and have required permissions. |
-| `p05_serving_endpoint_name` | `str` | `None` | Required DNS-compatible KServe InferenceService name. |
-| `p06_verifier_model_pvc` | `str` | `None` | Required existing verifier directory on `p01_persistent_pvc`. Use the on-disk directory name (`models/Qwen--Qwen3-0.6B`), not the HuggingFace model ID — the download task replaces `/` with `--`. Relative path or matching `pvc://` URI. |
-| `p07_evaluation_dataset_uri` | `str` | `None` | Required evaluation dataset. Use `RedHatAI/speculator_benchmarks` (HuggingFace) or a `pvc://` URI pointing to a local JSONL file on `p01_persistent_pvc`. See [Preparing the evaluation dataset](#7-preparing-the-evaluation-dataset). |
-| `p08_training_data_path` | `str` | `speculator-output` | Directory containing the preprocessed dataset from the data extraction pipeline. |
-| `p09_hidden_states_path` | `str` | `speculator-output/hidden_states` | Existing hidden-state directory from data-only extraction. |
-| `p10_output_dir` | `str` | `speculator-output` | Checkpoint and output directory on `p01_persistent_pvc`. |
-| `p11_total_seq_len` | `int` | `2048` | Positive sequence length for preprocessing and training; keep consistent with the extraction run. |
-| `p12_speculator_type` | `str` | `eagle3` | Draft architecture. `eagle3` is currently supported. |
-| `p13_target_layer_ids` | `str` | `2,14,25,28` | Four comma-separated verifier layer IDs. Use the same IDs as the extraction run. |
-| `p14_training_epochs` | `int` | `3` | Positive number of training epochs. |
-| `p15_training_lr` | `float` | `0.0001` | Positive learning rate for draft-model training. |
-| `p16_training_draft_vocab_size` | `int` | `0` | Draft vocabulary size. `0` lets the SDK derive it. |
-| `p17_training_num_layers` | `int` | `1` | Number of layers in the draft model. |
-| `p18_training_test_time_steps` | `int` | `1` | Number of test-time training steps configured for Speculator. |
-| `p19_training_norm_before_residual` | `bool` | `True` | Apply normalization before the residual connection. |
-| `p20_training_norm_before_fc` | `bool` | `False` | Apply normalization before the fully connected layer. |
-| `p21_training_embed_requires_grad` | `bool` | `False` | Whether draft embedding weights are trainable. |
-| `p22_training_hidden_states_dtype` | `str` | `bfloat16` | Hidden-state dtype; must match the verifier. |
-| `p23_training_scheduler_type` | `str` | `linear` | LR scheduler: `linear`, `cosine`, or `none`. |
-| `p24_training_scheduler_warmup_steps` | `int` | `0` | Warmup steps; `0` lets the SDK calculate 1% of total steps. |
-| `p25_training_scheduler_total_steps` | `int` | `0` | Total scheduler steps; `0` lets the SDK calculate them. |
-| `p26_training_scheduler_num_cosine_cycles` | `float` | `0.5` | Cosine cycles, used only by the cosine scheduler. |
-| `p27_training_checkpoint_freq` | `float` | `1.0` | Checkpoint interval in epochs. |
-| `p28_training_save_best` | `bool` | `False` | Save only the best checkpoint by validation loss. |
-| `p29_training_log_freq` | `int` | `1` | Training steps between log updates. |
-| `p30_training_resume_from_checkpoint` | `bool` | `False` | Resume when the runtime supports it. |
-| `p31_training_resource_cpu` | `str` | `4` | CPU request for the training worker. |
-| `p32_training_resource_gpu` | `int` | `1` | Number of GPUs requested for the training worker. |
-| `p33_training_resource_memory` | `str` | `64Gi` | Memory request for the training worker. |
-| `p34_job_envs` | `str` | `NCCL_DEBUG=INFO,PYTHONUNBUFFERED=1` | Comma-separated `KEY=VALUE` environment overrides for the job. |
-| `p35_job_runtime` | `str` | `speculator-model-opt-cuda` | Name of the runtime used by the job. |
-| `p36_packages_to_install` | `str` | `""` | Comma-separated Python packages to install for the training job. |
-| `p37_pip_index_urls` | `str` | `""` | Comma-separated package index URLs to use for installs in the training job. |
-| `p38_evaluation_max_samples` | `int` | `80` | Maximum requests per evaluation sweep point; must be positive. |
-| `p39_evaluation_max_tokens` | `int` | `256` | Maximum generated tokens per evaluation request; must be positive. |
-| `p40_evaluation_temperature` | `float` | `0.0` | GuideLLM sampling temperature; `0` is deterministic. |
-| `p41_num_speculative_tokens` | `int` | `5` | Draft tokens proposed per step for evaluation and serving. |
-| `p42_gpu_memory_utilization` | `float` | `0.9` | GPU memory fraction for evaluation and serving, in `(0, 1]`. |
-| `p43_evaluation_startup_timeout_seconds` | `int` | `900` | Maximum wait for the evaluation vLLM server. |
-| `p44_evaluation_sample_seed` | `int` | `42` | Seed for sampling from a local evaluation dataset. |
-| `p45_model_registry_port` | `int` | `8080` | Registry REST port: `443` for the `-rest` route, `8080` for the in-cluster service. |
-| `p46_model_registry_version` | `str` | `1.0.0` | Version label for this registration; use a new version per revision. |
-| `p47_serving_runtime_image` | `str` | `registry.redhat.io/rhaii-fast/vllm-cuda-rhel9@sha256:97c7d6f66f3f0897b3ff10ddd135de930d45bdd116cf41a43e3ad7270029116a` | Red Hat CUDA runtime image used by KServe for Eagle3 draft serving (contains vLLM 0.28.0+rhaiv.7). Override only with a compatible image. |
+For the full parameter list, see the compiled pipeline YAML, or the pipeline's own README in the [pipelines-components repository](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.6/pipelines/training/speculator/train_only/README.md).
 
 ### Troubleshooting
 
 | Symptom | Diagnosis | Fix |
 | --- | --- | --- |
-| Training task fails: hidden states not found | Paths don't match the extraction run's output | Align `p08`/`p09`/`p10` with the extraction run's `p06_output_dir`; check the PVC per the [data-extraction guide](../data-extraction/README.md#7-verifying-the-output-on-the-pvc) |
+| Training task fails: hidden states not found | Paths don't match the extraction run's output | Align `p08`/`p09`/`p10` with the extraction run's `p06_output_dir`; list the extraction output directory on the shared PVC to check what was written |
 | Training fails with a layer/tensor shape mismatch | `p13_target_layer_ids` or `p11_total_seq_len` differs from the extraction run | Set both to exactly the extraction run's values |
 | Registry task fails with connection refused | Wrong host/port split or missing RoleBinding | Use the `-rest` route URL with `https://` and port `443` (or the in-cluster service with `8080`); add the RoleBinding |
 | Serving task fails with forbidden | ServiceAccount lacks KServe permissions in `p04_serving_namespace` | Grant ServingRuntime/InferenceService manage rights |
 | Training pod OOM-killed | Verifier too large for defaults | Raise `p33_training_resource_memory` |
 | Older registry versions break after a re-run | `final_model` on the PVC is overwritten each run | Use a separate PVC per revision if old versions must keep referencing their weights |
-| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p06_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm — see [Verifying the output on the PVC](../data-extraction/README.md#7-verifying-the-output-on-the-pvc) |
+| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p06_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm |
 | Chat request to the endpoint returns "model not found" | Wrong model id — the server registers the model under the InferenceService name | Discover the id via `/v1/models`; see [Testing the served endpoint](#11-testing-the-served-endpoint) |
 
 Compile-time problems and endpoint-access problems (cluster-local DNS, port-forwarding) are covered in the [common troubleshooting table](../README.md#troubleshooting).
 
 ### Source
 
-Pipeline source: [`pipelines-components/pipelines/training/speculator/train_only`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/train_only). The parameter table above is derived from that directory's `README.md` and `pipeline.py`; re-check it against your imported definition after pulling the `rhoai-3.6` branch.
+Pipeline source: [`pipelines-components/pipelines/training/speculator/train_only`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/train_only). The example parameter tables above are derived from that directory's `README.md` and `pipeline.py`; re-check them against your imported definition after pulling the `rhoai-3.6` branch.

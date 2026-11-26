@@ -50,7 +50,7 @@ oc get trainjobs,pods -n <project-namespace>
 
 You'll see one TrainJob with the extraction worker and the vLLM sidecar containers. Both disappear when the run completes.
 
-When every node is green, the run is done — but "green" only means the pipeline finished. Confirm the output is real before moving on to the train-only pipeline: [Verifying the output on the PVC](#7-verifying-the-output-on-the-pvc).
+When every node is green, the run is done — but "green" only means the pipeline finished. Before handing off to the [train-only pipeline](../train-only/), make sure the run actually wrote its outputs: `hidden_states/` under `p06_output_dir` on the shared PVC, and the cached verifier under `models/` when `p04_download_model=true`.
 
 ![Extraction task logs](../images/speculator-data-extraction-logs.png)
 
@@ -100,69 +100,13 @@ Minimal managed-mode parameter set for an example run:
 | `p18_target_layer_ids` | `2,14,25,28` | **Required** — download mode cannot infer layer IDs |
 | `p20_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the extraction job |
 
-Everything else can keep its default. For remote mode instead, see [Managed vs remote vLLM](#8-managed-vs-remote-vllm).
+Everything else can keep its default. For remote mode instead, see [Managed vs remote vLLM](#7-managed-vs-remote-vllm).
 
 The same values in the run form's **Parameters** step — each field carries the parameter's own description underneath, so you can check a value without leaving the page:
 
 ![Parameters step of the data-extraction run form, showing the first example values entered](../images/speculator-data-extraction-parameters.png)
 
-## 7. Verifying the output on the PVC
-
-Before handing off to the train-only pipeline, check what extraction actually produced. This is the gate between the two steps — training fails immediately if the hidden states are missing, so two minutes here saves a confusing failure there.
-
-These commands run **inside a pod that mounts the shared PVC**. If you did the setup from your workstation, nothing mounts it yet — the pipeline's own pods are gone once the run finishes. Create a workbench to get a terminal that does (most users cannot create pods directly with `oc run`):
-
-1. In the Red Hat OpenShift AI dashboard, open your project and select **Workbenches → Create workbench**.
-2. Pick the smallest available image and container size — this workbench only lists files, so it needs no GPU and no accelerator profile.
-3. Under **Cluster storage**, choose **Attach existing storage**, select the shared PVC (`shared` in these examples) and give it a **Mount path**. The commands below assume `/opt/app-root/src/shared`, which is the workbench's default working directory plus the claim name; whatever you enter here is your `PVC_MOUNT`.
-4. Start the workbench, open it, and use its terminal. Stop the workbench when you are finished — a stopped workbench releases its compute while the PVC data stays.
-
-The commands assume the default output directory (`p06_output_dir=speculator-output`, hidden states at `speculator-output/hidden_states`); if you customized it, substitute your path.
-
-```bash
-# The mount path you gave the shared PVC in the workbench:
-PVC_MOUNT=/opt/app-root/src/shared
-
-# What the extraction run produced:
-ls -laR $PVC_MOUNT/speculator-output | head -40
-
-# The hidden states — count and size of the safetensors files:
-ls -la $PVC_MOUNT/speculator-output/hidden_states/
-
-# Where the verifier was cached by the download task
-# (model ID with "/" replaced by "--"):
-ls $PVC_MOUNT/models/
-```
-
-What you should see:
-
-- **`speculator-output/hidden_states/`** containing one `.safetensors` file **per extracted sample**, each holding that sample's verifier hidden states as `[seq_len, num_layers, hidden_size]` in bfloat16 — roughly `seq_len × 4 × 1024 × 2` bytes, so a few MB for a short conversation and about 17 MB at the 2048-token cap (`p16_total_seq_len`). Files are named `hs_<index>.safetensors`, one per sample. A 16-sample example run produces 16 files ranging from about 5 MB to 17 MB — longer conversations are truncated at the cap — for roughly **170 MB** in total, and proportionally more with `p08_max_samples=0`. A directory of a few MB means extraction wrote almost nothing.
-- **Processed dataset files** under `speculator-output/` — the preprocessed training data the train-only pipeline reads.
-- **`models/Qwen--Qwen3-0.6B/`** — the cached verifier. The download task replaces `/` with `--` in the model ID to form the directory name: `Qwen/Qwen3-0.6B` becomes `Qwen--Qwen3-0.6B`. This exact directory name is what `p06_verifier_model_pvc` needs in the train-only run — using the HuggingFace model ID (`models/Qwen3-0.6B` without the `Qwen--` prefix) causes an `HFValidationError` at training time.
-
-If `hidden_states/` is empty or missing, the extraction did not do what you expected — see [Troubleshooting](#troubleshooting) before re-running.
-
-If `safetensors` is available in the workbench, peek at one tensor to confirm the data is real (the snippet reads `PVC_MOUNT` from the environment, so export your mount path first):
-
-```bash
-export PVC_MOUNT=/opt/app-root/src/shared
-
-python3 - <<'EOF'
-import os
-from safetensors import safe_open
-from pathlib import Path
-mount = os.environ.get("PVC_MOUNT", "/opt/app-root/src/shared")
-files = sorted(Path(mount, "speculator-output/hidden_states").rglob("*.safetensors"))
-print(f"{len(files)} file(s):", [f.name for f in files])
-with safe_open(files[0], framework="numpy") as f:
-    for key in list(f.keys())[:3]:
-        print(key, f.get_slice(key).get_shape())
-EOF
-```
-
-For Qwen3-0.6B the `hidden_states` tensor in each file should be `[seq_len, num_layers, 1024]` — sequence length, the captured verifier layers, and `hidden_size=1024`. (`get_slice(...).get_shape()` reads only the shape metadata, so it works on bfloat16 tensors that `get_tensor` cannot load as numpy.)
-
-## 8. Managed vs remote vLLM
+## 7. Managed vs remote vLLM
 
 ### Method 1: Managed vLLM sidecar (`p10_vllm_mode=managed`)
 
@@ -180,45 +124,19 @@ Point `p11_vllm_endpoint` at your own vLLM deployment. Requirements:
 
 Before running, verify the endpoint is reachable from the project namespace — the probe procedure (from a workbench, or administrator-run) is in the offline guide's [External vLLM server](../offline/README.md#external-vllm-server) section; point it at `p11_vllm_endpoint` instead of offline's `p03_vllm_endpoint`.
 
-## 9. Verifier model and target layer IDs
+## 8. Verifier model and target layer IDs
 
 `p18_target_layer_ids` must be exactly **four** comma-separated verifier layer indices. It is required when using `p03_verifier_model_pvc`, when `p04_download_model` is true, or in remote mode. It may be omitted **only** in managed mode when the verifier is passed as a HuggingFace model ID and not downloaded — the SDK can then infer indices from the model config. For Qwen3-0.6B: `2,14,25,28`.
 
 The IDs are **verifier-specific** — a wrong set fails at training time with a tensor shape mismatch. For any verifier other than Qwen3-0.6B, find its four Eagle3 target layers as described in [Default verifier model](../README.md#default-verifier-model).
 
-## 10. Dataset
+## 9. Dataset
 
 `p05_dataset_name` accepts the built-ins `magpie` (Magpie-Align/Magpie-Llama-3.1-Pro-300K-Filtered), `ultrachat` (HuggingFaceH4/ultrachat_200k, default), and `gsm8k` (openai/gsm8k), or a JSON/JSONL file on the PVC (relative path or `pvc://<claim>/<path>`). Arbitrary HuggingFace dataset IDs are not supported.
 
 ## Reference
 
-### Full Parameter Reference
-
-| Parameter | Type | Default | Description |
-| --------- | ---- | ------- | ----------- |
-| `p01_persistent_pvc` | `str` | `None` | Name of the existing PVC in the pipeline namespace, mounted at `/mnt/persistent`, that stores models, datasets, and extraction outputs. Required. |
-| `p02_verifier_model` | `str` | `""` | Hugging Face Hub model ID. Set when `p04_download_model` is true to download to the PVC. In managed mode with downloads disabled and no PVC path set, this ID is passed directly to vLLM. |
-| `p03_verifier_model_pvc` | `str` | `""` | Optional verifier directory on `p01_persistent_pvc`. Use the on-disk directory name (`models/Qwen--Qwen3-0.6B`), not the HuggingFace model ID — the download task replaces `/` with `--`. Managed mode with downloads disabled reuses it if set. Remote mode always requires this PVC-backed path. Relative path or `pvc://` URI. |
-| `p04_download_model` | `bool` | `False` | Download `p02_verifier_model` to the PVC. When `false`, a PVC copy is required only in **remote mode** — supply it via `p03_verifier_model_pvc`. In managed mode, `p02_verifier_model` is passed directly to vLLM when `p03_verifier_model_pvc` is empty. |
-| `p05_dataset_name` | `str` | `ultrachat` | `magpie`, `ultrachat`, or `gsm8k`; or a JSON/JSONL file on the PVC. Arbitrary HuggingFace dataset IDs are not supported. |
-| `p06_output_dir` | `str` | `speculator-output` | Directory on `p01_persistent_pvc` where extraction outputs are written. |
-| `p07_hidden_states_path` | `str` | `speculator-output/hidden_states` | Remote-mode output location for hidden states; must match the location used by the remote vLLM service. Managed mode ignores it and writes to `<p06_output_dir>/hidden_states`. |
-| `p08_max_samples` | `int` | `16` | Maximum samples to process; `0` processes the full dataset. Existing hidden states in `p06_output_dir` are reused and extraction is skipped — use a fresh output directory for a full-dataset run, and update the train-only input paths ([Wiring it to a data-extraction run](../train-only/README.md#6-wiring-it-to-a-data-extraction-run)) to match. |
-| `p09_regenerate_responses` | `bool` | `False` | Re-generate assistant responses with the verifier instead of using the originals. Built-in datasets only. |
-| `p10_vllm_mode` | `str` | `managed` | `managed` (sidecar) or `remote` (external service). |
-| `p11_vllm_endpoint` | `str` | `""` | URL of the external vLLM service; required for `remote`, blank for `managed`. |
-| `p12_vllm_resource_gpu` | `int` | `1` | GPUs requested by managed vLLM; the SDK currently supports exactly `1`. |
-| `p13_vllm_resource_memory` | `str` | `96Gi` | Memory requested by the managed vLLM sidecar. |
-| `p14_vllm_gpu_memory_utilization` | `float` | `0.9` | Fraction of GPU memory available to vLLM, in `(0, 1]`. |
-| `p15_vllm_readiness_timeout_minutes` | `int` | `60` | Maximum wait for the vLLM endpoint to become ready, in minutes; minimum `1`. |
-| `p16_total_seq_len` | `int` | `2048` | Maximum sequence length for preprocessing and extraction; must be positive. |
-| `p17_speculator_type` | `str` | `eagle3` | Draft architecture; `eagle3` is the only supported type. |
-| `p18_target_layer_ids` | `str` | `""` | Exactly four comma-separated verifier layer indices. See [Verifier model and target layer IDs](#9-verifier-model-and-target-layer-ids). |
-| `p19_data_extraction_concurrency` | `int` | `1` | Concurrent vLLM requests for extraction; use `1` on shared or NFS storage. |
-| `p20_packages_to_install` | `str` | `""` | Comma-separated Python packages to install in the job. |
-| `p21_pip_index_urls` | `str` | `""` | Comma-separated package-index URLs for job installs. |
-| `p22_job_envs` | `str` | `NCCL_DEBUG=INFO,PYTHONUNBUFFERED=1` | Comma-separated `KEY=VALUE` environment overrides for the job. |
-| `p23_job_runtime` | `str` | `vllm-extract-cuda` | Name of the runtime used by the extraction job. |
+For the full parameter list, see the compiled pipeline YAML, or the pipeline's own README in the [pipelines-components repository](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.6/pipelines/training/speculator/data_extraction/README.md).
 
 ### Troubleshooting
 
@@ -235,4 +153,4 @@ Compile-time problems (`ModuleNotFoundError`, storage class, package-index issue
 
 ### Source
 
-Pipeline source: [`pipelines-components/pipelines/training/speculator/data_extraction`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/data_extraction). The parameter table above is derived from that directory's `README.md` and `pipeline.py`; re-check it against your imported definition after pulling the `rhoai-3.6` branch.
+Pipeline source: [`pipelines-components/pipelines/training/speculator/data_extraction`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/data_extraction). The example parameter tables above are derived from that directory's `README.md` and `pipeline.py`; re-check them against your imported definition after pulling the `rhoai-3.6` branch.
