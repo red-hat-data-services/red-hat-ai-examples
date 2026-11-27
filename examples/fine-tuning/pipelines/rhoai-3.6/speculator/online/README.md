@@ -9,7 +9,7 @@ This guide covers the **speculator-online-pipeline** — the simplest one-run pa
 ## 1. When to use this pipeline
 
 - **Everything in one run.** No pre-existing extraction artifacts, no separate data-only runs, no external vLLM to operate. If you just want a trained draft with minimal setup, start here.
-- Prefer separate extraction/training so you can sweep hyperparameters cheaply? Use [data-extraction](../data-extraction/) + [train-only](../train-only/). Already run your own vLLM? Use [offline](../offline/).
+- Prefer separate extraction/training so you can sweep hyperparameters cheaply? Use [data-extraction](../data-extraction/README.md) + [train-only](../train-only/). Already run your own vLLM? Use [offline](../offline/).
 
 ## 2. How it works
 
@@ -175,7 +175,7 @@ The deployed endpoint in the Red Hat OpenShift AI UI:
 
 ## 13. Iterating / customization
 
-Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `p40_evaluation_num_speculative_tokens` between runs. Note that each run repeats extraction — if you find yourself iterating often, switch to the two-step [data-extraction](../data-extraction/) + [train-only](../train-only/) workflow and only pay for extraction once.
+Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `p40_evaluation_num_speculative_tokens` between runs. Note that each run repeats extraction — if you find yourself iterating often, switch to the two-step [data-extraction](../data-extraction/README.md) + [train-only](../train-only/) workflow and only pay for extraction once.
 
 ## Reference
 
