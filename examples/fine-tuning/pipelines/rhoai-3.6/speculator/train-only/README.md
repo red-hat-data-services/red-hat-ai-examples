@@ -41,18 +41,6 @@ The evaluation task benchmarks the trained draft model using [GuideLLM](https://
 
 The recommended dataset is [`RedHatAI/speculator_benchmarks`](https://huggingface.co/datasets/RedHatAI/speculator_benchmarks), which ships the `HumanEval` subset (and others like `math_reasoning`, `qa`, `summarization`) that the evaluation script requires. It is public and does not need a HuggingFace token.
 
-#### Using a local JSONL file instead
-
-If you prefer to evaluate with your own prompts, prepare a JSONL file with one JSON object per line:
-
-```jsonl
-{"prompt": "What is the capital of France?"}
-{"prompt": "Explain quantum computing in simple terms."}
-{"messages": [{"role": "user", "content": "How does photosynthesis work?"}]}
-```
-
-Each record must contain a `prompt` field, a `text` field, or a `messages` array with at least one `user` role entry. Upload the file to your PVC and set `p07_evaluation_dataset_uri` to a `pvc://` URI (e.g. `pvc://shared/eval-prompts.jsonl`). The pipeline samples up to `p38_evaluation_max_samples` prompts (default 80) from the file.
-
 ## Run the pipeline
 
 Follow these steps in order. The [main guide](../README.md#quick-start) has the shared compilation and Dashboard instructions; the steps here give the train-only-specific command and values.
