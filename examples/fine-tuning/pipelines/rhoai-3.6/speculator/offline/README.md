@@ -6,7 +6,7 @@ This guide covers the **speculator-offline-pipeline** — extraction and trainin
 
 - **You already run vLLM.** Point the pipeline at your existing deployment and skip the managed sidecar entirely.
 - **You need custom vLLM configuration** the managed sidecar doesn't expose.
-- No external vLLM and want one run? Use [online](../online/). Want to iterate on training without re-extracting? Use [data-extraction](../data-extraction/) + [train-only](../train-only/).
+- No external vLLM and want one run? Use [online](../online/). Want to iterate on training without re-extracting? Use [data-extraction](../data-extraction/README.md) + [train-only](../train-only/).
 
 ## How it works
 
@@ -127,7 +127,7 @@ If the probe fails to connect, fix networking (NetworkPolicy, endpoint URL) befo
 
 `p02_verifier_model_pvc` must identify the relative verifier directory, and the model must already exist there. **This pipeline does not download models from HuggingFace.** Cache it once either by:
 
-- running the [data-extraction pipeline](../data-extraction/) with `p04_download_model=true` (its guide shows how to verify the cached path), or
+- running the [data-extraction pipeline](../data-extraction/README.md#3-configure-the-run) with `p04_download_model=true`, or
 - copying the model to the PVC manually.
 
 The cache path follows the `models/<org>--<model>` naming (model ID with `/` replaced by `--`), e.g. `models/Qwen--Qwen3-0.6B`.
@@ -234,7 +234,7 @@ The deployed endpoint in the Red Hat OpenShift AI UI:
 
 ## Customization
 
-Sweep `p16_training_epochs`, `p17_training_lr`, `p19_training_num_layers`, and `p43_evaluation_num_speculative_tokens` between runs. Each offline run repeats extraction — to iterate on training alone, split into [data-extraction](../data-extraction/) + [train-only](../train-only/).
+Sweep `p16_training_epochs`, `p17_training_lr`, `p19_training_num_layers`, and `p43_evaluation_num_speculative_tokens` between runs. Each offline run repeats extraction — to iterate on training alone, split into [data-extraction](../data-extraction/README.md) + [train-only](../train-only/).
 
 ## Troubleshooting
 

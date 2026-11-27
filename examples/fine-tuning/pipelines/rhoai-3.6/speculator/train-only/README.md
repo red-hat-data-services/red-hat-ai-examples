@@ -4,7 +4,7 @@ This guide covers the **speculator-training-pipeline** — the second step of th
 
 ## When to use this pipeline
 
-- **Iterate on hyperparameters.** After the [data-extraction pipeline](../data-extraction/) has produced hidden states and processed data, re-run this pipeline alone to sweep epochs, learning rate, or architecture settings — extraction is never repeated.
+- **Iterate on hyperparameters.** After the [data-extraction pipeline](../data-extraction/README.md) has produced hidden states and processed data, re-run this pipeline alone to sweep epochs, learning rate, or architecture settings — extraction is never repeated.
 - **Mandatory Model Registry.** Unlike online/offline, this pipeline **always** registers the trained draft before serving it — registry setup is a hard prerequisite here.
 
 ## How it works

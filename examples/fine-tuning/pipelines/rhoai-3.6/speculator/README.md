@@ -23,7 +23,7 @@ This page covers what is shared across all four modes — background, prerequisi
 | **[7. Clean up](#7-clean-up)** |
 | **[Reference](#reference)** |
 
-Each mode has its own guide with a stage-by-stage walkthrough and its example parameter tables: [data-extraction](data-extraction/) · [train-only](train-only/) · [online](online/) · [offline](offline/).
+Each mode has its own guide with a stage-by-stage walkthrough and its example parameter tables: [data-extraction](data-extraction/README.md) · [train-only](train-only/) · [online](online/) · [offline](offline/).
 
 ## 1. Understand the pipelines
 
@@ -41,7 +41,7 @@ There are four pipelines, one per training mode. Each is a separate pipeline def
 
 | Pipeline | SDK-mode analog | Use Case |
 | --- | --- | --- |
-| [Hidden State Extraction](data-extraction/) | `DATA_ONLY` | First step of a two-step workflow. Extract hidden states once, then iterate on training many times. |
+| [Hidden State Extraction](data-extraction/README.md) | `DATA_ONLY` | First step of a two-step workflow. Extract hidden states once, then iterate on training many times. |
 | [Training](train-only/) | `TRAIN_ONLY` | Second step of the two-step workflow. Trains, evaluates, registers, and serves a draft from artifacts left by the extraction pipeline. |
 | [Online](online/) | `ONLINE` | Single Trainer job: a managed vLLM sidecar extracts hidden states on the fly while the draft trains. Simplest one-run path. |
 | [Offline](offline/) | `OFFLINE` | Extraction via an external (user-managed) vLLM endpoint, then training — all in one run. For when you already run your own vLLM. |
@@ -243,7 +243,7 @@ done
 
 The ready-to-copy parameter tables:
 
-- [data-extraction](data-extraction/README.md#example-qwen3-06b)
+- [data-extraction](data-extraction/README.md#3-configure-the-run)
 - [train-only](train-only/README.md#example-qwen3-06b)
 - [online](online/README.md#example-qwen3-06b)
 - [offline](offline/README.md#example-qwen3-06b)
