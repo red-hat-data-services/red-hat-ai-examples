@@ -62,7 +62,7 @@ The following is a small managed-mode example using Qwen3-0.6B:
 | `p01_persistent_pvc` | `shared` | Name of your existing RWX PVC, prepared in the [shared project setup](../README.md#existing-rwx-pvc). |
 | `p02_verifier_model` | `Qwen/Qwen3-0.6B` | Hugging Face verifier model ID. The pipeline downloads it because `p04_download_model=true`. |
 | `p04_download_model` | `true` | Downloads and caches the verifier on the PVC. |
-| `p05_dataset_name` | `ultrachat` | Built-in `HuggingFaceH4/ultrachat_200k` dataset. Other built-ins are `magpie` and `gsm8k`; custom data must be a JSON/JSONL file on the PVC. Arbitrary Hugging Face dataset IDs are not supported. |
+| `p05_dataset_name` | `ultrachat` | SDK alias `ultrachat` maps to `HuggingFaceH4/ultrachat_200k`. Other aliases: `magpie` → `Magpie-Align/Magpie-Llama-3.1-Pro-300K-Filtered`, `gsm8k` → `openai/gsm8k`. Custom data requires a PVC URI to a `.json` or `.jsonl` file; arbitrary Hugging Face IDs and direct paths are not accepted. |
 | `p06_output_dir` | `speculator-output` | PVC directory for the processed dataset and extraction outputs. Choose a fresh directory when you need a new extraction. |
 | `p08_max_samples` | `16` | Small example run. Set to `0` to process the full dataset. |
 | `p10_vllm_mode` | `managed` | Runs vLLM as a sidecar in the extraction job. |
