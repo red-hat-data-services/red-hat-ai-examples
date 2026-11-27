@@ -1,4 +1,4 @@
-# Pipelines for Speculative Decoding Draft Model Training on Red Hat OpenShift AI (DRAFTER)
+# Pipelines for Speculative Decoding Drafter Model Training on Red Hat OpenShift AI
 
 This guided example walks through training a custom Eagle3 draft model for speculative decoding using **Kubeflow Pipelines** on Red Hat OpenShift AI. It covers generating each pipeline definition from source, importing it into Red Hat OpenShift AI, running it, interpreting the evaluation results, and testing the served endpoint.
 
@@ -8,7 +8,7 @@ This page covers what is shared across all four modes — background, prerequisi
 
 > [!TIP]
 >
-> Prefer driving TrainJobs directly from a notebook instead of pipelines? See the sibling [Speculative Decoding Draft Model Training via Kubeflow Trainer](../../../rhoai-3.6/speculator/) example — same four training modes, executed via the Kubeflow SDK `SpeculativeDecodingTrainer`.
+> Prefer driving TrainJobs directly from a notebook instead of pipelines? See the [Speculative Decoding Draft Model Training via Kubeflow Trainer](../../../rhoai-3.6/speculator/) example — same four training modes, executed via the Kubeflow SDK `SpeculativeDecodingTrainer`.
 
 ## Contents
 
@@ -51,6 +51,8 @@ Every pipeline that trains also **evaluates** the draft with GuideLLM (acceptanc
 ![The five pipeline components: extraction, training, evaluation, model registry, and serving](images/speculator-architecture.png)
 
 ## 2. Match your goal to a mode based on available GPU and storage
+
+<a id="hardware-requirements"></a>
 
 GPU counts are pipeline GPUs for the default Qwen3-0.6B configuration, *with the managed vLLM sidecar / without it* — offline mode always uses your external endpoint, whose GPUs count separately:
 
@@ -132,11 +134,7 @@ Before the first run, the administrator creates these Secrets in the project —
 
 ### ClusterTrainingRuntimes (CTRs)
 
-The Trainer jobs reference CTRs by name via the `pNN_job_runtime` parameter. Check what is installed:
-
-```bash
-oc get clustertrainingruntimes
-```
+The Trainer jobs reference CTRs by name via the `pNN_job_runtime` parameter:
 
 | CTR name | Used by |
 | --- | --- |
@@ -145,7 +143,9 @@ oc get clustertrainingruntimes
 
 ### Model Registry and KServe (train-only / online / offline)
 
-The train-only pipeline **always** registers the draft — a reachable registry is mandatory there; online and offline skip registration when the registry address is left empty. If no registry exists yet, your administrator can follow the [model registry creation instructions](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/managing_model_registries/index) in the Red Hat OpenShift AI documentation. View existing registries in the dashboard under **AI Hub > Models** — each registry's page shows its dedicated REST route.
+The train-only pipeline **always** registers the draft — a reachable registry is mandatory there; online and offline skip registration when the registry address is left empty. If no registry exists yet, your administrator can follow the [model registry creation instructions](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/managing_model_registries/index) in the Red Hat OpenShift AI documentation. View existing registries in the dashboard under **AI Hub > Models** — each registry's page shows its dedicated REST route:
+
+![Model registry page showing the dedicated REST route](images/speculator-model-registry-address.png)
 
 What must already be available:
 
@@ -244,9 +244,9 @@ done
 The ready-to-copy parameter tables:
 
 - [data-extraction](data-extraction/README.md#3-configure-the-run)
-- [train-only](train-only/README.md#example-qwen3-06b)
-- [online](online/README.md#example-qwen3-06b)
-- [offline](offline/README.md#example-qwen3-06b)
+- [train-only](train-only/README.md#3-configure-the-run)
+- [online](online/README.md#3-configure-the-run)
+- [offline](offline/README.md#3-configure-the-run)
 
 > [!NOTE]
 >
@@ -261,13 +261,13 @@ The ready-to-copy parameter tables:
 
 ![Running pipeline graph](images/speculator-run-graph.png)
 
-When the run succeeds, continue with the mode's guide — for the two-step workflow that means checking that the extraction run wrote `hidden_states/` under its output directory on the shared PVC, then the [train-only pipeline](train-only/README.md), whose guide covers [interpreting the evaluation results](train-only/README.md#interpreting-the-evaluation-results).
+When the run succeeds, continue with the mode's guide — for the two-step workflow that means the [train-only pipeline](train-only/README.md), whose guide covers [reviewing the results](train-only/README.md#5-review-the-results).
 
 <a id="testing-the-served-endpoint" name="testing-the-served-endpoint"></a>
 
 ## 6. Test the served endpoint
 
-Every training pipeline leaves a **cluster-local** KServe InferenceService behind — the procedure below was verified against a live Red Hat OpenShift AI 3.6 cluster. For mode-specific details, see the train-only guide's [Testing the served endpoint](train-only/README.md#testing-the-served-endpoint); for background on model serving in general, see [Deploying models](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/deploying_models/index) in the Red Hat OpenShift AI documentation.
+Every training pipeline leaves a **cluster-local** KServe InferenceService behind — the procedure below was verified against a live Red Hat OpenShift AI 3.6 cluster. For mode-specific details, see the train-only guide's [Test the served endpoint](train-only/README.md#test-the-served-endpoint); for background on model serving in general, see [Deploying models](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/latest/html/deploying_models/index) in the Red Hat OpenShift AI documentation.
 
 > [!IMPORTANT]
 >
@@ -278,14 +278,6 @@ Every training pipeline leaves a **cluster-local** KServe InferenceService behin
 The serving task's logs print the endpoint's URL. In the run's graph, click the serving node and open its **Logs**:
 
 ![Serving task logs showing the inference URL](images/speculator-inference-url-logs.png)
-
-From the CLI, the same information:
-
-```bash
-oc get inferenceservice -n <project-namespace>
-```
-
-The `URL` column shows the cluster-local address. The deployment name is `<name>-predictor`.
 
 ### 2. Send a chat request
 
@@ -320,8 +312,6 @@ Its action menu offers the three things you need:
 | **Start** | Recreates the predictor from the same InferenceService — no pipeline re-run | Resuming a stopped endpoint; the first request is slow again while vLLM loads the model |
 | **Delete** | Removes the InferenceService, its predictor and the GPU it held, permanently | You are finished with this draft, or you want the name free for the next run |
 
-A stopped InferenceService reports `Stopped=True` in its status conditions, so `READY False` means paused, not broken. If the pipeline created a dedicated ServingRuntime for the run, that is a separate object — delete the runtime too. From the CLI, `oc get pods -n <project-namespace> | grep predictor` should return nothing once the GPUs are free; `oc delete inferenceservice <name> -n <project-namespace>` is the equivalent of **Delete**.
-
 ## Reference
 
 ### Default verifier model
@@ -329,18 +319,6 @@ A stopped InferenceService reports `Stopped=True` in its status conditions, so `
 These examples standardize on **`Qwen/Qwen3-0.6B`** with `target_layer_ids = "2,14,25,28"` (the four intermediate verifier layers Eagle3 reads). **`meta-llama/Llama-3.2-1B-Instruct`** has also been run end-to-end successfully on Red Hat OpenShift AI 3.6 with these pipelines.
 
 The layer IDs are **verifier-specific**: they name four layers *of the verifier model*, and a wrong set fails at training time with a tensor shape mismatch. For Qwen3-0.6B use `2,14,25,28`; for any other verifier, look up that model's four Eagle3 target layers (see the [SDK example's guidance](../../../rhoai-3.6/speculator/README.md#speculator-specific-considerations)) — do not reuse Qwen's IDs for a different architecture.
-
-### Customizing before you compile
-
-Most settings — models, datasets, paths, hyperparameters, resources — are run-time parameters you fill in when creating the run. A few are baked in at compile time and can only be changed by editing the pipeline source before running step 1:
-
-| Setting | Where | Default |
-| --- | --- | --- |
-| KFP workspace PVC size | `PVC_SIZE` in the mode's `pipeline.py` | `200Gi` |
-| KFP workspace PVC storage class | `PVC_STORAGE_CLASS` in the mode's `pipeline.py` | `nfs-csi` |
-| KFP workspace PVC access modes | `PVC_ACCESS_MODES` in the mode's `pipeline.py` | `["ReadWriteMany"]` |
-
-Edit the constants near the top of the file, then re-run the compile command. `nfs-csi` will not exist on many clusters — check with `oc get storageclass` and substitute your RWX class.
 
 ### Troubleshooting
 
@@ -353,7 +331,7 @@ Compile-time problems, ordered roughly by when you'd hit them. Run-time symptoms
 | `pip install -e .` fails to resolve dependencies | Your package index (e.g. an internal mirror) doesn't carry a required package or version | On a Linux (el9) host, install the repo's hash-pinned set instead: `pip install -r requirements.txt`, then `pip install -e . --no-deps` |
 | Import into Red Hat OpenShift AI rejected | YAML built with an incompatible KFP SDK version | Re-compile with the pinned versions in [step 1](#1-generate-the-pipeline-yaml) |
 | A task fails with `No matching distribution found for kfp==<version>` | Every task installs the KFP version baked in at compile time, and the task pods do not all use the same package index — the registration task's image is pinned to an older one than the rest | Re-compile with the pin in [step 1](#1-generate-the-pipeline-yaml). The error lists what that pod can reach (`from versions: …`); the pin has to be a version every task's index offers, which is why this guide uses `2.16.1` |
-| Run fails immediately with `storageclass.storage.k8s.io "nfs-csi" not found` | Cluster has no `nfs-csi` storage class; the KFP workspace PVC cannot be created | Find your RWX class with `oc get storageclass`, then [recompile](#customizing-before-you-compile) with your class name |
+| Run fails immediately with `storageclass.storage.k8s.io "nfs-csi" not found` | Cluster has no `nfs-csi` storage class; the KFP workspace PVC cannot be created | Find your RWX class with `oc get storageclass`, then recompile with your class name |
 | PVC stuck `Pending` | No RWX dynamic provisioner, or capacity exhausted | Talk to your cluster admin; RWX storage is required |
 
 ### Source

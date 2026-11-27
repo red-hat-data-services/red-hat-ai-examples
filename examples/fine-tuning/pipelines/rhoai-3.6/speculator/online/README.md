@@ -1,80 +1,22 @@
 # Online Pipeline (single-job extraction + training)
 
-This guide covers the **speculator-online-pipeline** — the simplest one-run path to a trained Eagle3 draft. A single Trainer job extracts hidden states with a managed vLLM sidecar **and** trains the draft, then the pipeline evaluates, optionally registers, and serves it.
+This pipeline is the simplest one-run path to a trained Eagle3 speculative-decoding draft. A single Trainer job extracts hidden states with a managed vLLM sidecar **and** trains the draft, then the pipeline evaluates, optionally registers, and serves it. No pre-existing extraction artifacts and no external vLLM endpoint are needed.
 
-## When to use this pipeline
+Prefer separate extraction and training so you can sweep hyperparameters cheaply? Use [data-extraction](../data-extraction/README.md) + [train-only](../train-only/). Already run your own vLLM? Use [offline](../offline/).
 
-- **Everything in one run.** No pre-existing extraction artifacts, no separate data-only runs, no external vLLM to operate. If you just want a trained draft with minimal setup, start here.
-- Prefer separate extraction/training so you can sweep hyperparameters cheaply? Use [data-extraction](../data-extraction/README.md) + [train-only](../train-only/). Already run your own vLLM? Use [offline](../offline/).
+## Before you start
 
-## How it works
+Complete the shared cluster and project setup in the [main Speculator pipelines guide](../README.md), especially [cluster requirements](../README.md#3-check-your-cluster) and [project prerequisites](../README.md#prerequisites). This pipeline always serves the draft, so the KServe serving setup in the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline) is required; the Model Registry part applies only if you keep registration enabled.
 
-1. (Optional) Download `p02_verifier_model` from HuggingFace to the PVC when `p04_download_model=true`; otherwise reuse `p03_verifier_model_pvc` or the default cache directory derived from the model ID.
-2. **One Trainer job** runs with a managed vLLM sidecar: the sidecar generates hidden states on the fly while training consumes them.
-3. **Evaluate** with GuideLLM.
-4. **Register** — optional. Leave `p43_model_registry_address` empty to skip.
-5. **Serve** via a cluster-local KServe InferenceService.
+### Confirm the ClusterTrainingRuntime (CTR)
 
-The completed draft is written to `pvc://<p01_persistent_pvc>/final_model`. Each run **replaces** this shared path — use a separate PVC per revision if earlier registry versions must keep referencing their original weights. A retained serving endpoint is affected the same way: when its predictor restarts or scales back up, it loads the **new** weights, even though the endpoint name is unchanged.
+Confirm that the CTR for this pipeline is available. The [main guide's CTR section](../README.md#clustertrainingruntimes-ctrs) explains how to check installed runtimes.
 
-`p01_persistent_pvc` is an existing ReadWriteMany PVC in the pipeline namespace, mounted at `/mnt/persistent`. It must also be available in `p08_serving_namespace`. With `p01_persistent_pvc="shared"`, `p12_output_dir="speculator-output"` resolves to `pvc://shared/speculator-output`.
+| Pipeline | Required CTR |
+| --- | --- |
+| Online | `vllm-extract-cuda` |
 
-## The pipeline run from start to finish
-
-With `p04_download_model=true` and registration enabled, the run graph looks like this:
-
-```text
-download model ──> online draft model training ──> evaluate draft model ──> register to model registry ──> serve draft model
-                  (one Trainer job: extraction sidecar + training)
-```
-
-The defining feature is the **second node**: a single Trainer job that does extraction and training together. Stage by stage:
-
-| Task in the graph | What it does | What you'll observe | Typical duration (Qwen3-0.6B example run) |
-| --- | --- | --- | --- |
-| **download model** | (Only when `p04_download_model=true`) Pulls `p02_verifier_model` onto the PVC | Download progress in the node logs | ~5–10 minutes |
-| **online draft model training** | One Trainer job (`vllm-extract-cuda` CTR): a vLLM sidecar serves the verifier and produces hidden states on the fly while the training worker consumes them | The longest node. Logs are quiet for the first few minutes while the sidecar loads the verifier, then training loss starts streaming. What looks like a hang at minute two is the sidecar loading | ~15–45 minutes |
-| **evaluate draft model** | Starts a vLLM server with speculative decoding and runs the GuideLLM sweep | Slow start (server load), then results publish as **metrics artifacts** | ~15–30 minutes |
-| **register to model registry** | (Skipped entirely when `p43_model_registry_address` is empty) Registers `final_model` | Model version appears in the Model Registry UI; it can fail fast on wrong address or missing RoleBinding | Up to a few minutes |
-| **serve draft model** | Creates the KServe InferenceService and waits for readiness | ServingRuntime + InferenceService creation, predictor rollout | ~5–15 minutes |
-
-What the cluster side looks like during the run is covered next, in [What a running job looks like](#what-a-running-job-looks-like).
-
-![Completed online run graph](../images/speculator-online-run.png)
-
-![Online training node logs](../images/speculator-online-training-logs.png)
-
-## What a running job looks like
-
-While the Trainer job runs, the project contains **one TrainJob with two GPU containers**: the training worker and the vLLM sidecar (`vllm-extract-cuda` CTR). You can watch it with:
-
-```bash
-oc get trainjobs,pods -n <project-namespace>
-```
-
-The sidecar takes minutes to load the verifier into GPU before extraction starts — a pod in `Running` state with no training log output yet is normal during that window. Total GPUs in use while training: `p29_training_resource_gpu` + 1 (the sidecar is always exactly 1).
-
-## Hardware requirements (Qwen3-0.6B)
-
-| Component | GPU | CPU | Memory |
-| --- | --- | --- | --- |
-| Training worker | 1 (`p29`) | 4 cores | 64Gi |
-| vLLM sidecar | 1 (hardcoded — always exactly 1) | — | 96Gi |
-| Evaluation / serving | ~1 | — | — |
-
-**Peak concurrent: 2 GPUs** — the training worker and its sidecar run together in one Trainer pod. Evaluation and serving start only after that job finishes and reuse the freed GPUs, so they do not add to the peak; an endpoint left over from an *earlier* run does, because it is still holding a GPU when the next run starts. This matches the [common hardware requirements](../README.md#hardware-requirements) table.
-
-## Setup
-
-Confirm [access](../README.md#check-access) with your administrator and work through the [shared prerequisites](../README.md#prerequisites). Mode-specific additions:
-
-- CTR `vllm-extract-cuda` (`p34_job_runtime` default)
-- Serving permissions — **always required**; every online run serves the draft
-- Model Registry + RoleBinding — only if you keep registration enabled. To register, use the registry's `-rest` route URL (`https://...`, scheme included) with port `443` in `p44_model_registry_port`; see the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline)
-
-Set `PIP_INDEX_URL`/`PIP_EXTRA_INDEX_URL` via `p36_job_envs` if you need a custom package index for `p35_packages_to_install`.
-
-## Verifier model
+### Verifier model
 
 `p02_verifier_model` is the optional HuggingFace model ID, used for downloading or resolving the default cached directory. `p04_download_model` defaults to `false`:
 
@@ -89,33 +31,36 @@ If downloading requires authentication, ask your administrator to create the opt
 >
 > `p05_target_layer_ids` is **required** — four comma-separated layer IDs matching the verifier. The online Trainer receives the cached model as a PVC URI and cannot auto-detect layer IDs from the PVC-backed model config. For Qwen3-0.6B: `2,14,25,28`. Layer IDs are verifier-specific — see [Default verifier model](../README.md#default-verifier-model) for other verifiers.
 
-## Dataset
+### Dataset
 
-`p06_dataset_name` accepts the built-ins `magpie` (Magpie-Align/Magpie-Llama-3.1-Pro-300K-Filtered), `ultrachat` (HuggingFaceH4/ultrachat_200k), and `gsm8k` (openai/gsm8k), or a PVC URI (`pvc://<p01_persistent_pvc>/<path>`) to a JSON/JSONL file. `p09_data_extraction_max_samples=0` processes the full dataset; `p11_data_extraction_concurrency` controls vLLM request concurrency (use `1` on shared/NFS PVCs).
+`p06_dataset_name` accepts the built-ins `magpie` (Magpie-Align/Magpie-Llama-3.1-Pro-300K-Filtered), `ultrachat` (HuggingFaceH4/ultrachat_200k), and `gsm8k` (openai/gsm8k), or a PVC URI (`pvc://<p01_persistent_pvc>/<path>`) to a JSON/JSONL file. `p09_data_extraction_max_samples=0` processes the full dataset; `p11_data_extraction_concurrency` controls vLLM request concurrency (use `1` on shared/RWX PVCs).
 
-## Key ONLINE configuration
+## Run the pipeline
 
-Some training internals are hardcoded in this pipeline rather than exposed: the cosine-scheduler cycle count (`0.5`), checkpoint frequency (every epoch), log frequency (every step), sidecar GPU count 1, evaluation sample seed 42.
+Follow these steps in order. The [main guide](../README.md#quick-start) has the shared compilation and Dashboard instructions; the steps here give the online-specific command and values.
 
-### Not used in ONLINE
+### 1. Generate the pipeline YAML
 
-There are no parameters for the settings listed above, and no separate extraction pipeline to coordinate paths with — `p12_output_dir` covers Trainer outputs and checkpoints.
-
-## Running the pipeline
-
-Follow [Run a pipeline](../README.md#quick-start) in the common guide — compile this mode, import the YAML, create a run, and untick the **Enable MLflow experiment tracking** checkbox it warns about:
+Complete the common environment setup in [Generate the pipeline YAML](../README.md#1-generate-the-pipeline-yaml). From the root of the `pipelines-components` checkout on the `rhoai-3.6` branch, compile online:
 
 ```bash
 PYTHONPATH=$(pwd) python pipelines/training/speculator/online/pipeline.py
 ```
 
-Fill in the parameters from the table below and leave everything not listed at its default. Use a new `p46_model_registry_version` per revision if registering.
+The generated file is `pipelines/training/speculator/online/pipeline.yaml`.
 
-![Run details for the online run, with MLflow experiment tracking unticked](../images/speculator-online-create-run.png)
+### 2. Import the pipeline and create a run
 
-The stage-by-stage walkthrough is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish).
+In the Red Hat OpenShift AI Dashboard:
 
-### Example: Qwen3-0.6B
+1. Open **Develop & train → Pipelines → Pipeline definitions** in the project prepared for this example.
+2. Import the generated `pipeline.yaml`. If the definition already exists, upload it as a new version.
+3. Open the imported definition and choose **Actions → Create run**.
+4. Name the run, leave **Enable MLflow experiment tracking** unchecked, and enter the parameters below. See the main guide's [import](../README.md#2-import-the-pipeline-into-red-hat-openshift-ai) and [create-run](../README.md#3-create-a-run-and-set-parameters) instructions for the full Dashboard walkthrough.
+
+### 3. Configure the run
+
+The following example uses Qwen3-0.6B. Use a new `p46_model_registry_version` per revision if registering:
 
 | Parameter | Value | Notes |
 | --- | --- | --- |
@@ -130,10 +75,14 @@ The stage-by-stage walkthrough is in [The pipeline run from start to finish](#th
 | `p35_packages_to_install` | `speculators==0.6.0.1,torchvision==0.24.0` | Comma-separated packages installed in the online Trainer job |
 | `p37_evaluation_max_samples` | `10` | Reduced for quick testing; default `80` for full runs |
 | `p38_evaluation_max_tokens` | `64` | Reduced for quick testing; default `256` for full runs |
-| `p43_model_registry_address` | `""` | Empty skips registration; to register, use `https://<registry-name>-rest.apps.<cluster-domain>` |
+| `p43_model_registry_address` | `""` | Empty skips registration; to register, use `https://<registry-name>-rest.apps.<cluster-domain>` — where to find it is in the [common guide](../README.md#model-registry-and-kserve-train-only--online--offline) |
 | `p44_model_registry_port` | `443` | Set alongside a non-empty registry address — the default `8080` only fits the in-cluster service |
 
-Training/evaluation/resource parameters can keep their defaults for a first run.
+Everything else can keep its default for a first run — note some training internals are hardcoded in this pipeline rather than exposed (cosine-scheduler cycle count, checkpoint and log frequency, sidecar GPU count 1, evaluation sample seed). Set `PIP_INDEX_URL`/`PIP_EXTRA_INDEX_URL` via `p36_job_envs` if you need a custom package index for `p35_packages_to_install`.
+
+The Dashboard's **Parameters** step shows each field's description below its input:
+
+![Parameters step of the online run form, showing the first example values entered](../images/speculator-online-parameters.png)
 
 > [!WARNING]
 >
@@ -145,13 +94,27 @@ And one expectation to set about the evaluation stage's runtime:
 >
 > `p37_evaluation_max_samples` and `p38_evaluation_max_tokens` bound the GuideLLM **benchmark sweep** only. They do not cap the evaluator's initial pass, which issues its own requests against the endpoint and generates up to the backend's token limit (4096). Lowering them shortens the sweep but does not make the evaluation stage short: expect the full stage duration and one GPU held for the duration even with the example values.
 
-The first of those values in the run form's **Parameters** step — each field carries the parameter's own description underneath, so you can check one without leaving the page:
+### 4. Start and monitor the run
 
-![Parameters step of the online run form, showing the first example values entered](../images/speculator-online-parameters.png)
+Click **Create run**, then open it from **Pipelines → Runs**. The graph shows the optional model-download task, then the defining node — a single Trainer job that does extraction and training together — followed by evaluate, register (skipped entirely when `p43_model_registry_address` is empty), and serve. A failure at any node stops everything after it, and that node's logs are where to look.
 
-## Interpreting the results
+While the Trainer job runs, the project contains **one TrainJob with two GPU containers**: the training worker and the vLLM sidecar. You can watch it with:
 
-Same evaluation task and metrics as the train-only pipeline — see [Interpreting the evaluation results](../train-only/README.md#interpreting-the-evaluation-results) in that guide for the full metric table and how to read it. The short version: check `acceptance_length` (mean tokens per verifier pass; higher is better, 1 means the draft contributes nothing), and remember the pipeline emits **no speedup ratio** — only absolute throughput numbers.
+```bash
+oc get trainjobs,pods -n <project-namespace>
+```
+
+The training node is the longest and starts quietly: the sidecar takes minutes to load the verifier into GPU before extraction and training begin — a pod in `Running` state with no training log output yet is normal during that window. For the 16-sample Qwen3-0.6B example, expect ~15–45 minutes for that node, then ~15–30 minutes evaluation, then registration and serving.
+
+![Completed online run graph](../images/speculator-online-run.png)
+
+![Online training node logs](../images/speculator-online-training-logs.png)
+
+### 5. Review the results
+
+When the run shows **Succeeded**, the evaluation metrics and the served endpoint are ready to inspect.
+
+Same evaluation task and metrics as the train-only pipeline — see [Review the results](../train-only/README.md#5-review-the-results) in that guide for the full metric table and how to read it. The short version: check `acceptance_length` (mean tokens per verifier pass; higher is better, 1 means the draft contributes nothing), and remember the pipeline emits **no speedup ratio** — only absolute throughput numbers.
 
 The evaluation task's metrics in the Red Hat OpenShift AI UI:
 
@@ -161,40 +124,32 @@ If you kept registration enabled (`p43_model_registry_address` set), the draft a
 
 ![Online run registry entry](../images/speculator-online-model-registry.png)
 
-## Testing the served endpoint
-
-Follow [Testing the served endpoint](../README.md#testing-the-served-endpoint) in the common guide. One online-specific note: KServe may scale the predictor to zero after a period of idleness — the first request after a quiet period can take a while or be refused while the predictor wakes. Check `oc get inferenceservice -n <p08_serving_namespace>` shows `True` before concluding something is broken.
+To test the served endpoint, follow [Testing the served endpoint](../README.md#testing-the-served-endpoint) in the common guide. One online-specific note: KServe may scale the predictor to zero after a period of idleness — the first request after a quiet period can take a while or be refused while the predictor wakes. Check `oc get inferenceservice -n <p08_serving_namespace>` shows `True` before concluding something is broken.
 
 The deployed endpoint in the Red Hat OpenShift AI UI:
 
 ![Online run deployed endpoint](../images/speculator-online-deployment.png)
 
-## Iterating / customization
-
-Sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `p40_evaluation_num_speculative_tokens` between runs. Note that each run repeats extraction — if you find yourself iterating often, switch to the two-step [data-extraction](../data-extraction/README.md) + [train-only](../train-only/) workflow and only pay for extraction once.
+To iterate, sweep `p14_training_epochs`, `p15_training_lr`, `p17_training_num_layers`, and `p40_evaluation_num_speculative_tokens` between runs. Note that each run repeats extraction — if you find yourself iterating often, switch to the two-step [data-extraction](../data-extraction/README.md) + [train-only](../train-only/) workflow and only pay for extraction once.
 
 ## Troubleshooting
 
-| Symptom | Diagnosis | Fix |
-| --- | --- | --- |
-| "Configure pipeline server" prompt never goes away | Pipeline server not configured for the project — an administrator task | Ask your administrator to configure it — see [Configure the pipeline server](../README.md#configure-the-pipeline-server) |
-| Trainer submit task fails with 401/403 | `kubernetes-credentials` secret missing, or its token expired (every run failing at job submission, sudden "runs stop starting", is the symptom) or lacks Trainer permissions | Ask your administrator to create or renew it — see [Credentials](../README.md#credentials) |
-| Run fails with ClusterTrainingRuntime not found | `p34_job_runtime` names a CTR that is not deployed | `oc get clustertrainingruntimes`; this mode needs `vllm-extract-cuda` |
-| Run fails waiting for the vLLM sidecar | Sidecar crashed or verifier too large for `p32` | Check Trainer pod logs; raise `p33_vllm_readiness_timeout_minutes`; verify GPU memory |
-| Training pod OOM-killed | Defaults too small for the verifier | Raise `p30_training_resource_memory` |
-| Model download fails with 401 | Gated model without `hf-token` secret | Ask your administrator to create the `hf-token` secret |
-| Evaluation fails with a tensor shape error on the draft's `fc` weights | The draft's `config.json` and its weights disagree on the number of auxiliary layers — the reconciling export runs in the Trainer job and depends on the `speculators` version installed by `p35_packages_to_install` | Check the training log for `Updated … Eagle3 draft config.json file(s) (target_hidden_size=…)`, and that `p35_packages_to_install` pins `speculators==0.6.0.1` |
-| Registry task fails | Wrong registry address or missing RoleBinding | Use the `-rest` route URL with `https://` and port `443` in `p44` (or the in-cluster service with `8080`); add the RoleBinding — or leave the address empty to skip |
-| Serving task fails with forbidden | ServiceAccount lacks KServe permissions | Grant ServingRuntime/InferenceService manage rights in `p08_serving_namespace` |
-| `curl: Could not resolve host: <name>-predictor.<ns>.svc.cluster.local` | The endpoint URL is cluster-local; you are off-cluster (e.g. your laptop) | Run the request from inside the cluster via `oc exec` — see [Testing the served endpoint](#testing-the-served-endpoint) |
-| Chat request to the endpoint returns "model not found" | Wrong model id — the server registers the model under the InferenceService name | Use the InferenceService name as the `model`; see [Testing the served endpoint](#testing-the-served-endpoint) |
-| First request to the endpoint hangs or is refused | KServe scaled the predictor to zero, or vLLM is still loading | Check `oc get inferenceservice` shows `True`; wait and retry |
-| Older registry versions break after re-run | `final_model` overwritten each run | Separate PVC per revision |
-| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p03_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm |
-| Slow extraction on shared storage | Concurrent I/O saturating NFS | Keep `p11_data_extraction_concurrency=1` |
+| Symptom | What to check |
+| --- | --- |
+| "Configure pipeline server" prompt never goes away | Pipeline server not configured for the project — ask your administrator; see [Configure the pipeline server](../README.md#configure-the-pipeline-server). |
+| Trainer submit task fails with 401/403 | `kubernetes-credentials` secret missing or its token expired — ask your administrator to create or renew it; see [Credentials](../README.md#credentials). |
+| Run fails with ClusterTrainingRuntime not found | `oc get clustertrainingruntimes`; this pipeline needs `vllm-extract-cuda`. |
+| Run fails waiting for the vLLM sidecar | Check the Trainer pod logs and verifier size against GPU memory; raise `p33_vllm_readiness_timeout_minutes` if startup needs more time. |
+| Training pod OOM-killed | Raise `p30_training_resource_memory`. |
+| Model download fails with 401 | The model is gated — ask your administrator to create the `hf-token` secret. |
+| Evaluation fails with a tensor shape error on the draft's `fc` weights | Check the training log for `Updated … Eagle3 draft config.json file(s) (target_hidden_size=…)`, and that `p35_packages_to_install` pins `speculators==0.6.0.1`. |
+| Registry task fails | Use the `-rest` route URL with `https://` and port `443` (or the in-cluster service with `8080`); add the RoleBinding — or leave the address empty to skip. |
+| Serving task fails with forbidden | Grant the pipeline ServiceAccount ServingRuntime/InferenceService manage rights in `p08_serving_namespace`. |
+| `curl: Could not resolve host: <name>-predictor.<ns>.svc.cluster.local` | The endpoint URL is cluster-local; run the request from inside the cluster via `oc exec` — see the [common guide](../README.md#testing-the-served-endpoint). |
+| Chat request to the endpoint returns "model not found" | Use the InferenceService name as the `model`. |
+| First request to the endpoint hangs or is refused | Check `oc get inferenceservice` shows `True`; wait and retry. |
+| Older registry versions break after re-run | `final_model` is overwritten each run; use a separate PVC per revision. |
+| Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | Use the on-disk directory name (`models/Qwen--Qwen3-0.6B`), not the HuggingFace model ID. |
+| Slow extraction on shared storage | Keep `p11_data_extraction_concurrency=1`. |
 
-Compile-time problems are covered in the [common troubleshooting table](../README.md#troubleshooting).
-
-## Source
-
-Pipeline source: [`pipelines-components/pipelines/training/speculator/online`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/online), on the **`rhoai-3.6`** branch. For the full parameter list, see the compiled pipeline YAML, or the pipeline's own [README](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.6/pipelines/training/speculator/online/README.md) in that repository. The example parameter tables above are derived from that directory's `README.md` and `pipeline.py`; re-check them against your imported definition after pulling the `rhoai-3.6` branch.
+For common compile-time issues, see the main guide's [troubleshooting section](../README.md#troubleshooting).
