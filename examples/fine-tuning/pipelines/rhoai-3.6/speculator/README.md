@@ -58,12 +58,12 @@ GPU counts are pipeline GPUs for the default Qwen3-0.6B configuration, *with the
 
 | What do you need? | Choose | GPUs (sidecar / without) | Storage used | Notes |
 | --- | --- | --- | --- | --- |
-| One run that manages extraction and training together | **ONLINE** (Recommended) | 2 / — | ~2–3 GB | Fewest moving parts, but the training worker and vLLM sidecar run together in one pod — both GPUs must be available at the same time. |
-| Extraction and training using a verifier endpoint you already operate | **OFFLINE** | — / 1 | ~1–2 GB | You run the extraction yourself: the vLLM endpoint must support hidden-state extraction — an ordinary chat-serving endpoint is not enough. |
-| Reusable extraction outputs for separate training runs | **DATA_ONLY**, then **TRAIN_ONLY** | 1 then 1 / 0 then 1 | ~1.7 GB, then ~3 GB | Extraction is paid once; every TRAIN_ONLY run reuses its outputs. Extraction alone produces no trained draft. |
-| Train another draft from compatible extraction outputs you already have | **TRAIN_ONLY** | 1 / 1 | ~3 GB | Needs the extraction artifacts on the PVC and a model registry to register into. |
+| One run that manages extraction and training together | **ONLINE** (Recommended) | 2 / — | ~13 GB | Fewest moving parts, but the training worker and vLLM sidecar run together in one pod — both GPUs must be available at the same time. |
+| Extraction and training using a verifier endpoint you already operate | **OFFLINE** | — / 1 | ~13 GB | You run the extraction yourself: the vLLM endpoint must support hidden-state extraction — an ordinary chat-serving endpoint is not enough. |
+| Reusable extraction outputs for separate training runs | **DATA_ONLY**, then **TRAIN_ONLY** | 1 then 1 / 0 then 1 | ~1.7 GB, then ~12 GB | Extraction is paid once; every TRAIN_ONLY run reuses its outputs. Extraction alone produces no trained draft. |
+| Train another draft from compatible extraction outputs you already have | **TRAIN_ONLY** | 1 / 1 | ~12 GB | Needs the extraction artifacts on the PVC and a model registry to register into. |
 
-Storage figures are what an example run (Qwen3-0.6B, 16 samples) writes to the one shared RWX PVC — mostly the ~1.5 GB verifier cache, hidden states, checkpoints and the final draft; full-dataset runs scale the hidden-state and checkpoint usage accordingly. Create the PVC once in [Set up your project](#create-an-rwx-pvc). Stages run sequentially — evaluation and serving start after training completes and reuse its freed GPUs — and every training run leaves a GPU-backed endpoint behind that counts toward the cluster total until you [clean it up](#cleaning-up).
+Storage figures are what an example run (Qwen3-0.6B, 16 samples) writes to the one shared RWX PVC — the ~1.5 GB verifier cache and 167 MB of extraction outputs are small; training dominates, adding ~8.4 GB of checkpoints under the extraction output directory plus a ~2.9 GB `final_model`; full-dataset runs scale the hidden-state and checkpoint usage accordingly. Create the PVC once in [Set up your project](#create-an-rwx-pvc). Stages run sequentially — evaluation and serving start after training completes and reuse its freed GPUs — and every training run leaves a GPU-backed endpoint behind that counts toward the cluster total until you [clean it up](#cleaning-up).
 
 ## 3. Check your cluster
 
