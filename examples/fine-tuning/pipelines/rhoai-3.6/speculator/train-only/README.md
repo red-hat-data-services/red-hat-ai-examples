@@ -78,7 +78,7 @@ In the Red Hat OpenShift AI Dashboard:
 
 ### 3. Configure the run
 
-The following example uses Qwen3-0.6B and assumes a completed data-extraction run with defaults, with the verifier cached by its download task. Use a **new** `p46_model_registry_version` for every trained revision — re-using a version number overwrites the registry entry's meaning:
+The following example uses Qwen3-0.6B and assumes a completed data-extraction run with defaults, with the verifier cached by its download task. Use a **new** `p46_model_registry_version` for every trained revision — re-using a version number overwrites the registry entry's meaning. Note, though, that each run also **overwrites `final_model` on the PVC** — the registry is unaffected: each version's weights are persisted to the Model Registry's S3 backing storage, so earlier versions keep their own copy:
 
 | Parameter | Value | Notes |
 | --- | --- | --- |

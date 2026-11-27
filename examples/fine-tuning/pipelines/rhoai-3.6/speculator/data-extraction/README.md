@@ -28,7 +28,7 @@ Choose the mode before creating the run. The main guide's [hardware requirements
 
 > [!NOTE]
 >
-> To set up external vLLM, refer to the [external vLLM example and setup instructions](../../../../rhoai-3.6/manifests/external-vllm/README.md), including its [tested manifest](../../../../rhoai-3.6/manifests/external-vllm/vllm-server.yaml). A standard vLLM chat endpoint does not provide hidden-state extraction. The [offline pipeline guide](../offline/README.md#external-vllm-server) has additional endpoint-configuration details; use `p11_vllm_endpoint` and the extraction-specific paths shown below.
+> To set up external vLLM, refer to the [external vLLM example and setup instructions](../../../../rhoai-3.6/manifests/external-vllm/README.md), including its [tested manifest](../../../../rhoai-3.6/manifests/external-vllm/vllm-server.yaml). A standard vLLM chat endpoint does not provide hidden-state extraction. The endpoint reads the verifier from the shared PVC — the model must already be present at `models/Qwen--Qwen3-0.6B` before the server starts; the SDK example notebooks' optional model-download cells are one supported way to place it there (see the setup instructions). The [offline pipeline guide](../offline/README.md#external-vllm-server) has additional endpoint-configuration details; use `p11_vllm_endpoint` and the extraction-specific paths shown below.
 
 ## Run the pipeline
 
@@ -77,7 +77,7 @@ For **external vLLM** mode, keep the shared values above and change these parame
 
 - `p10_vllm_mode`: `remote`
 - `p11_vllm_endpoint`: URL of your external vLLM endpoint
-- `p03_verifier_model_pvc`: verifier directory on the shared PVC that the endpoint can access. Remote mode always needs a PVC-backed verifier; if `p04_download_model=true`, point this to the downloaded model directory.
+- `p03_verifier_model_pvc`: verifier directory on the shared PVC that the extraction job reads. This is independent of the endpoint's own configured verifier path — the endpoint's copy must already be on the PVC before it starts (see the note above); this run's `p04_download_model` download does not supply it.
 - `p07_hidden_states_path`: PVC path matching the external server's `shared_storage_path`
 - `p23_job_runtime`: `speculator-model-opt-cuda`
 
