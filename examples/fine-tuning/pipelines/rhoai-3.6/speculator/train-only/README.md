@@ -2,21 +2,17 @@
 
 This guide covers the **speculator-training-pipeline** — the second step of the two-step speculator workflow. It trains, evaluates, registers, and serves an Eagle3 draft model from artifacts already on the PVC.
 
-> [!WARNING]
->
-> This pipeline may change. Re-generate the YAML after pulling upstream changes.
-
-## 1. When to use this pipeline
+## When to use this pipeline
 
 - **Iterate on hyperparameters.** After the [data-extraction pipeline](../data-extraction/) has produced hidden states and processed data, re-run this pipeline alone to sweep epochs, learning rate, or architecture settings — extraction is never repeated.
 - **Mandatory Model Registry.** Unlike online/offline, this pipeline **always** registers the trained draft before serving it — registry setup is a hard prerequisite here.
 
-## 2. How it works
+## How it works
 
 The pipeline expects the verifier model, hidden states, and preprocessed dataset from a previous data-extraction run to already exist on the shared PVC. It does **not** download the verifier. Stages:
 
 1. **Train** the Eagle3 draft from the hidden states (Trainer job, `speculator-model-opt-cuda` CTR).
-2. **Evaluate** with GuideLLM — it benchmarks the served **speculative** endpoint (verifier + draft) and reports acceptance metrics. It does not run a verifier-only baseline; see [Interpreting the evaluation results](#10-interpreting-the-evaluation-results) for why a separate baseline is needed to claim a speedup.
+2. **Evaluate** with GuideLLM — it benchmarks the served **speculative** endpoint (verifier + draft) and reports acceptance metrics. It does not run a verifier-only baseline; see [Interpreting the evaluation results](#interpreting-the-evaluation-results) for why a separate baseline is needed to claim a speedup.
 3. **Register** the draft to the Kubeflow Model Registry (unconditional).
 4. **Serve** via a cluster-local KServe InferenceService for speculative decoding.
 
@@ -24,7 +20,7 @@ The trained draft is copied to `pvc://<p01_persistent_pvc>/final_model` for eval
 
 Relative storage paths resolve against `p01_persistent_pvc`, and explicit `pvc://<claim>/<path>` paths must reference that same PVC. With `p01_persistent_pvc="shared"`, `p06_verifier_model_pvc="models/Qwen--Qwen3-0.6B"` is equivalent to `pvc://shared/models/Qwen--Qwen3-0.6B`.
 
-## 3. The pipeline run from start to finish
+## The pipeline run from start to finish
 
 The run graph is a straight line of four tasks — no branches, no optionality (this pipeline always registers):
 
@@ -47,7 +43,7 @@ A failure at any node stops everything after it, and that node's logs are where 
 
 ![Completed train-only run graph](../images/speculator-train-only-run.png)
 
-## 4. Hardware requirements (Qwen3-0.6B)
+## Hardware requirements (Qwen3-0.6B)
 
 | Component | GPU | CPU | Memory |
 | --- | --- | --- | --- |
@@ -56,15 +52,15 @@ A failure at any node stops everything after it, and that node's logs are where 
 
 Expect roughly 35–70 minutes end-to-end for the example-run configuration, depending on cluster load — most of it is the evaluation step spinning up its own vLLM server.
 
-## 5. Setup
+## Setup
 
-Confirm [access](../README.md#3-check-access) with your administrator and work through the [shared prerequisites](../README.md#prerequisites), **all of them** — this pipeline additionally requires:
+Confirm [access](../README.md#check-access) with your administrator and work through the [shared prerequisites](../README.md#prerequisites), **all of them** — this pipeline additionally requires:
 
 - **Model Registry + RoleBinding**: required — train-only always registers the draft. Select one under **AI Hub > Models > Registry** in the dashboard (creating a registry is an administrator task), use its `-rest` route URL (`https://...`, scheme included) as `p02_model_registry_address` with `p45_model_registry_port` = `443`, and ask your administrator to bind the registry's `registry-user-<registry-name>` Role to the pipeline ServiceAccount and your user. See the [common prerequisites](../README.md#model-registry-and-kserve-train-only--online--offline) for the full instructions and the in-cluster Service alternative.
 - **Serving namespace**: `p04_serving_namespace` must match the PVC namespace and have the required KServe permissions.
 - CTR `speculator-model-opt-cuda` (`p35_job_runtime` default).
 
-## 6. Wiring it to a data-extraction run
+## Wiring it to a data-extraction run
 
 The path contract between the two pipelines:
 
@@ -81,7 +77,7 @@ Defaults line up out of the box. If you customized the extraction output directo
 >
 > A common mistake is setting `p06_verifier_model_pvc` to the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name (`models/Qwen--Qwen3-0.6B`). The download task replaces `/` with `--` in the model ID — always list `models/` on the shared PVC (for example from a workbench with the PVC attached) and use the directory name you actually see before creating a train-only run.
 
-## 7. Preparing the evaluation dataset
+## Preparing the evaluation dataset
 
 The evaluation task benchmarks the trained draft model using [GuideLLM](https://github.com/neuralmagic/guidellm). Set `p07_evaluation_dataset_uri` to a HuggingFace dataset that contains the evaluation subsets expected by the upstream evaluator.
 
@@ -99,7 +95,7 @@ If you prefer to evaluate with your own prompts, prepare a JSONL file with one J
 
 Each record must contain a `prompt` field, a `text` field, or a `messages` array with at least one `user` role entry. Upload the file to your PVC and set `p07_evaluation_dataset_uri` to a `pvc://` URI (e.g. `pvc://shared/eval-prompts.jsonl`). The pipeline samples up to `p38_evaluation_max_samples` prompts (default 80) from the file.
 
-## 8. Running the pipeline
+## Running the pipeline
 
 Follow [Run a pipeline](../README.md#quick-start) in the common guide — compile this mode, import the YAML, create a run, and untick the **Enable MLflow experiment tracking** checkbox it warns about:
 
@@ -111,7 +107,7 @@ Fill in the parameters from the table below and leave everything not listed at i
 
 ![Run details for the train-only run, with MLflow experiment tracking unticked](../images/speculator-train-only-create-run.png)
 
-What each of the four tasks does and how long it takes is in [The pipeline run from start to finish](#3-the-pipeline-run-from-start-to-finish).
+What each of the four tasks does and how long it takes is in [The pipeline run from start to finish](#the-pipeline-run-from-start-to-finish).
 
 ### Example: Qwen3-0.6B
 
@@ -143,11 +139,11 @@ The first of those values in the run form's **Parameters** step. Note `p02_model
 
 ![Parameters step of the train-only run form, showing the first example values entered](../images/speculator-train-only-parameters.png)
 
-## 9. What gets trained
+## What gets trained
 
 Only the draft model — the verifier is never modified. Defaults train a 1-layer draft (`p17_training_num_layers`) with a linear LR scheduler over 3 epochs at learning rate `1e-4`. The draft vocabulary size is derived automatically when `p16_training_draft_vocab_size=0`.
 
-## 10. Interpreting the evaluation results
+## Interpreting the evaluation results
 
 The **evaluation task** benchmarks the served draft with GuideLLM and logs its results as KFP **metrics artifacts** — not plain log output. To find them: open the run in the Red Hat OpenShift AI UI, click the evaluation node, and look at its **Artifacts / Metrics** output.
 
@@ -183,7 +179,7 @@ One more thing to set expectations before you judge a first run:
 
 > [!IMPORTANT]
 >
-> Example-run settings (e.g. 16 extraction samples, default epochs) produce a **weak draft on purpose** — the point is to prove the plumbing. Expect poor acceptance numbers on a first example run; see [Iterating on hyperparameters](#12-iterating-on-hyperparameters) for what to change.
+> Example-run settings (e.g. 16 extraction samples, default epochs) produce a **weak draft on purpose** — the point is to prove the plumbing. Expect poor acceptance numbers on a first example run; see [Iterating on hyperparameters](#iterating-on-hyperparameters) for what to change.
 
 ### Checking the registry entry
 
@@ -191,9 +187,9 @@ After the run succeeds, the draft appears in the Model Registry: **AI Hub > Mode
 
 ![Model registry entry for the draft](../images/speculator-train-only-model-registry.png)
 
-## 11. Testing the served endpoint
+## Testing the served endpoint
 
-The run leaves a **cluster-local** KServe InferenceService. The full procedure — including the laptop port-forward variant — is in the [common guide](../README.md#testing-the-served-endpoint); the essentials:
+The run leaves a **cluster-local** KServe InferenceService. The full procedure — including how to find the serving URL from the run's logs — is in the [common guide](../README.md#testing-the-served-endpoint); the essentials:
 
 ```bash
 # 1. Find the InferenceService and confirm it is ready (True):
@@ -215,9 +211,9 @@ The answer is in `choices[0].message.content`. Note the server is vLLM behind KS
 
 ![Deployed endpoint](../images/speculator-train-only-deployment.png)
 
-A note on reading the result: with speculative decoding the output is still **correct** regardless of draft quality — the verifier guarantees the tokens; a bad draft only costs speed. So a sensible answer tells you the whole stack works; whether the draft is *good* is what the [acceptance metrics](#10-interpreting-the-evaluation-results) tell you.
+A note on reading the result: with speculative decoding the output is still **correct** regardless of draft quality — the verifier guarantees the tokens; a bad draft only costs speed. So a sensible answer tells you the whole stack works; whether the draft is *good* is what the [acceptance metrics](#interpreting-the-evaluation-results) tell you.
 
-## 12. Iterating on hyperparameters
+## Iterating on hyperparameters
 
 Because extraction is reused, iterating is cheap — re-run **only this pipeline** with a new `p46_model_registry_version` and adjusted parameters:
 
@@ -228,25 +224,27 @@ Because extraction is reused, iterating is cheap — re-run **only this pipeline
 
 Watch the acceptance metrics after each iteration and keep the best revision in the registry. `final_model` on the PVC is overwritten every run — if earlier registry versions must keep referencing their original weights, use a separate PVC per revision. A retained serving endpoint is affected the same way: a predictor that restarts or scales back up loads the new weights, even though the endpoint name is unchanged.
 
-## Reference
-
-For the full parameter list, see the compiled pipeline YAML, or the pipeline's own README in the [pipelines-components repository](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.6/pipelines/training/speculator/train_only/README.md).
-
-### Troubleshooting
+## Troubleshooting
 
 | Symptom | Diagnosis | Fix |
 | --- | --- | --- |
+| "Configure pipeline server" prompt never goes away | Pipeline server not configured for the project — an administrator task | Ask your administrator to configure it — see [Configure the pipeline server](../README.md#configure-the-pipeline-server) |
+| Trainer submit task fails with 401/403 | `kubernetes-credentials` secret missing, or its token expired (every run failing at job submission, sudden "runs stop starting", is the symptom) or lacks Trainer permissions | Ask your administrator to create or renew it — see [Credentials](../README.md#credentials) |
+| Run fails with ClusterTrainingRuntime not found | `p35_job_runtime` names a CTR that is not deployed | `oc get clustertrainingruntimes`; this mode needs `speculator-model-opt-cuda` |
 | Training task fails: hidden states not found | Paths don't match the extraction run's output | Align `p08`/`p09`/`p10` with the extraction run's `p06_output_dir`; list the extraction output directory on the shared PVC to check what was written |
 | Training fails with a layer/tensor shape mismatch | `p13_target_layer_ids` or `p11_total_seq_len` differs from the extraction run | Set both to exactly the extraction run's values |
+| Evaluation fails with a tensor shape error on the draft's `fc` weights | The draft's `config.json` and its weights disagree on the number of auxiliary layers — the reconciling export runs in the Trainer job and depends on the `speculators` version installed by `p36_packages_to_install` | Check the training log for `Updated … Eagle3 draft config.json file(s) (target_hidden_size=…)`, and that `p36_packages_to_install` pins `speculators==0.6.0.1` |
 | Registry task fails with connection refused | Wrong host/port split or missing RoleBinding | Use the `-rest` route URL with `https://` and port `443` (or the in-cluster service with `8080`); add the RoleBinding |
 | Serving task fails with forbidden | ServiceAccount lacks KServe permissions in `p04_serving_namespace` | Grant ServingRuntime/InferenceService manage rights |
 | Training pod OOM-killed | Verifier too large for defaults | Raise `p33_training_resource_memory` |
 | Older registry versions break after a re-run | `final_model` on the PVC is overwritten each run | Use a separate PVC per revision if old versions must keep referencing their weights |
 | Training fails: `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'` | `p06_verifier_model_pvc` uses the HuggingFace model ID format (e.g. `models/Qwen3-0.6B`) instead of the on-disk directory name | The download task replaces `/` with `--` in the model ID. Use the actual directory name: `models/Qwen--Qwen3-0.6B`. List `models/` on the shared PVC to confirm |
-| Chat request to the endpoint returns "model not found" | Wrong model id — the server registers the model under the InferenceService name | Discover the id via `/v1/models`; see [Testing the served endpoint](#11-testing-the-served-endpoint) |
+| `curl: Could not resolve host: <name>-predictor.<ns>.svc.cluster.local` | The endpoint URL is cluster-local; you are off-cluster (e.g. your laptop) | Run the request from inside the cluster via `oc exec` — see [Testing the served endpoint](#testing-the-served-endpoint) |
+| Chat request to the endpoint returns "model not found" | Wrong model id — the server registers the model under the InferenceService name | Use the InferenceService name as the `model`; see [Testing the served endpoint](#testing-the-served-endpoint) |
+| First request to the endpoint hangs or is refused | vLLM still loading the model into GPU, or KServe scaled the predictor to zero and it is waking | Check `oc get inferenceservice` shows `True`, check the predictor pod is `Running`, wait, retry |
 
-Compile-time problems and endpoint-access problems (cluster-local DNS, port-forwarding) are covered in the [common troubleshooting table](../README.md#troubleshooting).
+Compile-time problems are covered in the [common troubleshooting table](../README.md#troubleshooting).
 
-### Source
+## Source
 
-Pipeline source: [`pipelines-components/pipelines/training/speculator/train_only`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/train_only). The example parameter tables above are derived from that directory's `README.md` and `pipeline.py`; re-check them against your imported definition after pulling the `rhoai-3.6` branch.
+Pipeline source: [`pipelines-components/pipelines/training/speculator/train_only`](https://github.com/red-hat-data-services/pipelines-components/tree/rhoai-3.6/pipelines/training/speculator/train_only), on the **`rhoai-3.6`** branch. For the full parameter list, see the compiled pipeline YAML, or the pipeline's own [README](https://github.com/red-hat-data-services/pipelines-components/blob/rhoai-3.6/pipelines/training/speculator/train_only/README.md) in that repository. The example parameter tables above are derived from that directory's `README.md` and `pipeline.py`; re-check them against your imported definition after pulling the `rhoai-3.6` branch.
